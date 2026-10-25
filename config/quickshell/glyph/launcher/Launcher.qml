@@ -169,7 +169,7 @@ PanelWindow {
             x: (stage.width - width) / 2
             y: 140
             width: 860
-            height: Math.min(stage.height - 280, 30 + 66 + body.height + 34)
+            height: Math.min(stage.height - 280, 30 + 66 + 20 + body.height + 34)
             radius: 44
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
@@ -240,7 +240,7 @@ PanelWindow {
 
             Flickable {
                 id: flick
-                anchors { left: parent.left; right: parent.right; top: search.bottom; bottom: parent.bottom; leftMargin: 34; rightMargin: 34; bottomMargin: 34 }
+                anchors { left: parent.left; right: parent.right; top: search.bottom; bottom: parent.bottom; topMargin: 20; leftMargin: 34; rightMargin: 34; bottomMargin: 34 }
                 contentHeight: body.height
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
@@ -256,7 +256,7 @@ PanelWindow {
                     // calc: ответ крупно, Enter — скопировать
                     Column {
                         visible: root.mode === 3
-                        topPadding: 30
+                        topPadding: 10
                         spacing: 10
                         Lb { text: root.calcOut ? "↵ copy" : "qalc" }
                         Num { width: body.width; elide: Text.ElideRight; text: root.calcOut || "—"; font.pixelSize: 96 }
@@ -274,7 +274,7 @@ PanelWindow {
                             readonly property var modelData: root.blocks[index] ?? ({ head: "", items: [] })
                             readonly property Item g: grid
                             width: body.width
-                            topPadding: 30
+                            topPadding: index ? 30 : 10 // +20 у flick сверху: прокрученное режется с зазором под поиском
 
                             Row {
                                 spacing: 14
