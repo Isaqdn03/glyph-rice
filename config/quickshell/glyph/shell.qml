@@ -4,6 +4,7 @@ import Quickshell.Hyprland
 import "bar"
 import "buds"
 import "cal"
+import "charms"
 import "clip"
 import "deck"
 import "glyph"
@@ -18,7 +19,7 @@ import "vpn"
 import "wall"
 
 // glyph: rice в духе nothing os. Дом на обоях, бар, лаунчер, быстрые настройки,
-// Glyph-полосы по краям вместо OSD, остров уведомлений, меню питания, настройки, deck (дашборд снизу), буфер обмена, скриншоты, vpn, обои. Блокировка — отдельный процесс (lock.qml).
+// Glyph-полосы по краям вместо OSD, остров уведомлений, меню питания, настройки, deck (дашборд снизу), буфер обмена, чары (эмодзи и символы), скриншоты, vpn, обои. Блокировка — отдельный процесс (lock.qml).
 // Переключается с demonshot через `rice switch` / приложение Rice — бинды hypr общие (shell:*), каждый шелл берёт свои
 ShellRoot {
     id: shell
@@ -31,6 +32,7 @@ ShellRoot {
     Buds {}
     Cal { id: cal }
     Clip { id: clip }
+    Charms { id: charms }
     Deck { id: deck }
     Shot { id: shot }
     Vpn { id: vpn }
@@ -99,6 +101,7 @@ ShellRoot {
     Shortcut { name: "shot"; description: "скриншот"; onPressed: shot.open() }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }
     Shortcut { name: "clip"; description: "буфер обмена"; onPressed: clip.toggle() }
+    Shortcut { name: "charms"; description: "эмодзи, каомодзи, символы"; onPressed: charms.toggle() }
     Shortcut { name: "wall"; description: "обои"; onPressed: walls.toggle() }
 
     component Shortcut: GlobalShortcut { appid: "shell" }

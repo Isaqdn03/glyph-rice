@@ -7,7 +7,7 @@ import qs.components
 
 // буфер обмена: панель из семьи лаунчера, только шире — слева история cliphist строками, справа выбранная запись целиком.
 // Поиск-пилюля с красной кареткой, фильтры чипами (Tab): all / text / links / images. Тип — глиф в круге, картинка —
-// миниатюра точками, цвет — сам цвет. Выбранная строка — белая пилюля. ⏎ — в буфер и сразу вставить в окно
+// миниатюра точками, цвет — сам цвет. Выбранная строка — белая пилюля. ⏎ — в буфер, вставляешь сам Ctrl+V
 PanelWindow {
     id: root
 
@@ -53,7 +53,7 @@ PanelWindow {
 
     property bool shown: false
     property real t: shown ? 1 : 0
-    Behavior on t { id: fade; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+    Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
     function open() {
         list.running = true;
@@ -67,15 +67,9 @@ PanelWindow {
     function move(d) { if (view.length) sel = Math.max(0, Math.min(sel + d, view.length - 1)); }
 
     function fire() {
-        const it = cur;
-        if (!it) return;
-        // терминалы вставляют по Ctrl+Shift+V
-        const term = /kitty|foot|alacritty|wezterm|ghostty|konsole/i.test(ToplevelManager.activeToplevel?.appId ?? "");
-        // без затухания: слой исчезает сразу, иначе Ctrl+V может уйти в него, а не в окно
-        fade.enabled = false;
+        if (!cur) return;
+        Quickshell.execDetached(["sh", "-c", 'cliphist decode "$1" | wl-copy', "sh", cur.id]);
         close();
-        fade.enabled = true;
-        Quickshell.execDetached(["sh", "-c", `cliphist decode "$1" | wl-copy && sleep 0.15 && wtype -M ctrl ${term ? "-M shift -k v -m shift" : "-k v"} -m ctrl`, "sh", it.id]);
     }
     // ponytail: закреп только защищает от удаления; max-items у cliphist всё равно вытеснит старое
     function hold() {
@@ -272,7 +266,7 @@ PanelWindow {
                 anchors { horizontalCenter: parent.horizontalCenter; top: parent.bottom; topMargin: 28 }
                 spacing: 34
                 Repeater {
-                    model: ["↑↓ select", "↵ paste", "tab filter", "^p pin", "del delete", "esc close"]
+                    model: ["↑↓ select", "↵ copy", "tab filter", "^p pin", "del delete", "esc close"]
                     Lb { required property string modelData; text: modelData }
                 }
             }
@@ -347,7 +341,7 @@ PanelWindow {
             Icon { anchors.verticalCenter: parent.verticalCenter; visible: root.held.includes(row.modelData.id); text: "\u{F0403}"; font.pixelSize: 16; color: row.on ? Theme.ink : Theme.fg }
             Num { anchors.verticalCenter: parent.verticalCenter; text: String(row.index + 1).padStart(2, "0"); font.pixelSize: 26; color: row.on ? Theme.ink : Theme.mute }
         }
-        // клик — выбрать, по выбранной — вставить
+        // клик — выбрать, по выбранной — скопировать
         TapHandler {
             onTapped: {
                 if (row.on) root.fire();

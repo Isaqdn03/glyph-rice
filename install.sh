@@ -16,7 +16,7 @@ PACMAN=(
     # звук, сеть, bluetooth
     pipewire pipewire-pulse wireplumber networkmanager bluez bluez-utils power-profiles-daemon
     # утилиты, которые зовут бинды и шелл
-    brightnessctl playerctl wl-clipboard cliphist wtype grim slurp swappy imagemagick
+    brightnessctl playerctl wl-clipboard cliphist grim slurp swappy imagemagick
     gpu-screen-recorder ydotool libnotify trash-cli
     # терминал и консоль
     kitty fish starship fastfetch btop cava eza zoxide direnv

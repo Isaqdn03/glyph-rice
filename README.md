@@ -25,6 +25,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Prefs** | settings | `Super` `I` |
 | **Shot** | screenshots, editor, recording | `Print` |
 | **Clip** | clipboard history | `Super` `V` |
+| **Charms** | emoji, kaomoji, symbols | `Super` `.` |
 | **Walls** | wallpapers as dots | `Super` `Shift` `W` |
 | **VPN** | Clash Verge panel | `Super` `P` |
 | **Cal** | calendar, focus timer | click the clock |
@@ -80,7 +81,7 @@ Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pul
 |---|---|
 | **Shell** | `quickshell` · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` |
 | **System** | `networkmanager` · `bluez` · `pipewire` · `wireplumber` · `upower` · `power-profiles-daemon` · `brightnessctl` · `libnotify` · `playerctl` · `polkit-gnome` · `gnome-keyring` · `geoclue` |
-| **Capture** | `grim` · `slurp` · `imagemagick` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` · `wtype` |
+| **Capture** | `grim` · `slurp` · `imagemagick` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `cava` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · JetBrains Mono Nerd Font · Bibata · `qtengine` · `darkly` |
 | **Optional** | `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` |
