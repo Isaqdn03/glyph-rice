@@ -84,6 +84,7 @@ Singleton {
             property int wallBright: 85    // %, от фона до картинки
             property int rounding: 20      // окна hypr
             property bool edges: true      // Glyph-полосы по краям (громкость/яркость, вспышки, прогресс)
+            property int briSteps: 20      // яркость с клавиш: делений на шкалу, 40/20/10 — шаг 2.5/5/10 %
             property bool quickHover: true // быстрые настройки по наведению на правый край
             property bool deckHover: true  // deck — панель снизу по центру, вылезает по наведению на край
             property var deck: ["clock", "weather", "perf", "net", "media"] // её секции по порядку, см. decks

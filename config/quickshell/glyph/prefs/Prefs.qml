@@ -591,7 +591,13 @@ PanelWindow {
 
             Row {
                 spacing: 60
-                Dial { size: 340; n: 60; live: true; visible: Sys.hasBri; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
+                Column {
+                    visible: Sys.hasBri
+                    spacing: 22
+                    Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 340; n: 60; live: true; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
+                    // шаг клавиш яркости: делений на шкалу (Backlight.steps)
+                    Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
+                }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 22

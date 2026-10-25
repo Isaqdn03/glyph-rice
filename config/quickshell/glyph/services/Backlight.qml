@@ -13,6 +13,7 @@ Singleton {
 
     property string dev: ""       // /sys/class/backlight/<имя>
     property real value: 0        // 0…1
+    property int steps: 20        // делений шкалы для клавиш; glyph ставит из настроек (Sys)
     signal moved()                // каждый uevent, даже если значение то же (клавиша на максимуме) — для OSD
 
     function read() {
@@ -30,10 +31,10 @@ Singleton {
         sync.restart();
         Quickshell.execDetached(["brightnessctl", "-q", "-d", dev.slice(dev.lastIndexOf("/") + 1), "set", String(raw)]);
     }
-    // клавиши: 20 шагов как у brightnessctl -e4 5% — по корню 4-й степени, внизу шкалы мельче. Шаг от ближайшего деления,
-    // а не от value: иначе дробная ошибка копится (вверх до 399998 вместо 400000)
+    // клавиши: steps делений по корню 4-й степени (20 — как у brightnessctl -e4 5%), внизу шкалы мельче. Шаг от ближайшего
+    // деления, а не от value: иначе дробная ошибка копится (вверх до 399998 вместо 400000)
     function step(d) {
-        set(Math.pow(Math.max(0, Math.min(20, Math.round(Math.pow(value, 0.25) * 20) + d)) / 20, 4));
+        set(Math.pow(Math.max(0, Math.min(steps, Math.round(Math.pow(value, 0.25) * steps) + d)) / steps, 4));
         moved();
     }
     Timer { id: sync; interval: 300; onTriggered: root.read() }

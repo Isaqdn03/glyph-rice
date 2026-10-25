@@ -40,6 +40,7 @@ Singleton {
     readonly property real bri: Backlight.value
     readonly property bool hasBri: !!Backlight.dev // нет подсветки (ПК с монитором) — регуляторов яркости нет
     function setBri(v) { Backlight.set(v); }
+    Binding { target: Backlight; property: "steps"; value: Theme.state.briSteps }
 
     // ---- раскладка: старт — main-клавиатура из hyprctl, дальше событие activelayout ----
     property string kbd: ""
