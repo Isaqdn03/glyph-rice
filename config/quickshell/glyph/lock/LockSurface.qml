@@ -119,12 +119,8 @@ WlSessionLockSurface {
                 opacity: root.ph(0.3, 0.7)
                 transform: Translate { y: 24 * (1 - root.ph(0.3, 0.7)) }
                 Ring { anchors.fill: parent; n: 32; f: root.t > 0.35 ? 1 : 0 } // загорается и гаснет волной по кругу
-                Rectangle {
-                    anchors { fill: parent; margins: 18 }
-                    radius: width / 2
-                    color: Theme.s2
-                    Icon { anchors.centerIn: parent; text: "\u{F033E}"; font.pixelSize: 26 }
-                }
+                // ~/.face точками, как обложки; нет файла — градиент Art
+                Art { anchors { fill: parent; margins: 18 } url: `file://${Quickshell.env("HOME")}/.face`; step: 3 }
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
