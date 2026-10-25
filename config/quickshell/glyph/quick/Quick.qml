@@ -28,12 +28,13 @@ PanelWindow {
         if (open) return;
         peeked = true;
         open = true;
-        leaveT.restart();
     }
     // открытый список: "wifi" | "bt" — под пилюлями (Picker), "rec" — под плитками (Rec), "" — ничего
     property string pick: ""
     onOpenChanged: if (open) Sys.earRun([]); else pick = ""
-    Timer { id: leaveT; interval: 500; onTriggered: if (root.peeked && !keep.hovered) root.close() }
+    // курсор 500мс вне панели и полосы Hot — закрываем. seen: Hyprland не отдаёт курсор свежей поверхности, пока мышь не сдвинется —
+    // до первого движения неизвестно, где он, и панель ждёт (иначе у неподвижного курсора открывалась и тут же закрывалась)
+    Timer { interval: 500; running: root.open && root.peeked && seen.hovered && !keep.hovered && !edge.hovered; onTriggered: root.close() }
 
     property real t: open ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
@@ -61,6 +62,7 @@ PanelWindow {
 
     Stage {
         id: stage
+        HoverHandler { id: seen }
         // зона наведения: панель и полоса до края экрана — курсор у самого края не считается «ушёл», иначе она закрылась бы
         // и тут же открылась. Панель внутри зоны, а не соседом: HoverHandler кнопки (клетки режимов, строки Picker) гасит
         // наведение соседа под собой, а предка — нет
@@ -68,7 +70,7 @@ PanelWindow {
             anchors { right: parent.right; bottom: parent.bottom }
             width: panel.width + panel.anchors.rightMargin
             height: panel.height + 14
-            HoverHandler { id: keep; onHoveredChanged: if (root.peeked) hovered ? leaveT.stop() : leaveT.restart() }
+            HoverHandler { id: keep }
             Rectangle {
                 id: panel
                 anchors { right: parent.right; rightMargin: 14 - 24 * (1 - root.t); bottom: parent.bottom; bottomMargin: 14 }
@@ -357,6 +359,13 @@ PanelWindow {
                 }
             }
         }
+    }
+    // полоса Hot: панель ложится поверх неё, курсор на ней держит панель, как и сама панель
+    Item {
+        anchors { right: parent.right; bottom: parent.bottom }
+        width: 2
+        height: Math.round(parent.height * 0.8)
+        HoverHandler { id: edge }
     }
 
     // круглая кнопка в шапке
