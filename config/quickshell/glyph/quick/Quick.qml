@@ -346,12 +346,14 @@ PanelWindow {
                                     color: Theme.grey
                                 }
                             }
-                            // клик — действие по умолчанию (если есть) и убрать
+                            // клик — действие по умолчанию (если есть) и убрать. invoke() сам закрывает уведомление, а с ним
+                            // и эту карточку — дальше только через свою ссылку, и dismiss, лишь если ещё живо
                             TapHandler {
                                 onTapped: {
                                     root.pin();
-                                    n.actions.find(a => a.identifier === "default")?.invoke();
-                                    n.dismiss();
+                                    const it = n;
+                                    it.actions.find(a => a.identifier === "default")?.invoke();
+                                    if (it.tracked) it.dismiss();
                                 }
                             }
                         }

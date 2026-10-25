@@ -146,6 +146,8 @@ PanelWindow {
         else calcOut = "";
     }
     onModeChanged: { sel = 0; flick.contentY = 0; if (mode === 3) queryChanged(); }
+    // список сжался без нового запроса (закрылось окно в windows) — курсор за концом, cur пустой
+    onFlatChanged: sel = Math.max(0, Math.min(sel, flat.length - 1))
 
     visible: false
     anchors { left: true; right: true; top: true; bottom: true }

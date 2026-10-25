@@ -1,15 +1,8 @@
--- Monitor: scale 2, как было в основном конфиге
+-- Monitor: масштаб решает hypr (его же потом ставит шелл, Rules.monitor)
 hl.monitor({ output = "", mode = "highres", position = "auto", scale = "auto" })
 
--- unscale XWayland
-hl.config({
-    xwayland = {
-        force_zero_scaling = true
-    }
-})
-
--- toolkit-specific scale
-hl.env("GDK_SCALE", "2")
+-- XWayland масштабирует hypr: на HiDPI мыльно, зато размер верный при любом масштабе. Чётко на целом масштабе — в user.lua:
+--   hl.config({ xwayland = { force_zero_scaling = true } }); hl.env("GDK_SCALE", "2")
 
 -- Configs
 require("hyprland.env")

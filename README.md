@@ -79,9 +79,9 @@ Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pul
 
 | | |
 |---|---|
-| **Shell** | `quickshell` · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` |
+| **Shell** | `quickshell` · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` · `libqalculate` |
 | **System** | `networkmanager` · `bluez` · `pipewire` · `wireplumber` · `upower` · `power-profiles-daemon` · `brightnessctl` · `libnotify` · `playerctl` · `polkit-gnome` · `gnome-keyring` · `geoclue` |
-| **Capture** | `grim` · `slurp` · `imagemagick` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
+| **Capture** | `grim` · `slurp` · `imagemagick` · `libvips` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `cava` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · JetBrains Mono Nerd Font · Bibata · `qtengine` · `darkly` |
 | **Optional** | `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` |

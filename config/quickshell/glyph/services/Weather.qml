@@ -37,16 +37,17 @@ Singleton {
         return p < 0 ? p + 1 : p;
     }
 
+    // место — из refresh(): сети на старте ещё может не быть, тогда повтор, как у погоды
     Process {
         id: where
-        running: root.loc === ""
         command: ["curl", "-sf", "--max-time", "10", "https://ipinfo.io/loc"]
+        onExited: code => { if (code !== 0) retry.restart(); }
         stdout: StdioCollector { onStreamFinished: if (text.trim().match(/^-?[\d.]+,-?[\d.]+$/)) root.loc = text.trim() }
     }
 
     // open-meteo бывает перегружен — тогда повтор через 2 мин
     function refresh() {
-        if (!loc) return;
+        if (!loc) return where.running = true;
         const [lat, lon] = loc.split(",");
         fetch.command = ["curl", "-sf", "--max-time", "15", `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
             + "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,surface_pressure,precipitation_probability,is_day"

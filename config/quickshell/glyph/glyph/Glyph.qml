@@ -239,10 +239,11 @@ Scope {
                                 Rectangle { id: dot; visible: c.index === 0; anchors { right: parent.right; rightMargin: 22; verticalCenter: parent.verticalCenter } width: 12; height: 12; radius: 6; color: Theme.red }
                             }
 
-                            // клик — действие по умолчанию; плашка уходит, в истории остаётся
+                            // клик — действие по умолчанию; плашка уходит, в истории остаётся. Уведомление могли уже закрыть —
+                            // от объекта остаётся пустая обёртка без actions
                             TapHandler {
                                 onTapped: {
-                                    root.refs[c.key]?.actions.find(a => a.identifier === "default")?.invoke();
+                                    root.refs[c.key]?.actions?.find(a => a.identifier === "default")?.invoke();
                                     root.dismiss(c.key);
                                 }
                             }
