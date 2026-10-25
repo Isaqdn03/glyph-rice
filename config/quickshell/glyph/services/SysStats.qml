@@ -38,13 +38,13 @@ Singleton {
     function read(f) { f.reload(); return f.text(); }
     function num(f) { return parseFloat(read(f)) || 0; }
 
-    FileView { id: stat; path: "/proc/stat"; blockLoading: true }
-    FileView { id: meminfo; path: "/proc/meminfo"; blockLoading: true }
-    FileView { id: loadavg; path: "/proc/loadavg"; blockLoading: true }
-    FileView { id: up; path: "/proc/uptime"; blockLoading: true }
-    FileView { id: cpuinfo; path: "/proc/cpuinfo"; blockLoading: true }
-    FileView { id: netdev; path: "/proc/net/dev"; blockLoading: true }
-    FileView { id: route; path: "/proc/net/route"; blockLoading: true }
+    FileView { id: stat; path: "/proc/stat"; blockAllReads: true }
+    FileView { id: meminfo; path: "/proc/meminfo"; blockAllReads: true }
+    FileView { id: loadavg; path: "/proc/loadavg"; blockAllReads: true }
+    FileView { id: up; path: "/proc/uptime"; blockAllReads: true }
+    FileView { id: cpuinfo; path: "/proc/cpuinfo"; blockAllReads: true }
+    FileView { id: netdev; path: "/proc/net/dev"; blockAllReads: true }
+    FileView { id: route; path: "/proc/net/route"; blockAllReads: true }
     // gpu и датчики не зашиты, как в caelestia: есть nvidia-smi — берём с него; иначе первая карта drm с gpu_busy_percent
     // (amdgpu), её vram и её hwmon. Температура cpu — первый из известных датчиков. Ничего не нашлось — нули
     property string gpuType: ""   // "nvidia" | "drm" | ""
@@ -53,11 +53,11 @@ Singleton {
     property var hwmons: ({})     // hwmonN по имени датчика
     function hwmon(names) { const n = names.find(n => root.hwmons[n]); return n ? root.hwmons[n] + "/temp1_input" : ""; }
 
-    FileView { id: gpuBusy; path: root.card ? root.card + "/gpu_busy_percent" : ""; blockLoading: true; printErrors: false }
-    FileView { id: vramUsedF; path: root.card ? root.card + "/mem_info_vram_used" : ""; blockLoading: true; printErrors: false }
-    FileView { id: vramTotalF; path: root.card ? root.card + "/mem_info_vram_total" : ""; blockLoading: true; printErrors: false }
-    FileView { id: gpuTempF; path: root.gpuHwmon ? root.gpuHwmon + "/temp1_input" : ""; blockLoading: true; printErrors: false }
-    FileView { id: cpuTempF; path: root.hwmon(["k10temp", "coretemp", "zenpower", "cpu_thermal"]); blockLoading: true; printErrors: false }
+    FileView { id: gpuBusy; path: root.card ? root.card + "/gpu_busy_percent" : ""; blockAllReads: true; printErrors: false }
+    FileView { id: vramUsedF; path: root.card ? root.card + "/mem_info_vram_used" : ""; blockAllReads: true; printErrors: false }
+    FileView { id: vramTotalF; path: root.card ? root.card + "/mem_info_vram_total" : ""; blockAllReads: true; printErrors: false }
+    FileView { id: gpuTempF; path: root.gpuHwmon ? root.gpuHwmon + "/temp1_input" : ""; blockAllReads: true; printErrors: false }
+    FileView { id: cpuTempF; path: root.hwmon(["k10temp", "coretemp", "zenpower", "cpu_thermal"]); blockAllReads: true; printErrors: false }
 
     Process {
         running: true

@@ -38,7 +38,6 @@ LINKS=(
     "$G                                         .config/quickshell/glyph"
     "config/quickshell/rice                     .config/quickshell/rice"
     "config/quickshell/rice/rice                .local/bin/rice"
-    "config/applications/rice.desktop           .local/share/applications/rice.desktop"
     "config/kitty                               .config/kitty"
     "config/qtengine                            .config/qtengine"
     "$G/term/qtengine.colors                    .config/qtengine.colors"

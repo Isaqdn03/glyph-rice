@@ -23,3 +23,7 @@ require("hyprland.execs")
 require("hyprland.rules")
 require("hyprland.gestures")
 require("hyprland.keybinds")
+
+-- свои бинды и правки поверх риса: hypr/user.lua (в .gitignore, обновления репо его не трогают)
+local user = io.open(os.getenv("HOME") .. "/.config/hypr/user.lua")
+if user then user:close(); require("user") end

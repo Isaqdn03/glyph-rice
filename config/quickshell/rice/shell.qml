@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Rice — переключатель шеллов (qs -c rice, ярлык в лаунчере, шестерёнка в быстрых настройках glyph).
+// Rice — переключатель шеллов (qs -c rice, «switch shell» в Prefs glyph — когда шеллов больше одного).
 // Карточка на каждый шелл — папку в ~/.config/quickshell с rice.json, нарисованную его цветами и шрифтом.
 // ←→ выбрать, Enter или клик — `rice switch`: текущий гаснет, hypr возвращается к конфигу, поднимается выбранный
 ShellRoot {

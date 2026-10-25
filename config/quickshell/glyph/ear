@@ -38,7 +38,10 @@ def ask(s, reqs):
     want = {cmd & 0x7FFF for cmd, _ in reqs}
     got, buf = {}, b""
     while want - got.keys():
-        buf += s.recv(1024)
+        d = s.recv(1024)
+        if not d:  # наушники ушли посреди обмена — recv отдаёт b"" без конца, цикл крутился бы вечно
+            sys.exit("closed")
+        buf += d
         while buf and buf[0] != 0x55:
             buf = buf[1:]
         while len(buf) >= 8:

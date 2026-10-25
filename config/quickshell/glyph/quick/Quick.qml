@@ -319,7 +319,7 @@ PanelWindow {
                                     height: 24
                                     visible: status === Image.Ready
                                     source: n.appIcon ? Quickshell.iconPath(n.appIcon, true) : ""
-                                    sourceSize: Qt.size(48, 48)
+                                    sourceSize: Qt.size(24, 24)
                                     layer.enabled: true
                                     layer.effect: Dm { step: 2 }
                                 }

@@ -365,7 +365,7 @@ PanelWindow {
                 width: 44
                 height: 44
                 source: cell.modelData.src ?? ""
-                sourceSize: Qt.size(88, 88)
+                sourceSize: Qt.size(44, 44)
                 asynchronous: true
                 retainWhileLoading: true // ячейке сменили приложение — старая иконка, пока грузится новая
                 layer.enabled: true

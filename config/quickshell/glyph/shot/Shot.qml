@@ -411,7 +411,7 @@ Scope {
                         Image {
                             anchors.fill: parent
                             source: root.shot ? "file://" + root.shot : ""
-                            sourceSize: Qt.size(656, 368)
+                            sourceSize: Qt.size(328, 184)
                             fillMode: Image.PreserveAspectCrop
                             cache: false // после правки тот же путь — перечитать
                         }

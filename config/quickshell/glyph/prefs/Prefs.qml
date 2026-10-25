@@ -119,6 +119,13 @@ PanelWindow {
     // имя и подпись текущего шелла — из его rice.json (тот же, что рисует приложение Rice)
     property var meta: ({})
     FileView { path: Quickshell.shellPath("rice.json"); onLoaded: try { root.meta = JSON.parse(text()); } catch (e) {} }
+    // «switch shell» — только когда есть из чего выбирать: другие шеллы, папки с rice.json рядом (Demon's Shot…)
+    property int shells: 1
+    Process {
+        running: root.visible
+        command: [Quickshell.env("HOME") + "/.config/quickshell/rice/rice", "list"]
+        stdout: StdioCollector { onStreamFinished: root.shells = text.trim().split("\n").length }
+    }
 
     visible: t > 0
     anchors { left: true; right: true; top: true; bottom: true }
@@ -292,6 +299,11 @@ PanelWindow {
             k: 1
             caption: `deck · ${Theme.state.deck.length} of ${Theme.decks.length} sections · bottom edge`
             property int cur: 0
+            // тянут секцию from (-1 — никого): dx — сдвиг курсора в px макета, at — где она в полосе, to — куда встанет
+            property int from: -1
+            property real dx: 0
+            readonly property real at: Math.max(10, Math.min(10 + (Theme.state.deck.length - 1) * 104, 10 + from * 104 + dx))
+            readonly property int to: Math.round((at - 10) / 104)
 
             Row {
                 spacing: 40
@@ -340,11 +352,18 @@ PanelWindow {
                                 required property int index
                                 readonly property bool on: deck.cur === index
                                 readonly property bool hot: on && strip.activeFocus
-                                x: 10 + index * 104
+                                // пока тянут: эта — за курсором, те, что между ней и местом броска, — на шаг к её месту
+                                readonly property int slot: deck.from < 0 ? index
+                                    : index > deck.from && index <= deck.to ? index - 1
+                                    : index < deck.from && index >= deck.to ? index + 1 : index
+                                x: dd.active ? deck.at : 10 + slot * 104
                                 width: 104
                                 height: strip.height
                                 z: dd.active ? 1 : 0
-                                transform: Translate { x: dd.active ? dd.activeTranslation.x : 0 }
+                                Behavior on x {
+                                    enabled: !dd.active
+                                    NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                                }
 
                                 Column {
                                     anchors.centerIn: parent
@@ -370,13 +389,20 @@ PanelWindow {
                                     id: dd
                                     target: null
                                     yAxis.enabled: false
+                                    // без target сдвиг — в px сцены, а Stage масштабирован
+                                    onActiveTranslationChanged: deck.dx = activeTranslation.x / Theme.s
                                     onActiveChanged: {
                                         if (active) {
                                             deck.cur = ds.index;
+                                            deck.from = ds.index;
                                             return;
                                         }
-                                        const from = ds.index, to = Math.max(0, Math.min(Theme.state.deck.length - 1, Math.round(from + activeTranslation.x / 104)));
-                                        Qt.callLater(() => deck.cur = root.move("deck", from, to));
+                                        // бросок — после сигнала: смена списка пересоздаёт секции, в том числе эту
+                                        const from = deck.from, to = deck.to;
+                                        Qt.callLater(() => {
+                                            deck.from = -1;
+                                            deck.cur = root.move("deck", from, to);
+                                        });
                                     }
                                 }
                             }
@@ -785,6 +811,7 @@ PanelWindow {
             Row {
                 spacing: 20
                 Act {
+                    visible: root.shells > 1
                     icon: "\u{F04E1}"
                     text: "switch shell"
                     onHit: {
@@ -865,7 +892,10 @@ PanelWindow {
         color: hot ? Theme.fg : modelData.fits ? Theme.s1 : "transparent"
         border { width: on ? 2 : 1; color: on ? Theme.fg : modelData.fits ? Theme.s2 : Theme.mute }
         z: drag.active ? 1 : 0
-        transform: Translate { x: drag.active ? drag.activeTranslation.x : 0; y: drag.active ? drag.activeTranslation.y : 0 }
+        // без target сдвиг — в px сцены, а Stage масштабирован
+        readonly property real dx: drag.activeTranslation.x / Theme.s
+        readonly property real dy: drag.activeTranslation.y / Theme.s
+        transform: Translate { x: drag.active ? tile.dx : 0; y: drag.active ? tile.dy : 0 }
         Behavior on color { ColorAnimation { duration: Theme.t } }
 
         Ring {
@@ -900,7 +930,7 @@ PanelWindow {
                     home.cur = tile.modelData.i;
                     return;
                 }
-                const p = grid.mapFromItem(tile.parent, tile.x + tile.width / 2 + activeTranslation.x, tile.y + tile.height / 2 + activeTranslation.y);
+                const p = grid.mapFromItem(tile.parent, tile.x + tile.width / 2 + tile.dx, tile.y + tile.height / 2 + tile.dy);
                 Qt.callLater(home.land, tile.modelData.i, p);
             }
         }

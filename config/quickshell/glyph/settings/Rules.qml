@@ -26,6 +26,9 @@ Singleton {
     ]
     readonly property var pal: palettes[adapter.palette] ?? palettes[0]
 
+    // ждём файл при создании синглтона: иначе первый, кто прочтёт store (glyph на старте), получит умолчания, а не rules.json
+    Component.onCompleted: file.waitForJob()
+
     FileView {
         id: file
         path: root.dir + "/rules.json"
@@ -212,7 +215,6 @@ Singleton {
 
     // старт шелла: всё, кроме яркости (её крутят клавиши и OSD, перетирать на каждом запуске нельзя)
     function applyAll() {
-        file.waitForJob();
         monitor(); windows(); motion(); night(); paint(); input(); idle();
     }
 }

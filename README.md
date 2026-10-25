@@ -70,6 +70,7 @@ Old configs go to `~/.dots-backup-<date>/`. Wallpapers are read from `~/Pictures
 
 Monitor, backlight, GPU and sensors are detected. Keyboard layouts are in `hypr/hyprland/input.lua`,
 default apps in `hypr/variables.lua`. Earbuds photo: `quickshell/glyph/buds/<device-name>.png`.
+Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pull` never touches it.
 
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
 

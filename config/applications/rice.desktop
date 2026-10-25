@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Rice
-GenericName=Shell switcher
-Comment=Переключить шелл: Demon's Shot, Glyph
-Exec=qs -c rice
-Icon=preferences-desktop-theme
-Categories=Settings;DesktopSettings;
-Keywords=shell;theme;rice;quickshell;demonshot;glyph;switch;

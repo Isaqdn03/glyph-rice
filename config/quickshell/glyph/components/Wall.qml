@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Window
 import qs
 
 // обои: картинка матрицей точек (look 0), серым фото в тон темы (1) или цветным (2) — см. shaders/wall.frag.
@@ -66,8 +65,8 @@ Item {
     NumberAnimation { id: run; target: fx; property: "wave"; from: 0; to: 1; duration: 1500; easing.type: Easing.InOutSine; onFinished: root.swap() }
 
     // источники текстур — соседи эффекта, не дети: эффект без картинок прячем, а невидимому Image сцена не обновляет
-    // текстуру. Поэтому и opacity 0, а не visible: false
-    Image { id: ia; opacity: 0; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize: Qt.size(root.width * Screen.devicePixelRatio, root.height * Screen.devicePixelRatio); onStatusChanged: if (root.next === ia) root.check() }
+    // текстуру. Поэтому и opacity 0, а не visible: false. sourceSize — в логических пикселях: на DPR Qt умножает сам
+    Image { id: ia; opacity: 0; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize: Qt.size(root.width, root.height); onStatusChanged: if (root.next === ia) root.check() }
     Image { id: ib; opacity: 0; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize: ia.sourceSize; onStatusChanged: if (root.next === ib) root.check() }
 
     ShaderEffect {

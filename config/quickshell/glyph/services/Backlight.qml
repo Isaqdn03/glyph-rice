@@ -1,6 +1,7 @@
 pragma Singleton
 
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 
@@ -19,11 +20,27 @@ Singleton {
         const v = parseInt(cur.text());
         if (!isNaN(v)) value = v / (parseInt(max.text()) || 1);
     }
+    // value ставим сразу, не ждём brightnessctl и uevent; пока свои записи в пути, их uevent'ы не читаем — sync сверит потом
+    // сырым числом, не процентом: округление до % сбивало бы сетку step() (81 % → вверх → 99, не 100)
     function set(v) {
-        if (dev) Quickshell.execDetached(["brightnessctl", "-q", "-d", dev.slice(dev.lastIndexOf("/") + 1), "set", Math.round(Math.max(0.01, Math.min(1, v)) * 100) + "%"]);
+        const m = parseInt(max.text()) || 0;
+        if (!m) return;
+        const raw = Math.round(Math.max(0.01, Math.min(1, v)) * m);
+        value = raw / m;
+        sync.restart();
+        Quickshell.execDetached(["brightnessctl", "-q", "-d", dev.slice(dev.lastIndexOf("/") + 1), "set", String(raw)]);
     }
+    // клавиши: 20 шагов как у brightnessctl -e4 5% — по корню 4-й степени, внизу шкалы мельче. Шаг от ближайшего деления,
+    // а не от value: иначе дробная ошибка копится (вверх до 399998 вместо 400000)
+    function step(d) {
+        set(Math.pow(Math.max(0, Math.min(20, Math.round(Math.pow(value, 0.25) * 20) + d)) / 20, 4));
+        moved();
+    }
+    Timer { id: sync; interval: 300; onTriggered: root.read() }
+    GlobalShortcut { appid: "shell"; name: "briUp"; description: "яркость +"; onPressed: root.step(1) }
+    GlobalShortcut { appid: "shell"; name: "briDown"; description: "яркость −"; onPressed: root.step(-1) }
 
-    FileView { id: cur; path: root.dev ? root.dev + "/brightness" : ""; blockLoading: true; printErrors: false }
+    FileView { id: cur; path: root.dev ? root.dev + "/brightness" : ""; blockAllReads: true; printErrors: false }
     FileView { id: max; path: root.dev ? root.dev + "/max_brightness" : ""; blockLoading: true; printErrors: false }
 
     // brightnessctl -m: «имя,класс,текущее,процент,максимум»
@@ -42,6 +59,6 @@ Singleton {
     Process {
         running: !!root.dev
         command: ["udevadm", "monitor", "--udev", "--subsystem-match=backlight"]
-        stdout: SplitParser { onRead: l => { if (l.includes(" change ")) { root.read(); root.moved(); } } }
+        stdout: SplitParser { onRead: l => { if (l.includes(" change ")) { if (!sync.running) root.read(); root.moved(); } } }
     }
 }

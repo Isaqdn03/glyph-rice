@@ -51,6 +51,9 @@ Singleton {
     function hh(d) { const h = d.getHours(); return st.clock24 ? String(h).padStart(2, "0") : String(h % 12 || 12); }
     function hex(c) { return c.toString().slice(1, 7).toUpperCase(); }
 
+    // как в Rules: apply() на старте должен видеть glyph.json, а не умолчания
+    Component.onCompleted: stateFile.waitForJob()
+
     FileView {
         id: stateFile
         path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/rice/glyph.json"
