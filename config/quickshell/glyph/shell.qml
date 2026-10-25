@@ -59,12 +59,22 @@ ShellRoot {
     // hypr как у demonshot: его Rules (settings/Rules.qml, тот же ~/.config/demonshot/rules.json) ставит монитор, ввод,
     // движение, ночник и hypridle; сверху Theme.apply — свои цвета рамок, скругление и kitty. Его же зовём при смене темы
     Component.onCompleted: {
+        hypr();
+        Rules.night();
+        Rules.idle();
+    }
+    // то, что живёт в конфиге hypr. Он перечитывает его сам: сохранили любой файл hypr (ссылки живые — и git pull, и смена
+    // ветки), hyprctl reload — и возвращает умолчания variables.lua: рамки demonshot, монитор, ввод, анимации. Накладываем
+    // своё заново. hyprctl eval configreloaded не шлёт — петли нет. Ночник и hypridle — свои процессы, reload их не трогает
+    function hypr() {
         Rules.monitor();
         Rules.input();
         Rules.motion();
-        Rules.night();
-        Rules.idle();
         Theme.apply();
+    }
+    Connections {
+        target: Hyprland
+        function onRawEvent(e) { if (e.name === "configreloaded") shell.hypr(); }
     }
     Connections {
         target: Theme
