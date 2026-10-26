@@ -141,15 +141,15 @@ hl.bind(vars.kbCloseWindow, hl.dsp.window.close())
 
 -- Special workspace toggles
 hl.bind(vars.kbSpecialWs, fn.toggle_special("special"))
-hl.bind(vars.kbSystemMonitorWs, fn.toggle_special("sysmon", "kitty --class btop -T btop btop"))
-hl.bind(vars.kbMusicWs, fn.toggle_special("music", "spicetify watch -s"))
-hl.bind(vars.kbCommunicationWs, fn.toggle_special("communication", "Telegram"))
-hl.bind(vars.kbTodoWs, fn.toggle_special("todo", "flatpak run io.github.alainm23.planify"))
+hl.bind(vars.kbSystemMonitorWs, fn.toggle_special("sysmon"))
+hl.bind(vars.kbMusicWs, fn.toggle_special("music"))
+hl.bind(vars.kbCommunicationWs, fn.toggle_special("communication"))
+hl.bind(vars.kbTodoWs, fn.toggle_special("todo"))
 
 -- Apps
 hl.bind(vars.kbTerminal, hl.dsp.exec_cmd(vars.terminal))
 hl.bind(vars.kbBrowser, hl.dsp.exec_cmd(vars.browser))
-hl.bind(vars.kbEditor, hl.dsp.exec_cmd(vars.editor))
+hl.bind(vars.kbEditor, function() if vars.apps.editor then hl.exec_cmd(vars.apps.editor) end end)
 hl.bind(vars.kbFileExplorer, hl.dsp.exec_cmd(vars.fileExplorer))
 hl.bind("CTRL + ALT + V", hl.dsp.exec_cmd(vars.audioSettings))
 

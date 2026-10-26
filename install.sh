@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Glyph: ставит всё на чистый Arch и линкует конфиги из этого репо.
-#   ./install.sh          пакеты + сервисы + симлинки
-#   ./install.sh --links  только симлинки (на уже готовой системе)
+#   ./install.sh                   пакеты + сервисы + симлинки; спросит, что из EXTRA поставить ещё
+#   ./install.sh --with telegram   то же без вопроса (--with "" — только сам рис)
+#   ./install.sh --links           только симлинки (на уже готовой системе)
 set -euo pipefail
 
 DOTS="$(cd "$(dirname "$0")" && pwd)"
@@ -28,7 +29,14 @@ PACMAN=(
 
 AUR=(
     qtengine darkly-bin bibata-cursor-theme-bin
-    zen-browser-bin clash-verge-rev-bin
+    zen-browser-bin
+)
+
+# на выбор, как optional components у caelestia. Что открывают бинды спец-воркспейсов — apps в hypr/variables.lua
+declare -A EXTRA=(
+    [telegram]="telegram-desktop"                                        # Super+D
+    [spotify]="spotify-launcher spicetify-cli spicetify-marketplace-bin" # Super+M
+    [clash]="clash-verge-rev-bin"                                        # панель VPN, Super+P
 )
 
 G=config/quickshell/glyph
@@ -53,6 +61,19 @@ LINKS=(
 )
 
 say() { printf '\e[38;2;215;25;33m●\e[0m %s\n' "$*"; }
+
+extras() { # --with или вопрос → в AUR (yay ставит и из репо)
+    local w
+    if [ -z "${WITH+x}" ]; then
+        say "что ещё поставить? через пробел, Enter — ничего"
+        for w in "${!EXTRA[@]}"; do printf '  %-9s %s\n' "$w" "${EXTRA[$w]}"; done
+        read -rp "  > " WITH || true
+    fi
+    for w in ${WITH//,/ }; do
+        [ -n "${EXTRA[$w]-}" ] || { echo "нет такого: $w (есть: ${!EXTRA[*]})"; exit 1; }
+        AUR+=(${EXTRA[$w]})
+    done
+}
 
 packages() {
     say "pacman"
@@ -110,8 +131,11 @@ links() {
 
 case "${1:-}" in
     --links) links ;; # на любом дистрибутиве (NixOS, Fedora…): пакеты тогда свои, список — в README
-    "") command -v pacman >/dev/null || { echo "пакеты ставлю только на Arch; на другом дистрибутиве: $0 --links"; exit 1; }
-        packages; services; links
+    ""|--with) command -v pacman >/dev/null || { echo "пакеты ставлю только на Arch; на другом дистрибутиве: $0 --links"; exit 1; }
+        [ "${1:-}" = --with ] && WITH="${2:-}"
+        extras; packages; services; links
+        # spicetify нужен уже скачанный Spotify с входом в аккаунт, поэтому применять до первого запуска нечего
+        [[ " ${WITH//,/ } " == *" spotify "* ]] && say "spotify: запусти, войди, потом spicetify config custom_apps marketplace && spicetify backup apply"
         say "готово. перезагрузись и выбери Hyprland в sddm" ;;
-    *) echo "usage: $0 [--links]"; exit 1 ;;
+    *) echo "usage: $0 [--with telegram,spotify,clash | --links]"; exit 1 ;;
 esac

@@ -22,9 +22,16 @@ return {
     -- Apps
     terminal                   = "kitty -1", -- single-instance: новые окна из живого процесса, ~40 мс вместо ~400
     browser                    = "zen-browser",
-    editor                     = "codium",
     fileExplorer               = "thunar",
     audioSettings              = "pavucontrol",
+    -- программы спец-воркспейсов (запускаются, если там пусто) и редактор. Бинды читают их при нажатии,
+    -- так что свои — в user.lua: require("variables").apps.editor = "codium". Не установлено — откроется пустой
+    -- воркспейс. telegram и spotify ставит install.sh --with
+    apps                       = {
+        sysmon        = "kitty --class btop -T btop btop",
+        music         = "spotify-launcher",
+        communication = "Telegram",
+    },
 
     -- Touchpad
     touchpadDisableTyping      = false,

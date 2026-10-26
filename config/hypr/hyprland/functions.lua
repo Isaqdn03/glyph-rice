@@ -1,3 +1,5 @@
+local vars = require("variables")
+
 local function wsaction(action, range, i)
     return function()
         local activews = hl.get_active_workspace()
@@ -76,17 +78,18 @@ local function move_actions(win)
     end
 end
 
--- special ws: открыть/закрыть, а если там пусто — запустить приложение (замена caelestia toggle)
-local function toggle_special(name, cmd)
+-- special ws: открыть/закрыть, а если там пусто — запустить его программу из vars.apps (замена caelestia toggle).
+-- apps читаем при нажатии, а не при загрузке: user.lua грузится после биндов и меняет их там
+local function toggle_special(name)
     return function()
-        if cmd then
-            local empty = true
-            for _, ws in ipairs(hl.get_workspaces()) do
-                if ws.name == "special:" .. name and ws.windows > 0 then empty = false end
-            end
-            if empty then hl.exec_cmd(cmd) end
+        local cmd = vars.apps[name]
+        for _, ws in ipairs(hl.get_workspaces()) do
+            if ws.name == "special:" .. name and ws.windows > 0 then cmd = nil end
         end
+        -- сначала показать, потом запускать: hypr открывает окно там, где был фокус в момент запуска,
+        -- и при обратном порядке прятал воркспейс, едва окно появится
         hl.dispatch(hl.dsp.workspace.toggle_special(name))
+        if cmd then hl.exec_cmd(cmd) end
     end
 end
 

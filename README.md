@@ -53,11 +53,13 @@ Also: Hyprland (Lua), hypridle, kitty, fish, starship, fastfetch, btop, cava, GT
 
 ```sh
 git clone https://github.com/Nebelung-cloud/glyph-rice ~/.local/share/glyph
-~/.local/share/glyph/install.sh          # Arch: packages, services, symlinks
-~/.local/share/glyph/install.sh --links  # any distro: symlinks only
+~/.local/share/glyph/install.sh                  # Arch: packages, services, symlinks
+~/.local/share/glyph/install.sh --with telegram  # same, extras picked up front
+~/.local/share/glyph/install.sh --links          # any distro: symlinks only
 ```
 
-Old configs go to `~/.dots-backup-<date>/`. Wallpapers are read from `~/Pictures/Wallpapers`.
+Without `--with` it asks which extras to add: `telegram` (`Super` `D`), `spotify` with Spicetify (`Super` `M`),
+`clash` for the VPN panel. Old configs go to `~/.dots-backup-<date>/`. Wallpapers are read from `~/Pictures/Wallpapers`.
 
 | `config/` | goes to |
 |---|---|
@@ -72,6 +74,14 @@ Old configs go to `~/.dots-backup-<date>/`. Wallpapers are read from `~/Pictures
 Monitor, backlight, GPU and sensors are detected. Keyboard layouts are in `hypr/hyprland/input.lua`,
 default apps in `hypr/variables.lua`. Earbuds photo: `quickshell/glyph/buds/<device-name>.png`.
 Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pull` never touches it.
+Apps for the special workspaces and the editor are read when you press the key, so `user.lua` can swap them:
+
+```lua
+local apps = require("variables").apps
+apps.editor = "codium"              -- Super Shift K, empty by default
+apps.todo   = "planify"             -- Super R, empty by default
+apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
+```
 
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
 
@@ -86,7 +96,7 @@ Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pul
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
 | **Optional** | `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` |
 
-From the AUR only `qtengine`, `darkly`, Bibata, Zen and Clash Verge, all optional. The VPN panel expects Clash Verge in English.
+From the AUR only `qtengine`, `darkly`, Bibata and Zen, plus Spicetify and Clash Verge if picked; all optional. The VPN panel expects Clash Verge in English.
 NixOS: change the `/usr/lib` agent paths in `hypr/hyprland/execs.lua` and the Papirus path in `quickshell/rice/rice`.
 
 <div align="center"><img src="assets/divider-dots.svg" width="720" alt=""></div>
