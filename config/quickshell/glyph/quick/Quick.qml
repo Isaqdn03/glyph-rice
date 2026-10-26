@@ -197,7 +197,6 @@ PanelWindow {
                         Tile { icon: "\u{F044A}"; name: "record"; on: Sys.rec; picked: root.pick === "rec"; onClicked: { root.close(); Sys.toggleRec(); } onMenu: root.pick = picked ? "" : "rec" }
                         Tile { icon: "\u{F0483}"; name: "vpn"; on: Sys.vpn; onClicked: Sys.toggleVpn() }
                         Tile { icon: "\u{F050E}"; name: "dark"; on: !Theme.light; onClicked: Theme.state.light = !Theme.state.light }
-                        Tile { icon: "\u{F0297}"; name: "game"; on: Rules.store.game; onClicked: Rules.store.game = !Rules.store.game }
                     }
 
                     Rec { width: parent.width; visible: root.pick === "rec"; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } }
@@ -207,54 +206,70 @@ PanelWindow {
 
                     // режим питания, как в caelestia: четыре клетки, белая заливка переезжает к выбранной; засечки — сила.
                     // ultra — ещё 60 Гц и без анимаций, blur и теней (Rules.modes)
-                    Rectangle {
-                        id: modes
+                    // справа — игровой режим, как в caelestia (Rules.store.game): без анимаций, blur, теней и зазоров, tearing
+                    Row {
                         width: parent.width
-                        height: 54
-                        radius: 27
-                        color: Theme.s2
-                        readonly property real cell: (width - 12) / Rules.modeCount
+                        spacing: 12
                         Rectangle {
-                            x: 6 + modes.cell * Rules.mode
-                            y: 6
-                            width: modes.cell
-                            height: parent.height - 12
-                            radius: height / 2
-                            color: Theme.fg
-                            Behavior on x { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-                        }
-                        Repeater {
-                            model: Rules.modeCount
-                            Item {
-                                id: mc
-                                required property int index
-                                readonly property bool on: Rules.mode === index
-                                x: 6 + modes.cell * index
+                            id: modes
+                            width: parent.width - game.width - 12
+                            height: 54
+                            radius: 27
+                            color: Theme.s2
+                            readonly property real cell: (width - 12) / Rules.modeCount
+                            Rectangle {
+                                x: 6 + modes.cell * Rules.mode
+                                y: 6
                                 width: modes.cell
-                                height: modes.height
-                                Row {
-                                    anchors.centerIn: parent
-                                    spacing: 10
+                                height: parent.height - 12
+                                radius: height / 2
+                                color: Theme.fg
+                                Behavior on x { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                            }
+                            Repeater {
+                                model: Rules.modeCount
+                                Item {
+                                    id: mc
+                                    required property int index
+                                    readonly property bool on: Rules.mode === index
+                                    x: 6 + modes.cell * index
+                                    width: modes.cell
+                                    height: modes.height
                                     Row {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 3
-                                        Repeater {
-                                            model: 4
-                                            Rectangle {
-                                                required property int index
-                                                anchors.bottom: parent.bottom
-                                                width: 4
-                                                height: 6 + index * 4
-                                                radius: 2
-                                                color: index <= mc.index ? (mc.on ? Theme.ink : Theme.fg) : (mc.on ? Theme.mute : Theme.s3)
+                                        anchors.centerIn: parent
+                                        spacing: 10
+                                        Row {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 3
+                                            Repeater {
+                                                model: 4
+                                                Rectangle {
+                                                    required property int index
+                                                    anchors.bottom: parent.bottom
+                                                    width: 4
+                                                    height: 6 + index * 4
+                                                    radius: 2
+                                                    color: index <= mc.index ? (mc.on ? Theme.ink : Theme.fg) : (mc.on ? Theme.mute : Theme.s3)
+                                                }
                                             }
                                         }
+                                        Lb { anchors.verticalCenter: parent.verticalCenter; text: Rules.modes[mc.index].short; color: mc.on ? Theme.ink : Theme.grey }
                                     }
-                                    Lb { anchors.verticalCenter: parent.verticalCenter; text: Rules.modes[mc.index].short; color: mc.on ? Theme.ink : Theme.grey }
+                                    TapHandler { onTapped: { root.pin(); Rules.setMode(mc.index); } }
+                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
                                 }
-                                TapHandler { onTapped: { root.pin(); Rules.setMode(mc.index); } }
-                                HoverHandler { cursorShape: Qt.PointingHandCursor }
                             }
+                        }
+                        Rectangle {
+                            id: game
+                            width: 54
+                            height: 54
+                            radius: 27
+                            color: Rules.store.game ? Theme.fg : Theme.s2
+                            Behavior on color { ColorAnimation { duration: Theme.t } }
+                            Icon { anchors.centerIn: parent; text: "\u{F0297}"; font.pixelSize: 22; color: Rules.store.game ? Theme.ink : Theme.fg }
+                            TapHandler { onTapped: { root.pin(); Rules.store.game = !Rules.store.game; } }
+                            HoverHandler { cursorShape: Qt.PointingHandCursor }
                         }
                     }
 
