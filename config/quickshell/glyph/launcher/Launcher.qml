@@ -300,7 +300,7 @@ PanelWindow {
                                 rowSpacing: 22
                                 Repeater {
                                     model: block.modelData.items.length
-                                    Cell { items: block.modelData.items }
+                                    Cell { items: block.modelData.items; gy: block.y + grid.y }
                                 }
                             }
                         }
@@ -353,11 +353,17 @@ PanelWindow {
         property var items: []
         readonly property var modelData: items[index] ?? ({ name: "", hl: [] })
         readonly property bool on: root.sel === modelData.k
+        // окно layer-shell Quickshell пересоздаёт на каждое открытие, и Image грузит текстуру даже скрытым: 160 иконок —
+        // ~60 мс первого кадра. Вне прокрутки (с запасом в ряд) ячейка пустая и без иконки, высоту держит сама
+        property real gy // y сетки в body
+        readonly property bool near: gy + y < flick.contentY + flick.height + 140 && gy + y + height > flick.contentY - 140
         width: body.width / 6
+        height: 88 + spacing + label.implicitHeight
         spacing: 10
         onOnChanged: if (on) flick.ensure(mapToItem(body, 0, 0).y, height)
 
         Rectangle {
+            visible: cell.near
             anchors.horizontalCenter: parent.horizontalCenter
             width: 88
             height: 88
@@ -375,17 +381,19 @@ PanelWindow {
                 visible: !cell.modelData.glyph && status === Image.Ready
                 width: 44
                 height: 44
-                source: cell.modelData.src ?? ""
+                source: cell.near ? cell.modelData.src ?? "" : ""
                 sourceSize: Qt.size(44, 44)
                 asynchronous: true
                 retainWhileLoading: true // ячейке сменили приложение — старая иконка, пока грузится новая
-                layer.enabled: true
+                layer.enabled: cell.near // слой рисует свой Image и скрытым
                 layer.effect: Dm { step: 2.5 }
             }
             TapHandler { onTapped: { root.sel = cell.modelData.k; root.launch(); } }
             HoverHandler { cursorShape: Qt.PointingHandCursor }
         }
         Text {
+            id: label
+            visible: cell.near
             width: parent.width - 8
             anchors.horizontalCenter: parent.horizontalCenter
             horizontalAlignment: Text.AlignHCenter
