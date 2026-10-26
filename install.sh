@@ -62,8 +62,8 @@ LINKS=(
 
 say() { printf '\e[38;2;215;25;33m●\e[0m %s\n' "$*"; }
 
-extras() { # --with или вопрос → в AUR (yay ставит и из репо)
-    local w
+extras() { # --with или вопрос → в EXT, ставит yay (и из репо) отдельно от AUR
+    local w; EXT=()
     if [ -z "${WITH+x}" ]; then
         say "что ещё поставить? через пробел, Enter — ничего"
         for w in "${!EXTRA[@]}"; do printf '  %-9s %s\n' "$w" "${EXTRA[$w]}"; done
@@ -71,12 +71,16 @@ extras() { # --with или вопрос → в AUR (yay ставит и из р�
     fi
     for w in ${WITH//,/ }; do
         [ -n "${EXTRA[$w]-}" ] || { echo "нет такого: $w (есть: ${!EXTRA[*]})"; exit 1; }
-        AUR+=(${EXTRA[$w]})
+        EXT+=(${EXTRA[$w]})
     done
 }
 
 packages() {
     say "pacman"
+    # модули pulseaudio требуют его самого — pacman не дал бы заменить его на pipewire-pulse.
+    # Списком, не grep '^pulseaudio-': pulseaudio-alsa и pulseaudio-qt с pipewire живут
+    local pa; pa=$(pacman -Qq pulseaudio-{bluetooth,jack,lirc,rtp,zeroconf,equalizer} 2>/dev/null || true)
+    [ -z "$pa" ] || sudo pacman -R $pa
     # без --noconfirm: на конфликте (pulseaudio → pipewire-pulse) он ответил бы «нет» и уронил установку
     sudo pacman -Syu --needed "${PACMAN[@]}"
 
@@ -91,6 +95,8 @@ packages() {
     say "aur"
     # AUR необязателен: упал пакет — сервисы и ссылки всё равно ставим
     yay -S --needed --noconfirm "${AUR[@]}" || say "aur: встало не всё, см. выше"
+    # отдельно: не собрался spicetify — ядро AUR от этого не страдает
+    [ ${#EXT[@]} -eq 0 ] || yay -S --needed --noconfirm "${EXT[@]}" || say "на выбор: встало не всё, см. выше"
 }
 
 services() {
@@ -122,6 +128,7 @@ links() {
     echo glyph > "${XDG_STATE_HOME:-$HOME/.local/state}/rice/shell"
     mkdir -p "$HOME/Pictures/Wallpapers" # пикер обоев (Super+Shift+W) смотрит сюда
     fc-cache -f >/dev/null
+    command -v gsettings >/dev/null || return 0 # --links на системе без GNOME-схем
     # тёмный режим для Zen, Electron и libadwaita (через портал) и тёмная gtk3-база под наш gtk.css
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark
     gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
@@ -132,7 +139,7 @@ links() {
 case "${1:-}" in
     --links) links ;; # на любом дистрибутиве (NixOS, Fedora…): пакеты тогда свои, список — в README
     ""|--with) command -v pacman >/dev/null || { echo "пакеты ставлю только на Arch; на другом дистрибутиве: $0 --links"; exit 1; }
-        [ "${1:-}" = --with ] && WITH="${2:-}"
+        [ "${1:-}" = --with ] && WITH="${*:2}" # и через запятую, и через пробел
         extras; packages; services; links
         # spicetify нужен уже скачанный Spotify с входом в аккаунт, поэтому применять до первого запуска нечего
         [[ " ${WITH//,/ } " == *" spotify "* ]] && say "spotify: запусти, войди, потом spicetify config custom_apps marketplace && spicetify backup apply"

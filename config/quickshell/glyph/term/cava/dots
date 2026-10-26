@@ -13,7 +13,8 @@ def run(cols, rows):
     cfg.remove_section("output")
     cfg.read_dict({
         # точка + пробел: клетка терминала вдвое уже строки, так сетка выходит квадратной
-        "general": {"bars": str(cols // 2)},
+        # чётное: стерео cava (по умолчанию) нечётное число столбиков не берёт
+        "general": {"bars": str(cols // 4 * 2)},
         "output": {"method": "raw", "raw_target": "/dev/stdout", "data_format": "ascii",
                    "ascii_max_range": str(rows), "bar_delimiter": "59", "frame_delimiter": "10"},
     })
@@ -26,12 +27,18 @@ def run(cols, rows):
                 if shutil.get_terminal_size() != (cols, rows):
                     p.terminate()
                     return True  # окно поменялось — заново под новый размер
-                v = [int(x) for x in line.strip().split(";") if x]
+                try:
+                    v = [int(x) for x in line.strip().split(";") if x]
+                except ValueError:
+                    continue  # перед ошибкой cava пишет в stdout заголовок окна (\e]0;cava\a) — не кадр, ошибка будет ниже
                 rows_out = (" ".join(ON if h >= r else OFF for h in v) for r in range(rows, 0, -1))
                 sys.stdout.write("\x1b[H" + "\n".join(rows_out))
                 sys.stdout.flush()
             sys.exit(p.stderr.read() or None)  # cava упал — покажем почему, когда вернём экран
 
+
+if sys.argv[1:]:
+    os.execvp("cava", ["cava", *sys.argv[1:]])  # с флагами (cava -v, -p …) — обычный cava
 
 sys.stdout.write("\x1b[?1049h\x1b[?25l")  # свой экран, без курсора
 try:

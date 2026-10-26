@@ -197,7 +197,7 @@ PanelWindow {
         id: batC
         Column {
             id: batc
-            HoverHandler { onHoveredChanged: { root.batHot = hovered; root.peek(batc); } }
+            HoverHandler { onHoveredChanged: { root.batHot = hovered; root.peek(batc); } Component.onDestruction: root.batHot = false }
             spacing: 8
             readonly property bool ac: !UPower.onBattery
             readonly property bool charging: root.bat.state === UPowerDeviceState.Charging
@@ -250,7 +250,7 @@ PanelWindow {
                     }
                 }
             }
-            HoverHandler { cursorShape: Qt.PointingHandCursor; onHoveredChanged: { root.tickHot = hovered; root.peek(ticks); } }
+            HoverHandler { cursorShape: Qt.PointingHandCursor; onHoveredChanged: { root.tickHot = hovered; root.peek(ticks); } Component.onDestruction: root.tickHot = false }
             TapHandler { onTapped: Rules.setMode((Rules.mode + 1) % Rules.modeCount) }
         }
     }
