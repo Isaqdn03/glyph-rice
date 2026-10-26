@@ -50,7 +50,7 @@ PanelWindow {
         const cls = t.lastIpcObject?.class ?? "";
         const icon = DesktopEntries.heuristicLookup(cls)?.icon;
         return { name: t.title, src: icon ? Quickshell.iconPath(icon, true) : "", glyph: glyph(cls), extra: cls.toLowerCase(),
-                 run: () => Hyprland.dispatch(`hl.dsp.focus({ window = "address:${t.address}" })`) };
+                 run: () => Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${t.address}" })`) }; // Quickshell даёт адрес без 0x
     })
 
     // подпоследовательность: начало слова и подряд — выше. hl — индексы совпавших букв
