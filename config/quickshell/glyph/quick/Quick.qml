@@ -197,6 +197,7 @@ PanelWindow {
                         Tile { icon: "\u{F044A}"; name: "record"; on: Sys.rec; picked: root.pick === "rec"; onClicked: { root.close(); Sys.toggleRec(); } onMenu: root.pick = picked ? "" : "rec" }
                         Tile { icon: "\u{F0483}"; name: "vpn"; on: Sys.vpn; onClicked: Sys.toggleVpn() }
                         Tile { icon: "\u{F050E}"; name: "dark"; on: !Theme.light; onClicked: Theme.state.light = !Theme.state.light }
+                        Tile { icon: "\u{F0297}"; name: "game"; on: Rules.store.game; onClicked: Rules.store.game = !Rules.store.game }
                     }
 
                     Rec { width: parent.width; visible: root.pick === "rec"; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } }

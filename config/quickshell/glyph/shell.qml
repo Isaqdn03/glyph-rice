@@ -84,10 +84,12 @@ ShellRoot {
         target: Theme.state
         function onRoundingChanged() { Theme.apply(); }
     }
-    // режим ultra включает/снимает blur и тени поверх настроек — окна перекрасить (герцы и движение ставит сам Rules.setMode)
+    // режим ultra включает/снимает blur и тени поверх настроек — окна перекрасить (герцы и движение ставит сам Rules.setMode).
+    // Игровой — то же и ещё анимации
     Connections {
         target: Rules.store
         function onUltraChanged() { Theme.apply(); }
+        function onGameChanged() { Rules.motion(); Theme.apply(); }
     }
 
     // тап Super — лаунчер на отпускании; любой Super+<key> по пути шлёт interrupt, и лаунчер не открывается
@@ -113,6 +115,7 @@ ShellRoot {
     Shortcut { name: "clip"; description: "буфер обмена"; onPressed: clip.toggle() }
     Shortcut { name: "charms"; description: "эмодзи, каомодзи, символы"; onPressed: charms.toggle() }
     Shortcut { name: "wall"; description: "обои"; onPressed: walls.toggle() }
+    Shortcut { name: "game"; description: "игровой режим"; onPressed: Rules.store.game = !Rules.store.game }
 
     component Shortcut: GlobalShortcut { appid: "shell" }
 }

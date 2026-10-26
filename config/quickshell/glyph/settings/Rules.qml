@@ -56,6 +56,7 @@ Singleton {
             property bool shadow: true
             property bool motion: true
             property bool ultra: false   // режим ultra (setMode 0): 60 Гц и без украшений поверх настроек
+            property bool game: false    // игровой, как в caelestia: без анимаций, blur, теней, зазоров и скруглений, tearing (Theme.apply)
             // Colors
             property int palette: 0
             property bool paintHypr: true
@@ -209,9 +210,9 @@ Singleton {
     }
     // что стоит на деле: ultra перекрывает настройки — самые низкие герцы экрана, иначе ближайшие к выбранным
     readonly property int hz: store.ultra ? rates[0] : refreshHz
-    readonly property bool moving: store.motion && !store.ultra
-    readonly property bool blurOn: store.blur && !store.ultra
-    readonly property bool shadowOn: store.shadow && !store.ultra
+    readonly property bool moving: store.motion && !store.ultra && !store.game
+    readonly property bool blurOn: store.blur && !store.ultra && !store.game
+    readonly property bool shadowOn: store.shadow && !store.ultra && !store.game
 
     // старт шелла: всё, кроме яркости (её крутят клавиши и OSD, перетирать на каждом запуске нельзя)
     function applyAll() {
