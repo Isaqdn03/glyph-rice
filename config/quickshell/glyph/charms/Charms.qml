@@ -16,8 +16,8 @@ PanelWindow {
     property int sel: 0
     readonly property string query: input.text.toLowerCase()
 
-    readonly property var view: [Data.KAOMOJI, Data.EMOJI, Data.SYMBOLS][tab]
-        .filter(([t, k]) => `${k} ${t}`.toLowerCase().includes(query))
+    readonly property var lists: [Data.KAOMOJI, Data.EMOJI, Data.SYMBOLS]
+    readonly property var view: query ? lists[tab].filter(([t, k]) => `${k} ${t}`.toLowerCase().includes(query)) : lists[tab]
     readonly property var cur: view[sel] ?? null
 
     property bool shown: false
@@ -40,8 +40,8 @@ PanelWindow {
     }
 
     onQueryChanged: sel = 0
-    onTabChanged: sel = 0
-    onSelChanged: grid.positionViewAtIndex(sel, GridView.Contain)
+    onTabChanged: { sel = 0; grids.itemAt(tab)?.positionViewAtBeginning(); }
+    onSelChanged: grids.itemAt(tab)?.positionViewAtIndex(sel, GridView.Contain)
     onVisibleChanged: if (visible) input.forceActiveFocus()
 
     visible: t > 0
@@ -148,42 +148,57 @@ PanelWindow {
                 Lb { id: hlab; text: root.tabs[root.tab] }
             }
 
-            GridView {
+            // по сетке на вкладку, живут все три: Tab только прячет — пересборка плиток стоила кадры. Спрятанная держит
+            // полный список, поиск фильтрует только видимую
+            Item {
                 id: grid
                 anchors { left: parent.left; leftMargin: 34; top: head.bottom; topMargin: 18; bottom: parent.bottom; bottomMargin: 34 }
                 width: 620
-                clip: true
-                cellWidth: width / root.cols[root.tab]
-                cellHeight: root.tab === 0 ? 76 : cellWidth
-                model: root.view
-                boundsBehavior: Flickable.StopAtBounds
-                delegate: Item {
-                    id: d
-                    required property var modelData
-                    required property int index
-                    readonly property bool on: root.sel === index
-                    width: grid.cellWidth
-                    height: grid.cellHeight
 
-                    Rectangle {
-                        anchors { fill: parent; margins: 3 }
-                        radius: Math.min(width, height) / 2
-                        color: d.on ? Theme.fg : Theme.s2
-                        Text {
-                            anchors { fill: parent; margins: 8 }
-                            text: d.modelData[0]
-                            textFormat: Text.PlainText
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            fontSizeMode: Text.Fit
-                            minimumPixelSize: 6
-                            font { family: Theme.mono; pixelSize: root.tab === 0 ? 20 : 32 }
-                            color: d.on ? Theme.ink : Theme.fg
+                Repeater {
+                    id: grids
+                    model: 3
+
+                    GridView {
+                        id: g
+                        required property int index
+                        anchors.fill: parent
+                        visible: root.tab === index
+                        clip: true
+                        cellWidth: width / root.cols[index]
+                        cellHeight: index === 0 ? 76 : cellWidth
+                        model: root.tab === index ? root.view : root.lists[index]
+                        boundsBehavior: Flickable.StopAtBounds
+                        delegate: Item {
+                            id: d
+                            required property var modelData
+                            required property int index
+                            readonly property bool on: root.sel === index
+                            width: g.cellWidth
+                            height: g.cellHeight
+
+                            Rectangle {
+                                anchors { fill: parent; margins: 3 }
+                                radius: Math.min(width, height) / 2
+                                color: d.on ? Theme.fg : Theme.s2
+                                // ужимать по ширине нужно только длинным каомодзи: Fit на каждой плитке эмодзи — лишние раскладки
+                                Text {
+                                    anchors { fill: parent; margins: 8 }
+                                    text: d.modelData[0]
+                                    textFormat: Text.PlainText
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    fontSizeMode: g.index === 0 ? Text.Fit : Text.FixedSize
+                                    minimumPixelSize: 6
+                                    font { family: Theme.mono; pixelSize: g.index === 0 ? 20 : 32 }
+                                    color: d.on ? Theme.ink : Theme.fg
+                                }
+                            }
+                            // клик — выбрать, по выбранной — скопировать
+                            TapHandler { onTapped: d.on ? root.fire() : root.sel = d.index }
+                            HoverHandler { cursorShape: Qt.PointingHandCursor }
                         }
                     }
-                    // клик — выбрать, по выбранной — скопировать
-                    TapHandler { onTapped: d.on ? root.fire() : root.sel = d.index }
-                    HoverHandler { cursorShape: Qt.PointingHandCursor }
                 }
             }
 

@@ -139,4 +139,4 @@ hl.layer_rule({ match = { namespace = "demonshot-.*" }, no_anim = true })
 -- glyph: полосы-OSD, остров, быстрые настройки и свои модули рисуют появление сами — компоновщик не мешает (и не тормозит OSD);
 -- лаунчеру и меню питания своей анимации нет — мягкий fade
 hl.layer_rule({ match = { namespace = "glyph-(launcher|power)" }, animation = "fade" })
-hl.layer_rule({ match = { namespace = "glyph-(edge|island|buds|quick|home|bar|caffeine|shot|clip|vpn|deck|prefs|hot|cal|wall|back)" }, no_anim = true })
+hl.layer_rule({ match = { namespace = "glyph-(edge|island|buds|quick|home|bar|caffeine|shot|clip|charms|vpn|deck|prefs|hot|cal|wall|back)" }, no_anim = true })
