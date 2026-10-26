@@ -14,10 +14,12 @@ PanelWindow {
     readonly property var cols: [2, 8, 8]
     property int tab: 0
     property int sel: 0
-    readonly property string query: input.text.toLowerCase()
+    // ё → е: в словах CLDR «черный», а пишут и так и так
+    readonly property string query: input.text.toLowerCase().replace(/ё/g, "е")
 
     readonly property var lists: [Data.KAOMOJI, Data.EMOJI, Data.SYMBOLS]
-    readonly property var view: query ? lists[tab].filter(([t, k]) => `${k} ${t}`.toLowerCase().includes(query)) : lists[tab]
+    // слова в charms.js уже строчные — без toLowerCase и деструктуризации: по 1900 эмодзи это кадр на каждую букву
+    readonly property var view: query ? lists[tab].filter(e => e[1].includes(query) || e[0].includes(query)) : lists[tab]
     readonly property var cur: view[sel] ?? null
 
     property bool shown: false
@@ -148,8 +150,8 @@ PanelWindow {
                 Lb { id: hlab; text: root.tabs[root.tab] }
             }
 
-            // по сетке на вкладку, живут все три: Tab только прячет — пересборка плиток стоила кадры. Спрятанная держит
-            // полный список, поиск фильтрует только видимую
+            // по сетке на вкладку, живут все три: Tab только прячет — пересборка плиток стоила кадры. Без запроса у всех
+            // полный список и от tab модели не зависят; поиск фильтрует только видимую
             Item {
                 id: grid
                 anchors { left: parent.left; leftMargin: 34; top: head.bottom; topMargin: 18; bottom: parent.bottom; bottomMargin: 34 }
@@ -167,7 +169,7 @@ PanelWindow {
                         clip: true
                         cellWidth: width / root.cols[index]
                         cellHeight: index === 0 ? 76 : cellWidth
-                        model: root.tab === index ? root.view : root.lists[index]
+                        model: root.query && root.tab === index ? root.view : root.lists[index]
                         boundsBehavior: Flickable.StopAtBounds
                         delegate: Item {
                             id: d
@@ -181,14 +183,15 @@ PanelWindow {
                                 anchors { fill: parent; margins: 3 }
                                 radius: Math.min(width, height) / 2
                                 color: d.on ? Theme.fg : Theme.s2
-                                // ужимать по ширине нужно только длинным каомодзи: Fit на каждой плитке эмодзи — лишние раскладки
+                                // Fit — лишние раскладки на каждой плитке; нужен длинным каомодзи и ZWJ-эмодзи: шрифт постарше
+                                // не склеит последовательность, и она развалится на 2–4 глифа шире клетки
                                 Text {
                                     anchors { fill: parent; margins: 8 }
                                     text: d.modelData[0]
                                     textFormat: Text.PlainText
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
-                                    fontSizeMode: g.index === 0 ? Text.Fit : Text.FixedSize
+                                    fontSizeMode: g.index === 0 || d.modelData[0].includes("\u200d") ? Text.Fit : Text.FixedSize
                                     minimumPixelSize: 6
                                     font { family: Theme.mono; pixelSize: g.index === 0 ? 20 : 32 }
                                     color: d.on ? Theme.ink : Theme.fg
