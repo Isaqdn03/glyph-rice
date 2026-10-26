@@ -10,7 +10,8 @@ import qs.components
 import qs.settings
 
 // бар: вертикальная пилюля у левого края. Сверху знак (кольцо из 16 точек) — лаунчер, центр краснеет, пока запись или микрофон.
-// Воркспейсы точками, заголовок окна столбиком, часы Doto по центру, трей снизу — клик открывает быстрые настройки
+// Воркспейсы точками, заголовок окна столбиком, часы Doto по центру, трей снизу — клик открывает быстрые настройки.
+// Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
 PanelWindow {
     id: root
 
@@ -101,6 +102,7 @@ PanelWindow {
                 width: 20
                 height: Math.max(0, clk.y - 24 - y)
                 clip: true
+                visible: Theme.state.barTitle
                 Lb {
                     x: (parent.width - width) / 2
                     y: (parent.height - height) / 2
@@ -137,116 +139,141 @@ PanelWindow {
                 }
             }
 
-            // трей: раскладка, сеть, bluetooth, звук (колесо — громкость), уведомления, батарея, питание
+            // трей — Theme.state.bar по порядку (настройки, раздел BAR). Раскладка, сеть, bluetooth, звук (колесо — громкость),
+            // уведомления, батарея: клик открывает быстрые настройки. Режим питания и питание — свои клики
             Column {
                 anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 22 }
                 spacing: 20
 
-                Column {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 20
-
-                    Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Sys.layout; px: 10 }
-                    Icon {
+                Repeater {
+                    model: Theme.state.bar
+                    Loader {
+                        id: part
+                        required property string modelData
+                        readonly property bool quick: modelData !== "mode" && modelData !== "power"
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: Networking.wifiEnabled ? "\u{F05A9}" : "\u{F05AA}"
-                        color: root.wifi?.connected ? Theme.fg : Theme.grey
+                        sourceComponent: root.parts[modelData] ?? null
+                        visible: !!sourceComponent && (modelData !== "battery" || root.bat.isLaptopBattery)
+                        TapHandler { enabled: part.quick; onTapped: root.trayClicked() }
+                        HoverHandler { enabled: part.quick; cursorShape: Qt.PointingHandCursor }
                     }
-                    Icon {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: Bluetooth.defaultAdapter?.enabled ? "\u{F00AF}" : "\u{F00B2}"
-                        color: Bluetooth.devices.values.some(d => d.connected) ? Theme.fg : Theme.grey
-                    }
-                    Icon {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: Sys.muted ? "\u{F075F}" : "\u{F057E}"
-                        WheelHandler { onWheel: e => Sys.setVol(Sys.vol + (e.angleDelta.y > 0 ? 0.05 : -0.05)) }
-                    }
-                    Icon {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: Theme.state.dnd ? "\u{F009B}" : "\u{F009A}"
-                        color: Notes.list.length ? Theme.fg : Theme.grey
-                    }
-                    // в вертикальном баре батарея стоит, заряд растёт снизу. На зарядке — молния сверху, заливка дышит, пока заряжается
-                    Column {
-                        id: batc
-                        visible: root.bat.isLaptopBattery
-                        HoverHandler { id: batHov }
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 8
-                        readonly property bool ac: !UPower.onBattery
-                        readonly property bool charging: root.bat.state === UPowerDeviceState.Charging
-                        readonly property bool low: !ac && root.bat.percentage < 0.15
-                        // дыхание шагом 20 кадров/с, как шар в home/Back: анимация гнала бы бар на каждом vsync (120 Гц) все часы
-                        // зарядки. Косинус с периодом 2,2 с — те же два InOutSine по 1,1 с
-                        property real phase: 0
-                        readonly property real pulse: charging ? 0.675 + 0.325 * Math.cos(phase * Math.PI / 1.1) : 1
-                        Timer { running: batc.charging; interval: 50; repeat: true; onTriggered: batc.phase = (batc.phase + 0.05) % 2.2; onRunningChanged: batc.phase = 0 }
-                        Icon { visible: batc.ac; anchors.horizontalCenter: parent.horizontalCenter; text: "\u{F140B}"; font.pixelSize: 14 }
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: 14
-                            height: 26
-                            radius: 7
-                            color: "transparent"
-                            border { width: 1.5; color: Theme.grey }
-                            Rectangle {
-                                x: 3
-                                width: parent.width - 6
-                                height: (parent.height - 6) * root.bat.percentage
-                                anchors { bottom: parent.bottom; bottomMargin: 3 }
-                                radius: 4
-                                color: batc.low ? Theme.red : Theme.fg
-                                opacity: batc.pulse
-                            }
-                        }
-                        Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
-                    }
-
-                    TapHandler { onTapped: root.trayClicked() }
-                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                }
-
-                // режим питания засечками (Rules.modes): ultra — одна, performance — все; клик — следующий,
-                // наведение (и на батарею) — карточка с выбором
-                Item {
-                    id: ticks
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 40
-                    height: 22
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 2
-                        Repeater {
-                            model: Rules.modeCount
-                            Rectangle {
-                                required property int index
-                                anchors.bottom: parent.bottom
-                                width: 3
-                                height: 5 + index * 3
-                                radius: 1.5
-                                color: index <= Rules.mode ? Theme.fg : Theme.s3
-                            }
-                        }
-                    }
-                    HoverHandler { id: tickHov; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: Rules.setMode((Rules.mode + 1) % Rules.modeCount) }
-                }
-                Icon {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "\u{F0425}"
-                    color: pwr.hovered ? Theme.fg : Theme.grey
-                    HoverHandler { id: pwr; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: root.powerClicked() }
                 }
             }
+        }
+    }
+
+    readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
+    Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
+    Component {
+        id: wifiC
+        Icon {
+            text: Networking.wifiEnabled ? "\u{F05A9}" : "\u{F05AA}"
+            color: root.wifi?.connected ? Theme.fg : Theme.grey
+        }
+    }
+    Component {
+        id: btC
+        Icon {
+            text: Bluetooth.defaultAdapter?.enabled ? "\u{F00AF}" : "\u{F00B2}"
+            color: Bluetooth.devices.values.some(d => d.connected) ? Theme.fg : Theme.grey
+        }
+    }
+    Component {
+        id: soundC
+        Icon {
+            text: Sys.muted ? "\u{F075F}" : "\u{F057E}"
+            WheelHandler { onWheel: e => Sys.setVol(Sys.vol + (e.angleDelta.y > 0 ? 0.05 : -0.05)) }
+        }
+    }
+    Component {
+        id: notesC
+        Icon {
+            text: Theme.state.dnd ? "\u{F009B}" : "\u{F009A}"
+            color: Notes.list.length ? Theme.fg : Theme.grey
+        }
+    }
+    // в вертикальном баре батарея стоит, заряд растёт снизу. На зарядке — молния сверху, заливка дышит, пока заряжается
+    Component {
+        id: batC
+        Column {
+            id: batc
+            HoverHandler { onHoveredChanged: { root.batHot = hovered; root.peek(batc); } }
+            spacing: 8
+            readonly property bool ac: !UPower.onBattery
+            readonly property bool charging: root.bat.state === UPowerDeviceState.Charging
+            // дыхание шагом 20 кадров/с, как шар в home/Back: анимация гнала бы бар на каждом vsync (120 Гц) все часы
+            // зарядки. Косинус с периодом 2,2 с — те же два InOutSine по 1,1 с
+            property real phase: 0
+            readonly property real pulse: charging ? 0.675 + 0.325 * Math.cos(phase * Math.PI / 1.1) : 1
+            Timer { running: batc.charging; interval: 50; repeat: true; onTriggered: batc.phase = (batc.phase + 0.05) % 2.2; onRunningChanged: batc.phase = 0 }
+            Icon { visible: batc.ac; anchors.horizontalCenter: parent.horizontalCenter; text: "\u{F140B}"; font.pixelSize: 14 }
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 14
+                height: 26
+                radius: 7
+                color: "transparent"
+                border { width: 1.5; color: Theme.grey }
+                Rectangle {
+                    x: 3
+                    width: parent.width - 6
+                    height: (parent.height - 6) * root.bat.percentage
+                    anchors { bottom: parent.bottom; bottomMargin: 3 }
+                    radius: 4
+                    color: root.batLow ? Theme.red : Theme.fg
+                    opacity: batc.pulse
+                }
+            }
+            Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
+        }
+    }
+    // режим питания засечками (Rules.modes): ultra — одна, performance — все; клик — следующий,
+    // наведение (и на батарею) — карточка с выбором
+    Component {
+        id: modeC
+        Item {
+            id: ticks
+            width: 40
+            height: 22
+            Row {
+                anchors.centerIn: parent
+                spacing: 2
+                Repeater {
+                    model: Rules.modeCount
+                    Rectangle {
+                        required property int index
+                        anchors.bottom: parent.bottom
+                        width: 3
+                        height: 5 + index * 3
+                        radius: 1.5
+                        color: index <= Rules.mode ? Theme.fg : Theme.s3
+                    }
+                }
+            }
+            HoverHandler { cursorShape: Qt.PointingHandCursor; onHoveredChanged: { root.tickHot = hovered; root.peek(ticks); } }
+            TapHandler { onTapped: Rules.setMode((Rules.mode + 1) % Rules.modeCount) }
+        }
+    }
+    Component {
+        id: powerC
+        Icon {
+            text: "\u{F0425}"
+            color: pwr.hovered ? Theme.fg : Theme.grey
+            HoverHandler { id: pwr; cursorShape: Qt.PointingHandCursor }
+            TapHandler { onTapped: root.powerClicked() }
         }
     }
 
     // ---- батарея и режим питания: навёл на батарею или засечки — карточка справа от бара, как поповер caelestia.
     // Заряд Doto, статус, шкала; ниже режимы кругами с засечками — клик выбирает, под курсором — что он делает.
     // Ушёл и с бара, и с карточки — гаснет ----
-    readonly property bool powHot: batHov.hovered || tickHov.hovered || popHov.hovered
+    property bool batHot: false
+    property bool tickHot: false
+    readonly property bool powHot: batHot || tickHot || popHov.hovered
+    readonly property bool batLow: UPower.onBattery && root.bat.percentage < 0.15
+    // карточка встаёт низом по тому, на что навели (батарея или засечки); пока видна — не прыгает
+    property real popY: 0
+    function peek(it) { if (!pop.visible) popY = it.mapToItem(pill, 0, it.height).y; }
     property bool powOpen: false
     property int powPeek: -1
     onPowHotChanged: powHot ? powOpenT.restart() : powCloseT.restart()
@@ -263,9 +290,9 @@ PanelWindow {
         property real t: root.powOpen ? 1 : 0
         Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         visible: t > 0
-        // от правого края пилюли бара (засечки в ней по центру: 40 + 12) с зазором 14; низом — по засечкам, растёт вверх
-        anchor.item: ticks
-        anchor.rect: Qt.rect(ticks.width + 12 + 14, ticks.height, 1, 1)
+        // от правого края пилюли бара с зазором 14; низом — по popY, растёт вверх
+        anchor.item: pill
+        anchor.rect: Qt.rect(pill.width + 14, root.popY, 1, 1)
         anchor.edges: Edges.Top | Edges.Left
         anchor.gravity: Edges.Top | Edges.Right
         implicitWidth: Math.ceil(440 * Theme.s)
@@ -301,7 +328,7 @@ PanelWindow {
                             Lb { text: root.batState }
                         }
                     }
-                    Seg { width: parent.width; height: 6; n: 24; f: root.bat.percentage; on: batc.low ? Theme.red : Theme.fg }
+                    Seg { width: parent.width; height: 6; n: 24; f: root.bat.percentage; on: root.batLow ? Theme.red : Theme.fg }
 
                     Lb { topPadding: 6; text: "power mode" }
                     Row {

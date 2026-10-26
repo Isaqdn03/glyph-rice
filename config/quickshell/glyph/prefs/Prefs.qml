@@ -18,17 +18,19 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "LOOK", "WINDOWS", "DISPLAY", "POWER", "INPUT", "IDLE", "SHELL"]
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "WINDOWS", "DISPLAY", "POWER", "INPUT", "IDLE", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, "", rings, rings, "↵ or click a mode", rings, "drag the marks", ""]
+    readonly property var hints: [moves, moves, moves, "", rings, rings, "↵ or click a mode", rings, "drag the marks", ""]
     readonly property var r: Rules.store
 
-    // глифы видов дома и секций deck
+    // глифы видов дома, секций deck и трея бара
     readonly property var icons: ({
         weather: "\u{F0595}", calendar: "\u{F00ED}", cpu: "\u{F061A}", ram: "\u{F035B}", gpu: "\u{F08AE}", disk: "\u{F02CA}",
         battery: "\u{F0079}", buds: "\u{F02CB}", player: "\u{F040A}", system: "\u{F0128}", cat: "\u{F011B}",
-        clock: "\u{F0150}", perf: "\u{F04C5}", net: "\u{F05A9}", media: "\u{F075A}"
+        clock: "\u{F0150}", perf: "\u{F04C5}", net: "\u{F05A9}", media: "\u{F075A}",
+        layout: "\u{F030C}", wifi: "\u{F05A9}", bluetooth: "\u{F00AF}", sound: "\u{F057E}", notes: "\u{F009A}",
+        mode: "\u{F04C5}", power: "\u{F0425}"
     })
     // круглые виджеты дома, остальные — квадрат 40. ponytail: ram/gpu/disk/battery — догадка (кольца); решит Home — поправить
     readonly property var rounds: ["weather", "cpu", "ram", "gpu", "disk", "battery", "buds"]
@@ -48,7 +50,7 @@ PanelWindow {
         stage.forceActiveFocus(); // фокус в скрытом разделе потерялся бы
     }
 
-    // ---- списки id в Theme.state: виджеты дома, секции deck. Правим копию — JsonAdapter пишет файл на присваивание.
+    // ---- списки id в Theme.state: виджеты дома, секции deck, трей бара. Правим копию — JsonAdapter пишет файл на присваивание.
     // Все возвращают новый курсор ----
     function edit(key, f) {
         const a = Theme.state[key].slice();
@@ -426,10 +428,115 @@ PanelWindow {
             }
         }
 
+        // ---- BAR: трей бара столбиком, как в баре, — по порядку сверху вниз; подписи сбоку. Лоток — что есть ----
+        Page {
+            id: bar
+            k: 2
+            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · left edge`
+            property int cur: 0
+            // тянут from (-1 — никого): dy — сдвиг курсора в px макета, at — где он в столбике, to — куда встанет
+            property int from: -1
+            property real dy: 0
+            readonly property real at: Math.max(10, Math.min(10 + (Theme.state.bar.length - 1) * 68, 10 + from * 68 + dy))
+            readonly property int to: Math.round((at - 10) / 68)
+
+            Row {
+                spacing: 200
+
+                Rectangle {
+                    id: col
+                    width: 88
+                    height: Math.max(1, Theme.state.bar.length) * 68 + 20
+                    radius: 44
+                    color: Theme.s1
+                    border { width: 1; color: col.activeFocus ? Theme.fg : Theme.s2 }
+                    Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                    activeFocusOnTab: true
+                    Keys.onPressed: e => {
+                        const c = root.nav(e, "bar", bar.cur, Theme.bars);
+                        if (c < 0) return;
+                        bar.cur = c;
+                        e.accepted = true;
+                    }
+
+                    Lb { visible: !Theme.state.bar.length; anchors.centerIn: parent; text: "empty"; px: 10 }
+                    Repeater {
+                        model: Theme.state.bar
+                        Item {
+                            id: bs
+                            required property string modelData
+                            required property int index
+                            readonly property bool on: bar.cur === index
+                            readonly property bool hot: on && col.activeFocus
+                            readonly property int slot: bar.from < 0 ? index
+                                : index > bar.from && index <= bar.to ? index - 1
+                                : index < bar.from && index >= bar.to ? index + 1 : index
+                            y: bd.active ? bar.at : 10 + slot * 68
+                            width: col.width
+                            height: 68
+                            z: bd.active ? 1 : 0
+                            Behavior on y {
+                                enabled: !bd.active
+                                NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                            }
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 52
+                                height: 52
+                                radius: 26
+                                color: bs.hot ? Theme.fg : Theme.s2
+                                border { width: bs.on && !bs.hot ? 1 : 0; color: Theme.fg }
+                                Icon { anchors.centerIn: parent; text: root.icons[bs.modelData] ?? ""; font.pixelSize: 22; color: bs.hot ? Theme.ink : Theme.fg }
+                            }
+                            Lb { x: parent.width + 24; anchors.verticalCenter: parent.verticalCenter; text: bs.modelData; px: 10; color: bs.on ? Theme.fg : Theme.grey }
+                            TapHandler {
+                                onTapped: {
+                                    col.forceActiveFocus();
+                                    bar.cur = bar.cur === bs.index ? root.cycle("bar", bs.index, Theme.bars) : bs.index;
+                                }
+                            }
+                            DragHandler {
+                                id: bd
+                                target: null
+                                xAxis.enabled: false
+                                onActiveTranslationChanged: bar.dy = activeTranslation.y / Theme.s
+                                onActiveChanged: {
+                                    if (active) {
+                                        bar.cur = bs.index;
+                                        bar.from = bs.index;
+                                        return;
+                                    }
+                                    const from = bar.from, to = bar.to;
+                                    Qt.callLater(() => {
+                                        bar.from = -1;
+                                        bar.cur = root.move("bar", from, to);
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Column {
+                    spacing: 14
+                    Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
+                    Lb { topPadding: 6; text: "above the clock"; px: 10 }
+                }
+            }
+
+            Tray {
+                ids: Theme.bars
+                icons: root.icons
+                used: Theme.state.bar
+                onToggled: key => bar.cur = root.flip("bar", key, bar.cur)
+            }
+        }
+
         // ---- LOOK: дом в миниатюре следует за тумблерами; имя — в пилюлю ----
         Page {
             id: look
-            k: 2
+            k: 3
             caption: "look · the home screen, live"
             property bool dim: false // двоеточие погасло
             Timer { running: look.visible && root.visible && Theme.state.blink; interval: 500; repeat: true; onTriggered: look.dim = !look.dim }
@@ -518,7 +625,7 @@ PanelWindow {
 
         // ---- WINDOWS: рабочий стол с двумя окнами по живым значениям колец. Анимация окон — только если motion ----
         Page {
-            k: 3
+            k: 4
             caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v}`
 
             Row {
@@ -586,7 +693,7 @@ PanelWindow {
 
         // ---- DISPLAY: яркость большим кольцом (живая, из sysfs), экран точками — с масштабом точки крупнее и реже ----
         Page {
-            k: 4
+            k: 5
             caption: `display · ${Rules.mon.name.toLowerCase()} · ${Rules.hz} hz`
 
             Row {
@@ -638,7 +745,7 @@ PanelWindow {
         // ---- POWER: режимы питания (Rules.modes) — четыре круга, кольцо горит по силе, выбранный белый.
         // ultra — power saver и ещё 60 Гц, без анимаций, blur и теней поверх настроек ----
         Page {
-            k: 5
+            k: 6
             caption: `power · ${Rules.modes[Rules.mode].what} · ${Rules.hz} hz`
 
             Row {
@@ -681,7 +788,7 @@ PanelWindow {
         // ---- INPUT: держишь клавишу — первая точка сразу, пауза delay, дальше rate в секунду; по живым кольцам ----
         Page {
             id: inp
-            k: 6
+            k: 7
             caption: "input · keyboard · touchpad"
             property int n: 0 // сколько «напечатано»; 0 — клавиша отпущена
             Timer {
@@ -740,7 +847,7 @@ PanelWindow {
         // ---- IDLE: шкала минут без ввода. Точки тускнеют на каждом событии: бодр → заперт → экран погас → спит.
         // Метки тянутся вдоль, правее 60 — never ----
         Page {
-            k: 7
+            k: 8
             caption: "idle · minutes without input · hypridle"
 
             Item {
@@ -795,7 +902,7 @@ PanelWindow {
 
         // ---- SHELL: знак райса и имя живого шелла; переключатель — приложение Rice ----
         Page {
-            k: 8
+            k: 9
             caption: "shell · quickshell"
 
             Row {

@@ -88,6 +88,8 @@ Singleton {
             property bool quickHover: true // быстрые настройки по наведению на правый край
             property bool deckHover: true  // deck — панель снизу по центру, вылезает по наведению на край
             property var deck: ["clock", "weather", "perf", "net", "media"] // её секции по порядку, см. decks
+            property var bar: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // трей бара сверху вниз, см. bars
+            property bool barTitle: true   // заголовок окна столбиком в баре
             // запись (quick/Rec, Sys.recArgs)
             property int recArea: 0        // 0 весь монитор, 1 область (slurp)
             property int recAudio: 0       // 0 без звука, 1 система, 2 микрофон, 3 оба одной дорожкой
@@ -101,6 +103,8 @@ Singleton {
     readonly property var kinds: ({ weather: 1, calendar: 1, cpu: 1, ram: 1, gpu: 1, disk: 1, battery: 1, buds: 1, player: 2, system: 3, cat: 1 })
     // секции deck
     readonly property var decks: ["clock", "weather", "perf", "net", "media"]
+    // трей бара
+    readonly property var bars: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"]
 
     // ---- вид всего, что вне шелла. Зовёт только shell.qml: на старте и при смене темы ----
     // hypr наследует demonshot: монитор, ввод, простой, ночник и движение ставит его же Rules (shell.qml), анимации — из
