@@ -50,8 +50,17 @@ PanelWindow {
         const cls = t.lastIpcObject?.class ?? "";
         const icon = DesktopEntries.heuristicLookup(cls)?.icon;
         return { name: t.title, src: icon ? Quickshell.iconPath(icon, true) : "", glyph: glyph(cls), extra: cls.toLowerCase(),
-                 run: () => Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${t.address}" })`) }; // Quickshell даёт адрес без 0x
+                 run: () => { focusT.addr = t.address; focusT.restart(); } };
     })
+    // пока лаунчер держит клавиатуру (Exclusive), Hyprland переключит воркспейс, но фокус окну не даст — а отпустив
+    // клавиатуру, вернёт прежнее окно с его воркспейсом. Поэтому фокус — когда отпустили (уходит со следующим кадром).
+    // ponytail: 100 мс — запас на кадр; не хватит — фокусировать по onVisibleChanged, после fade
+    Timer {
+        id: focusT
+        property string addr
+        interval: 100
+        onTriggered: Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${addr}" })`) // Quickshell даёт адрес без 0x
+    }
 
     // подпоследовательность: начало слова и подряд — выше. hl — индексы совпавших букв
     function match(s, q) {
