@@ -100,7 +100,7 @@ PanelWindow {
                 x: modelData.x
                 y: modelData.y
                 sourceComponent: ({ weather: weatherW, calendar: calendarW, cpu: cpuW, ram: ramW, gpu: gpuW, disk: diskW,
-                                    battery: batteryW, buds: budsW, player: playerW, system: systemW, cat: catW })[modelData.id] ?? null
+                                    battery: batteryW, buds: budsW, player: playerW, system: systemW, cat: catW, cava: cavaW })[modelData.id] ?? null
             }
         }
 
@@ -267,6 +267,36 @@ PanelWindow {
                     readonly property var srcA: cat
                     readonly property var srcB: cat
                     fragmentShader: Qt.resolvedUrl("../components/shaders/wall.frag.qsb")
+                }
+            }
+        }
+
+        // cava матрицей в круге, как Glyph Matrix на спинке Nothing Phone (3): бас в центре, к краям верхи, столбики растут
+        // от середины вверх и вниз. Тишина — погасшие точки. cava работает, только пока дом виден
+        Component {
+            id: cavaW
+            W {
+                round: true
+                Binding { target: Cava; property: "active"; value: root.home }
+                Grid {
+                    anchors.centerIn: parent
+                    columns: 15
+                    spacing: 4
+                    Repeater {
+                        model: 15 * 15
+                        Rectangle {
+                            required property int index
+                            readonly property int cx: index % 15 - 7
+                            readonly property int cy: Math.floor(index / 15) - 7
+                            readonly property int half: Math.floor(Math.sqrt(7.5 * 7.5 - cx * cx)) // полвысоты столбца внутри круга
+                            readonly property real v: Cava.bars[Math.abs(cx)] ?? 0
+                            width: 8
+                            height: 8
+                            radius: 4
+                            // вне круга — прозрачная, не visible: Grid сдвинул бы остальные
+                            color: Math.abs(cy) > half ? "transparent" : Math.abs(cy) < v * (half + 1) ? Theme.fg : Theme.s3
+                        }
+                    }
                 }
             }
         }
