@@ -14,7 +14,7 @@ PACMAN=(
     hyprland hypridle hyprsunset hyprpicker xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
     sddm quickshell polkit-gnome gnome-keyring geoclue upower xdg-user-dirs
     # звук, сеть, bluetooth
-    pipewire pipewire-pulse wireplumber networkmanager bluez bluez-utils power-profiles-daemon
+    pipewire pipewire-pulse pipewire-alsa wireplumber networkmanager bluez bluez-utils power-profiles-daemon
     # утилиты, которые зовут бинды и шелл
     brightnessctl playerctl wl-clipboard cliphist grim slurp swappy imagemagick libvips libqalculate
     gpu-screen-recorder ydotool libnotify trash-cli
@@ -22,8 +22,8 @@ PACMAN=(
     kitty fish starship fastfetch btop cava eza zoxide direnv
     # приложения из variables.lua
     thunar pavucontrol
-    # шрифты, иконки (Papirus-Dark — основа темы папок Rice)
-    ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji papirus-icon-theme
+    # шрифты (cjk — каомодзи в Charms), иконки (Papirus-Dark — основа темы папок Rice), тёмная база для gtk.css
+    ttf-jetbrains-mono-nerd noto-fonts noto-fonts-cjk noto-fonts-emoji papirus-icon-theme adw-gtk-theme
 )
 
 AUR=(
@@ -56,7 +56,8 @@ say() { printf '\e[38;2;215;25;33m●\e[0m %s\n' "$*"; }
 
 packages() {
     say "pacman"
-    sudo pacman -Syu --needed --noconfirm "${PACMAN[@]}"
+    # без --noconfirm: на конфликте (pulseaudio → pipewire-pulse) он ответил бы «нет» и уронил установку
+    sudo pacman -Syu --needed "${PACMAN[@]}"
 
     if ! command -v yay >/dev/null; then
         say "yay"
@@ -67,7 +68,8 @@ packages() {
     fi
 
     say "aur"
-    yay -S --needed --noconfirm "${AUR[@]}"
+    # AUR необязателен: упал пакет — сервисы и ссылки всё равно ставим
+    yay -S --needed --noconfirm "${AUR[@]}" || say "aur: встало не всё, см. выше"
 }
 
 services() {
@@ -99,6 +101,9 @@ links() {
     echo glyph > "${XDG_STATE_HOME:-$HOME/.local/state}/rice/shell"
     mkdir -p "$HOME/Pictures/Wallpapers" # пикер обоев (Super+Shift+W) смотрит сюда
     fc-cache -f >/dev/null
+    # тёмный режим для Zen, Electron и libadwaita (через портал) и тёмная gtk3-база под наш gtk.css
+    gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+    gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
 }
 
 [ "$EUID" -eq 0 ] && { echo "запускай от пользователя, sudo спросит сам"; exit 1; }

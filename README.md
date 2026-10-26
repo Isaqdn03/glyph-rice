@@ -80,10 +80,10 @@ Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pul
 | | |
 |---|---|
 | **Shell** | `quickshell` (Qt 6.9+) · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` · `libqalculate` |
-| **System** | `networkmanager` · `bluez` · `pipewire` · `wireplumber` · `upower` · `power-profiles-daemon` · `brightnessctl` · `libnotify` · `playerctl` · `polkit-gnome` · `gnome-keyring` · `geoclue` |
+| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `brightnessctl` · `libnotify` · `playerctl` · `polkit-gnome` · `gnome-keyring` · `geoclue` |
 | **Capture** | `grim` · `slurp` · `imagemagick` · `libvips` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `cava` · `eza` · `zoxide` · `direnv` |
-| **Look** | `papirus-icon-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · Bibata · `qtengine` · `darkly` |
+| **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
 | **Optional** | `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` |
 
 From the AUR only `qtengine`, `darkly`, Bibata, Zen and Clash Verge, all optional. The VPN panel expects Clash Verge in English.
