@@ -117,13 +117,6 @@ hl.window_rule({ match = { initial_title = "Spotify( \\(?Free\\)?)?" }, workspac
 hl.window_rule({ match = { class = "discord|equibop|vesktop|whatsapp|org\\.telegram\\.desktop|TelegramDesktop" }, workspace = "special:communication" })
 hl.window_rule({ match = { class = "Todoist|io\\.github\\.alainm23\\.planify" }, workspace = "special:todo" })
 
--------------------------
----- Workspace rules ----
--------------------------
-
-hl.workspace_rule({ workspace = "w[tv1]s[false]", gaps_out = vars.singleWindowGapsOut })
-hl.workspace_rule({ workspace = "f[1]s[false]", gaps_out = vars.singleWindowGapsOut })
-
 ---------------------
 ---- Layer rules ----
 ---------------------

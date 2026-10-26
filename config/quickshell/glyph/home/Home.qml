@@ -21,6 +21,8 @@ PanelWindow {
 
     readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
     Binding { target: SysStats; property: "detailed"; value: root.home || Sys.deckOpen }
+    // не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно
+    Binding { target: Cava; property: "active"; value: root.home && bento.model.some(w => w.id === "cava") }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var en: Qt.locale("en_US")
@@ -82,6 +84,7 @@ PanelWindow {
         // Theme.kinds. Кладём слева направо: не влез в ряд — со следующего, в три ряда не влез — не показывается.
         // Квадрат со скруглением 40 или круг — других форм нет
         Repeater {
+            id: bento
             model: {
                 const out = [];
                 let r = 0, c = 0;
@@ -277,7 +280,6 @@ PanelWindow {
             id: cavaW
             W {
                 round: true
-                Binding { target: Cava; property: "active"; value: root.home }
                 Grid {
                     anchors.centerIn: parent
                     columns: 15

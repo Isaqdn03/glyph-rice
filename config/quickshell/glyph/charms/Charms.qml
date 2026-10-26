@@ -18,8 +18,9 @@ PanelWindow {
     readonly property string query: input.text.toLowerCase().replace(/ё/g, "е")
 
     readonly property var lists: [Data.KAOMOJI, Data.EMOJI, Data.SYMBOLS]
-    // слова в charms.js уже строчные — без toLowerCase и деструктуризации: по 1900 эмодзи это кадр на каждую букву
-    readonly property var view: query ? lists[tab].filter(e => e[1].includes(query) || e[0].includes(query)) : lists[tab]
+    // слова в charms.js уже строчные — без toLowerCase и деструктуризации: по 1900 эмодзи это кадр на каждую букву.
+    // Сам символ («Ω», «Ψ») — строчными, но только если слова не совпали
+    readonly property var view: query ? lists[tab].filter(e => e[1].includes(query) || e[0].toLowerCase().includes(query)) : lists[tab]
     readonly property var cur: view[sel] ?? null
 
     property bool shown: false

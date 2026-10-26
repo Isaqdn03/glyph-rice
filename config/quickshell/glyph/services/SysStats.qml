@@ -64,7 +64,7 @@ Singleton {
     Process {
         running: true
         command: ["sh", "-c", `for h in /sys/class/hwmon/hwmon*; do echo "hwmon $(cat $h/name) $h"; done
-command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1 && echo "nvidia $(ls -d /sys/bus/pci/drivers/nvidia/0000:* 2>/dev/null | head -1)"
+command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1 && echo "nvidia $(ls -d /sys/bus/pci/drivers/nvidia/*:* 2>/dev/null | head -1)"
 for c in /sys/class/drm/card*/device; do [ -e "$c/gpu_busy_percent" ] && { echo "card $c $(ls -d $c/hwmon/hwmon* 2>/dev/null | head -1)"; break; }; done`]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -163,7 +163,7 @@ for c in /sys/class/drm/card*/device; do [ -e "$c/gpu_busy_percent" ] && { echo 
         root.cpuTemp = root.num(cpuTempF) / 1000;
         // спящую дискретку гибридного ноутбука опрос будит, и с опросом раз в 2 с она уже не засыпает (nvidia-smi — точно).
         // Спит — значит, простаивает: 0, карту не трогаем
-        if (root.read(gpuPm).startsWith("suspend")) root.gpu = 0;
+        if (root.read(gpuPm).startsWith("suspend")) { root.gpu = 0; root.gpuTemp = 0; }
         else if (root.gpuType === "nvidia") nvidia.running = true;
         else {
             root.gpu = root.num(gpuBusy) / 100;

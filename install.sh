@@ -79,8 +79,9 @@ packages() {
     say "pacman"
     # модули pulseaudio требуют его самого — pacman не дал бы заменить его на pipewire-pulse.
     # Списком, не grep '^pulseaudio-': pulseaudio-alsa и pulseaudio-qt с pipewire живут
-    local pa; pa=$(pacman -Qq pulseaudio-{bluetooth,jack,lirc,rtp,zeroconf,equalizer} 2>/dev/null || true)
+    local pa; pa=$(pacman -Qq pulseaudio-{bluetooth,jack,lirc,rtp,zeroconf,equalizer,equalizer-ladspa} 2>/dev/null || true)
     [ -z "$pa" ] || sudo pacman -R $pa
+    pacman -Q pulseaudio &>/dev/null && say "pacman спросит «Remove pulseaudio?» — ответь y, его заменит pipewire-pulse"
     # без --noconfirm: на конфликте (pulseaudio → pipewire-pulse) он ответил бы «нет» и уронил установку
     sudo pacman -Syu --needed "${PACMAN[@]}"
 

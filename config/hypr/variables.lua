@@ -60,7 +60,6 @@ return {
     workspaceGaps              = 15,
     windowGapsIn               = 6,
     windowGapsOut              = 14,
-    singleWindowGapsOut        = 14,
 
     -- Window styling
     windowOpacity              = 1,

@@ -13,7 +13,7 @@ if status is-interactive
     command -v eza &> /dev/null && alias ls='eza --icons --group-directories-first -1'
 
     # cava точками, как Glyph Matrix (~/.config/cava/dots); обычные столбики — command cava
-    alias cava ~/.config/cava/dots
+    command -v cava &> /dev/null && alias cava ~/.config/cava/dots
 
     # Abbrs
     abbr lg 'lazygit'

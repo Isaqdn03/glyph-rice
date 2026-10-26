@@ -121,6 +121,7 @@ PanelWindow {
         if (row.length) sel = row.reduce((a, x) => Math.abs(x.col - c.col) < Math.abs(a.col - c.col) ? x : a).k;
     }
     function launch() {
+        if (!shown) return; // гаснет Theme.t и ещё ловит клики: второй клик двойного — второе окно
         if (mode === 3) {
             if (calcOut) Quickshell.execDetached(["wl-copy", calcOut]);
             return close();

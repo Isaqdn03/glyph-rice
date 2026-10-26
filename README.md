@@ -17,12 +17,12 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | | | |
 |---|---|:---:|
 | **Bar** | launcher, workspaces, clock, tray | |
-| **Home** | clock, greeting, widgets, dot grid | |
+| **Home** | clock, greeting, widgets (cava as a round Glyph Matrix), dot grid | |
 | **Glyph** | screen edges as OSD: volume, brightness, notifications, progress | |
 | **Launcher** | apps, commands, windows, calculator | `Super` |
-| **Quick** | quick settings, media, notifications; also opens from the right edge | `Super` `A` |
+| **Quick** | quick settings, game mode, media, notifications; also opens from the right edge | `Super` `A` |
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
-| **Prefs** | settings | `Super` `I` |
+| **Prefs** | settings, bar and home layout | `Super` `I` |
 | **Shot** | screenshots, editor, recording | `Print` |
 | **Clip** | clipboard history | `Super` `V` |
 | **Charms** | emoji, kaomoji, symbols | `Super` `.` |
@@ -34,7 +34,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Lock** | lock screen | `Super` `L` |
 | **Rice** | shell switcher, if Demon's Shot is installed too | `rice switch <name>` |
 
-Also: Hyprland (Lua), hypridle, kitty, fish, starship, fastfetch, btop, cava, GTK, Qt and folder colours.
+Also: Hyprland (Lua), hypridle, kitty, fish, starship, fastfetch, btop, cava (dots in fish; `command cava` for bars), GTK, Qt and folder colours.
 
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
 
@@ -81,6 +81,8 @@ local apps = require("variables").apps
 apps.editor = "codium"              -- Super Shift K, empty by default
 apps.todo   = "planify"             -- Super R, empty by default
 apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
+
+hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
 
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
@@ -90,7 +92,7 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 | | |
 |---|---|
 | **Shell** | `quickshell` (Qt 6.9+) · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` · `libqalculate` |
-| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `brightnessctl` · `libnotify` · `playerctl` · `polkit-gnome` · `gnome-keyring` · `geoclue` |
+| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-pulse` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `brightnessctl` · `libnotify` · `playerctl` · `polkit-gnome` · `gnome-keyring` · `geoclue` |
 | **Capture** | `grim` · `slurp` · `imagemagick` · `libvips` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `cava` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
