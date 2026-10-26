@@ -8,7 +8,7 @@ import qs.components
 
 // лаунчер: тап Super или Super+Space. Панель 860 по центру, экран гаснет до 74%. Поиск-пилюля с красной кареткой,
 // режимы чипами (Tab): apps / run / windows / calc. Без запроса — «recent» и все приложения сеткой по 6, справа алфавит.
-// Иконки — монохромные глифы в кругах, неизвестные — сама иконка точками; выбранная — белый круг
+// Появляется как Charms и Clip: подъём на 24 и fade. Иконки — монохромные глифы в кругах, неизвестные — сама иконка точками; выбранная — белый круг
 PanelWindow {
     id: root
 
@@ -100,16 +100,20 @@ PanelWindow {
     readonly property var flat: blocks.reduce((a, x) => a.concat(x.items), [])
     readonly property var cur: flat[sel] ?? null
 
+    property bool shown: false
+    property real t: shown ? 1 : 0
+    Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+
     function open() {
         input.text = "";
         mode = 0;
         sel = 0;
         flick.contentY = 0;
-        visible = true;
+        shown = true;
         input.forceActiveFocus();
     }
-    function close() { visible = false; }
-    function toggle() { visible ? close() : open(); }
+    function close() { shown = false; }
+    function toggle() { shown ? close() : open(); }
     function move(dr, dc) {
         if (!flat.length) return;
         if (dc) return sel = (sel + dc + flat.length) % flat.length;
@@ -149,17 +153,20 @@ PanelWindow {
     // список сжался без нового запроса (закрылось окно в windows) — курсор за концом, cur пустой
     onFlatChanged: sel = Math.max(0, Math.min(sel, flat.length - 1))
 
-    visible: false
+    onVisibleChanged: if (visible) input.forceActiveFocus()
+
+    visible: t > 0
     anchors { left: true; right: true; top: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.namespace: "glyph-launcher"
 
     Rectangle {
         anchors.fill: parent
         color: Theme.scrim
+        opacity: root.t
         MouseArea { anchors.fill: parent; onClicked: root.close() }
     }
 
@@ -169,9 +176,10 @@ PanelWindow {
         Rectangle {
             id: panel
             x: (stage.width - width) / 2
-            y: 140
+            y: 140 + 24 * (1 - root.t)
             width: 860
             height: Math.min(stage.height - 280, 30 + 66 + 20 + body.height + 34)
+            opacity: root.t
             radius: 44
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
