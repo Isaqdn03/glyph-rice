@@ -177,14 +177,11 @@ PanelWindow {
                         readonly property bool ac: !UPower.onBattery
                         readonly property bool charging: root.bat.state === UPowerDeviceState.Charging
                         readonly property bool low: !ac && root.bat.percentage < 0.15
-                        property real pulse: 1
-                        SequentialAnimation on pulse {
-                            running: batc.charging
-                            loops: Animation.Infinite
-                            onRunningChanged: if (!running) batc.pulse = 1
-                            NumberAnimation { to: 0.35; duration: 1100; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1; duration: 1100; easing.type: Easing.InOutSine }
-                        }
+                        // дыхание шагом 20 кадров/с, как шар в home/Back: анимация гнала бы бар на каждом vsync (120 Гц) все часы
+                        // зарядки. Косинус с периодом 2,2 с — те же два InOutSine по 1,1 с
+                        property real phase: 0
+                        readonly property real pulse: charging ? 0.675 + 0.325 * Math.cos(phase * Math.PI / 1.1) : 1
+                        Timer { running: batc.charging; interval: 50; repeat: true; onTriggered: batc.phase = (batc.phase + 0.05) % 2.2; onRunningChanged: batc.phase = 0 }
                         Icon { visible: batc.ac; anchors.horizontalCenter: parent.horizontalCenter; text: "\u{F140B}"; font.pixelSize: 14 }
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
