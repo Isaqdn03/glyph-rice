@@ -9,9 +9,9 @@ import qs
 import qs.components
 import qs.settings
 
-// бар: вертикальная пилюля у левого края (или правого — Theme.state.barRight). Сверху знак (кольцо из 16 точек) — лаунчер, центр краснеет, пока запись или микрофон.
-// Воркспейсы точками, заголовок окна столбиком, часы Doto по центру, трей снизу — клик открывает быстрые настройки.
-// Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
+// бар: пилюля у левого края, правого или сверху — Theme.state.barAt. Первым знак (кольцо из 16 точек) — лаунчер, центр краснеет,
+// пока запись или микрофон. Воркспейсы точками, заголовок окна, часы Doto по центру, трей последним — клик открывает быстрые настройки.
+// Сбоку всё столбиком, сверху — строкой. Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
 PanelWindow {
     id: root
 
@@ -20,9 +20,11 @@ PanelWindow {
     signal powerClicked
     signal clockClicked
 
-    readonly property bool atRight: Theme.state.barRight
-    anchors { left: !atRight; right: atRight; top: true; bottom: true }
-    implicitWidth: Math.ceil(78 * Theme.s)
+    readonly property bool atRight: Theme.state.barAt === "right"
+    readonly property bool vert: Theme.state.barAt !== "top"
+    anchors { left: !atRight; right: !vert || atRight; top: true; bottom: vert }
+    implicitWidth: Math.ceil(78 * Theme.s)  // сбоку
+    implicitHeight: Math.ceil(78 * Theme.s) // сверху
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
@@ -41,10 +43,11 @@ PanelWindow {
     Stage {
         Rectangle {
             id: pill
-            x: root.atRight ? 0 : 14 // 14 от края экрана
+            // 14 от краёв экрана
+            x: root.atRight ? 0 : 14
             y: 14
-            width: 64
-            height: parent.height - 28
+            width: root.vert ? 64 : parent.width - 28
+            height: root.vert ? parent.height - 28 : 64
             radius: 32
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
@@ -54,8 +57,8 @@ PanelWindow {
             // знак: кольцо из точек, центр — красный, пока что-то пишет
             Item {
                 id: mark
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 18
+                x: root.vert ? (parent.width - width) / 2 : 18
+                y: root.vert ? 18 : (parent.height - height) / 2
                 width: 34
                 height: 34
                 Ring { anchors.fill: parent; n: 16; dot: 3 }
@@ -70,10 +73,10 @@ PanelWindow {
             }
 
             // воркспейсы: текущий вытягивается в белую пилюлю, занятые серые, пустые — линия
-            Column {
+            Pile {
                 id: ws
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: mark.y + mark.height + 24
+                x: root.vert ? (parent.width - width) / 2 : mark.x + mark.width + 24
+                y: root.vert ? mark.y + mark.height + 24 : (parent.height - height) / 2
                 spacing: 8
 
                 Repeater {
@@ -84,31 +87,32 @@ PanelWindow {
                         readonly property int n: index + 1
                         readonly property bool occ: (Hyprland.workspaces.values.find(w => w.id === n)?.toplevels.values.length ?? 0) > 0
                         readonly property bool on: root.active === n
-                        width: 8
-                        height: on ? 28 : 8
+                        property real len: on ? 28 : 8
+                        width: root.vert ? 8 : len
+                        height: root.vert ? len : 8
                         radius: 4
                         color: on ? Theme.fg : occ ? Theme.grey : Theme.s3
-                        Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                        Behavior on len { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         Behavior on color { ColorAnimation { duration: Theme.t } }
                         MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.go(parent.n) }
                     }
                 }
             }
 
-            // заголовок окна, повёрнутый: от воркспейсов до часов
+            // заголовок окна: от воркспейсов до часов, сбоку — повёрнутый
             Item {
                 id: title
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: ws.y + ws.height + 24
-                width: 20
-                height: Math.max(0, clk.y - 24 - y)
+                x: root.vert ? (parent.width - width) / 2 : ws.x + ws.width + 24
+                y: root.vert ? ws.y + ws.height + 24 : (parent.height - height) / 2
+                width: root.vert ? 20 : Math.max(0, clk.x - 24 - x)
+                height: root.vert ? Math.max(0, clk.y - 24 - y) : 20
                 clip: true
                 visible: Theme.state.barTitle
                 Lb {
                     x: (parent.width - width) / 2
                     y: (parent.height - height) / 2
-                    width: parent.height
-                    rotation: 90
+                    width: root.vert ? parent.height : parent.width
+                    rotation: root.vert ? 90 : 0
                     elide: Text.ElideRight
                     visible: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
                     text: root.top ? `${root.top.appId.split(".").pop()} · ${root.top.title}` : ""
@@ -116,25 +120,18 @@ PanelWindow {
                 }
             }
 
-            // часы столбиком: 14 над 32 и день. Клик — календарь и фокус-таймер (cal/Cal)
-            Column {
+            // часы: сбоку столбиком 14 над 32 и день, сверху строкой. Клик — календарь и фокус-таймер (cal/Cal)
+            Pile {
                 id: clk
                 anchors.centerIn: parent
                 TapHandler { onTapped: root.clockClicked() }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
-                Num {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Theme.hh(clock.date)
-                    font.pixelSize: 30
-                }
-                Num {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Qt.formatTime(clock.date, "mm")
-                    font.pixelSize: 30
-                }
+                Num { text: Theme.hh(clock.date); font.pixelSize: 30 }
+                Num { visible: !root.vert; text: ":"; font.pixelSize: 30 }
+                Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 30 }
                 Lb {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    topPadding: 8
+                    topPadding: root.vert ? 8 : 0
+                    leftPadding: root.vert ? 0 : 12
                     text: Qt.locale("en_US").toString(clock.date, "ddd d")
                     px: 10
                 }
@@ -142,8 +139,9 @@ PanelWindow {
 
             // трей — Theme.state.bar по порядку (настройки, раздел BAR). Раскладка, сеть, bluetooth, звук (колесо — громкость),
             // уведомления, батарея: клик открывает быстрые настройки. Режим питания и питание — свои клики
-            Column {
-                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 22 }
+            Pile {
+                x: root.vert ? (parent.width - width) / 2 : parent.width - width - 22
+                y: root.vert ? parent.height - height - 22 : (parent.height - height) / 2
                 spacing: 20
 
                 Repeater {
@@ -152,7 +150,6 @@ PanelWindow {
                         id: part
                         required property string modelData
                         readonly property bool quick: modelData !== "mode" && modelData !== "power"
-                        anchors.horizontalCenter: parent.horizontalCenter
                         sourceComponent: root.parts[modelData] ?? null
                         visible: !!sourceComponent && (modelData !== "battery" || root.bat.isLaptopBattery)
                         TapHandler { enabled: part.quick; onTapped: root.trayClicked() }
@@ -161,6 +158,15 @@ PanelWindow {
                 }
             }
         }
+    }
+    // столбик сбоку, строка сверху; по центру поперёк. columns/rows ≤ 0 — Grid считает сам.
+    // ponytail: при смене края columns и rows меняются по очереди — один раз «more visible items than rows*columns» в лог, безвредно
+    component Pile: Grid {
+        readonly property bool vert: Theme.state.barAt !== "top"
+        columns: vert ? 1 : -1
+        rows: vert ? -1 : 1
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
     }
 
     readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
@@ -193,10 +199,10 @@ PanelWindow {
             color: Notes.list.length ? Theme.fg : Theme.grey
         }
     }
-    // в вертикальном баре батарея стоит, заряд растёт снизу. На зарядке — молния сверху, заливка дышит, пока заряжается
+    // сбоку батарея стоит, заряд растёт снизу; сверху — лежит, растёт слева. На зарядке — молния первой, заливка дышит, пока заряжается
     Component {
         id: batC
-        Column {
+        Pile {
             id: batc
             HoverHandler { onHoveredChanged: { root.batHot = hovered; root.peek(batc); } Component.onDestruction: root.batHot = false }
             spacing: 8
@@ -207,25 +213,24 @@ PanelWindow {
             property real phase: 0
             readonly property real pulse: charging ? 0.675 + 0.325 * Math.cos(phase * Math.PI / 1.1) : 1
             Timer { running: batc.charging; interval: 50; repeat: true; onTriggered: batc.phase = (batc.phase + 0.05) % 2.2; onRunningChanged: batc.phase = 0 }
-            Icon { visible: batc.ac; anchors.horizontalCenter: parent.horizontalCenter; text: "\u{F140B}"; font.pixelSize: 14 }
+            Icon { visible: batc.ac; text: "\u{F140B}"; font.pixelSize: 14 }
             Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: 14
-                height: 26
+                width: root.vert ? 14 : 26
+                height: root.vert ? 26 : 14
                 radius: 7
                 color: "transparent"
                 border { width: 1.5; color: Theme.grey }
                 Rectangle {
                     x: 3
-                    width: parent.width - 6
-                    height: (parent.height - 6) * root.bat.percentage
-                    anchors { bottom: parent.bottom; bottomMargin: 3 }
+                    y: parent.height - 3 - height
+                    width: root.vert ? parent.width - 6 : (parent.width - 6) * root.bat.percentage
+                    height: root.vert ? (parent.height - 6) * root.bat.percentage : parent.height - 6
                     radius: 4
                     color: root.batLow ? Theme.red : Theme.fg
                     opacity: batc.pulse
                 }
             }
-            Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
+            Lb { text: Math.round(root.bat.percentage * 100); px: 10 }
         }
     }
     // режим питания засечками (Rules.modes): ultra — одна, performance — все; клик — следующий,
@@ -272,9 +277,10 @@ PanelWindow {
     property bool tickHot: false
     readonly property bool powHot: batHot || tickHot || popHov.hovered
     readonly property bool batLow: UPower.onBattery && root.bat.percentage < 0.15
-    // карточка встаёт низом по тому, на что навели (батарея или засечки); пока видна — не прыгает
-    property real popY: 0
-    function peek(it) { if (!pop.visible) popY = it.mapToItem(pill, 0, it.height).y; }
+    // карточка встаёт по тому, на что навели (батарея или засечки): сбоку — низом к его низу, сверху — правым краем к его правому;
+    // пока видна — не прыгает
+    property point popAt
+    function peek(it) { if (!pop.visible) popAt = it.mapToItem(pill, it.width, it.height); }
     property bool powOpen: false
     property int powPeek: -1
     onPowHotChanged: powHot ? powOpenT.restart() : powCloseT.restart()
@@ -291,11 +297,12 @@ PanelWindow {
         property real t: root.powOpen ? 1 : 0
         Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         visible: t > 0
-        // от внутреннего края пилюли бара с зазором 14; низом — по popY, растёт вверх
+        // от внутреннего края пилюли бара с зазором 14; сбоку растёт вверх от popAt, сверху — вниз и влево
         anchor.item: pill
-        anchor.rect: Qt.rect(root.atRight ? -15 : pill.width + 14, root.popY, 1, 1)
+        anchor.rect: !root.vert ? Qt.rect(root.popAt.x, pill.height + 14, 1, 1)
+            : Qt.rect(root.atRight ? -15 : pill.width + 14, root.popAt.y, 1, 1)
         anchor.edges: Edges.Top | Edges.Left
-        anchor.gravity: Edges.Top | (root.atRight ? Edges.Left : Edges.Right)
+        anchor.gravity: !root.vert ? Edges.Bottom | Edges.Left : Edges.Top | (root.atRight ? Edges.Left : Edges.Right)
         implicitWidth: Math.ceil(440 * Theme.s)
         implicitHeight: Math.ceil(card.height * Theme.s)
         color: "transparent"
@@ -309,7 +316,7 @@ PanelWindow {
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
                 opacity: pop.t
-                transform: Translate { x: (root.atRight ? 16 : -16) * (1 - pop.t) }
+                transform: Translate { x: root.vert ? (root.atRight ? 16 : -16) * (1 - pop.t) : 0; y: root.vert ? 0 : -16 * (1 - pop.t) }
                 HoverHandler { id: popHov }
 
                 Column {

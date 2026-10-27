@@ -100,6 +100,7 @@ Scope {
         id: top
         shown: !!root.note && Theme.state.edges
         anchors.top: true
+        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // под баром
         implicitWidth: Math.ceil(640 * Theme.s)
         implicitHeight: Math.ceil(30 * Theme.s)
         Seg {
@@ -128,6 +129,7 @@ Scope {
     PanelWindow {
         visible: stack.count > 0
         anchors.top: true
+        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // под баром
         implicitWidth: Math.ceil(600 * Theme.s)
         implicitHeight: Math.ceil((24 + root.most * 132) * Theme.s)
         exclusionMode: ExclusionMode.Ignore
@@ -258,7 +260,7 @@ Scope {
     Edge {
         id: side
         anchors.right: true
-        margins.right: Theme.state.barRight ? Math.ceil(78 * Theme.s) : 0 // не поверх бара
+        margins.right: Theme.state.barAt === "right" ? Math.ceil(78 * Theme.s) : 0 // не поверх бара
         implicitWidth: Math.ceil(160 * Theme.s)
         implicitHeight: Math.ceil(520 * Theme.s)
         Lit {

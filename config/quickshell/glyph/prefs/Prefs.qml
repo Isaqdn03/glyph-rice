@@ -432,7 +432,7 @@ PanelWindow {
         Page {
             id: bar
             k: 2
-            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · ${Theme.state.barRight ? "right" : "left"} edge`
+            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · ${Theme.state.barAt} edge`
             property int cur: 0
             // тянут from (-1 — никого): dy — сдвиг курсора в px макета, at — где он в столбике, to — куда встанет
             property int from: -1
@@ -522,7 +522,7 @@ PanelWindow {
                     spacing: 14
                     Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
                     Lb { topPadding: 6; text: "above the clock"; px: 10 }
-                    Toggle { width: 200; text: "right edge"; on: Theme.state.barRight; onFlip: Theme.state.barRight = !Theme.state.barRight }
+                    Pick { label: "edge"; opts: ["left", "right", "top"]; cur: opts.indexOf(Theme.state.barAt); onPicked: i => Theme.state.barAt = opts[i] }
                 }
             }
 
@@ -641,11 +641,12 @@ PanelWindow {
                             required property int index
                             readonly property real o: gOut.v * desk.k
                             readonly property real l: 78 * desk.k + o // бар 64 + отступ 14
-                            readonly property real w: (desk.width - l - o - 2 * gIn.v * desk.k) / 2
-                            x: (Theme.state.barRight ? o : l) + (index ? w + 2 * gIn.v * desk.k : 0)
-                            y: o
+                            readonly property real w: (desk.width - (at === "top" ? o : l) - o - 2 * gIn.v * desk.k) / 2
+                            readonly property string at: Theme.state.barAt
+                            x: (at === "left" ? l : o) + (index ? w + 2 * gIn.v * desk.k : 0)
+                            y: at === "top" ? l : o
                             width: w
-                            height: desk.height - 2 * o
+                            height: desk.height - (at === "top" ? l : o) - o
                             radius: rnd.v * desk.k
                             color: Theme.s1
                             border { width: bord.v ? Math.max(1, bord.v * desk.k) : 0; color: index ? Theme.s3 : Theme.fg }

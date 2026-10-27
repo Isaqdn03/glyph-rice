@@ -73,7 +73,7 @@ PanelWindow {
             HoverHandler { id: keep }
             Rectangle {
                 id: panel
-                anchors { right: parent.right; rightMargin: (Theme.state.barRight ? 92 : 14) - 24 * (1 - root.t); bottom: parent.bottom; bottomMargin: 14 }
+                anchors { right: parent.right; rightMargin: (Theme.state.barAt === "right" ? 92 : 14) - 24 * (1 - root.t); bottom: parent.bottom; bottomMargin: 14 }
                 width: 470
                 height: col.height + 44
                 opacity: root.t
