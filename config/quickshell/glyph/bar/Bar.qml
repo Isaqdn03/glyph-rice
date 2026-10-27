@@ -9,7 +9,7 @@ import qs
 import qs.components
 import qs.settings
 
-// бар: пилюля у левого края, правого или сверху — Theme.state.barAt. Первым знак (кольцо из 16 точек) — лаунчер, центр краснеет,
+// бар: пилюля у левого края или сверху — Theme.state.barAt. Первым знак (кольцо из 16 точек) — лаунчер, центр краснеет,
 // пока запись или микрофон. Воркспейсы точками, заголовок окна, часы Doto по центру, трей последним — клик открывает быстрые настройки.
 // Сбоку всё столбиком, сверху — строкой. Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
 PanelWindow {
@@ -20,9 +20,8 @@ PanelWindow {
     signal powerClicked
     signal clockClicked
 
-    readonly property bool atRight: Theme.state.barAt === "right"
-    readonly property bool vert: Theme.state.barAt !== "top"
-    anchors { left: !atRight; right: !vert || atRight; top: true; bottom: vert }
+    readonly property bool vert: Theme.state.barAt !== "top" // всё, кроме top (и неизвестное), — слева
+    anchors { left: true; right: !vert; top: true; bottom: vert }
     implicitWidth: Math.ceil(78 * Theme.s)  // сбоку
     implicitHeight: Math.ceil(78 * Theme.s) // сверху
     color: "transparent"
@@ -43,8 +42,7 @@ PanelWindow {
     Stage {
         Rectangle {
             id: pill
-            // 14 от краёв экрана
-            x: root.atRight ? 0 : 14
+            x: 14 // от краёв экрана
             y: 14
             width: root.vert ? 64 : parent.width - 28
             height: root.vert ? parent.height - 28 : 64
@@ -159,16 +157,6 @@ PanelWindow {
             }
         }
     }
-    // столбик сбоку, строка сверху; по центру поперёк. columns/rows ≤ 0 — Grid считает сам.
-    // ponytail: при смене края columns и rows меняются по очереди — один раз «more visible items than rows*columns» в лог, безвредно
-    component Pile: Grid {
-        readonly property bool vert: Theme.state.barAt !== "top"
-        columns: vert ? 1 : -1
-        rows: vert ? -1 : 1
-        horizontalItemAlignment: Grid.AlignHCenter
-        verticalItemAlignment: Grid.AlignVCenter
-    }
-
     readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
     Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
     Component {
@@ -199,7 +187,7 @@ PanelWindow {
             color: Notes.list.length ? Theme.fg : Theme.grey
         }
     }
-    // сбоку батарея стоит, заряд растёт снизу; сверху — лежит, растёт слева. На зарядке — молния первой, заливка дышит, пока заряжается
+    // слева батарея стоит, заряд растёт снизу; сверху — лежит, растёт слева. На зарядке — молния первой, заливка дышит, пока заряжается
     Component {
         id: batC
         Pile {
@@ -230,7 +218,9 @@ PanelWindow {
                     opacity: batc.pulse
                 }
             }
-            Lb { text: Math.round(root.bat.percentage * 100); px: 10 }
+            // ширина — под «100»: сверху трей прижат вправо, 99 → 100 сдвигал бы всё левее
+            Lb { width: full.implicitWidth; horizontalAlignment: Text.AlignHCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
+            Lb { id: full; visible: false; text: "100"; px: 10 }
         }
     }
     // режим питания засечками (Rules.modes): ultra — одна, performance — все; клик — следующий,
@@ -299,10 +289,9 @@ PanelWindow {
         visible: t > 0
         // от внутреннего края пилюли бара с зазором 14; сбоку растёт вверх от popAt, сверху — вниз и влево
         anchor.item: pill
-        anchor.rect: !root.vert ? Qt.rect(root.popAt.x, pill.height + 14, 1, 1)
-            : Qt.rect(root.atRight ? -15 : pill.width + 14, root.popAt.y, 1, 1)
+        anchor.rect: root.vert ? Qt.rect(pill.width + 14, root.popAt.y, 1, 1) : Qt.rect(root.popAt.x, pill.height + 14, 1, 1)
         anchor.edges: Edges.Top | Edges.Left
-        anchor.gravity: !root.vert ? Edges.Bottom | Edges.Left : Edges.Top | (root.atRight ? Edges.Left : Edges.Right)
+        anchor.gravity: root.vert ? Edges.Top | Edges.Right : Edges.Bottom | Edges.Left
         implicitWidth: Math.ceil(440 * Theme.s)
         implicitHeight: Math.ceil(card.height * Theme.s)
         color: "transparent"
@@ -316,7 +305,7 @@ PanelWindow {
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
                 opacity: pop.t
-                transform: Translate { x: root.vert ? (root.atRight ? 16 : -16) * (1 - pop.t) : 0; y: root.vert ? 0 : -16 * (1 - pop.t) }
+                transform: Translate { x: root.vert ? -16 * (1 - pop.t) : 0; y: root.vert ? 0 : -16 * (1 - pop.t) }
                 HoverHandler { id: popHov }
 
                 Column {

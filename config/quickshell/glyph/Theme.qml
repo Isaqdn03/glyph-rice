@@ -90,7 +90,7 @@ Singleton {
             property var deck: ["clock", "weather", "perf", "net", "media"] // её секции по порядку, см. decks
             property var bar: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // трей бара сверху вниз, см. bars
             property bool barTitle: true   // заголовок окна столбиком в баре
-            property string barAt: "left" // left, right, top; за баром едут календарь, дом, быстрые настройки, Glyph-полосы и остров
+            property string barAt: "left" // left или top; за баром едут календарь, карточка батареи, дом, остров и вспышка Glyph
             // запись (quick/Rec, Sys.recArgs)
             property int recArea: 0        // 0 весь монитор, 1 область (slurp)
             property int recAudio: 0       // 0 без звука, 1 система, 2 микрофон, 3 оба одной дорожкой

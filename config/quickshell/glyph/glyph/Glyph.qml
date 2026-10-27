@@ -260,7 +260,6 @@ Scope {
     Edge {
         id: side
         anchors.right: true
-        margins.right: Theme.state.barAt === "right" ? Math.ceil(78 * Theme.s) : 0 // не поверх бара
         implicitWidth: Math.ceil(160 * Theme.s)
         implicitHeight: Math.ceil(520 * Theme.s)
         Lit {

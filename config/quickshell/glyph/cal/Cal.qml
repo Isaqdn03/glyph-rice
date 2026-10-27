@@ -45,9 +45,9 @@ PanelWindow {
             id: panel
             // внутренний край пилюли бара (14 + 64) и зазор 14, выезжает от бара; поперёк — по центру, где часы
             readonly property real off: 92 - 24 * (1 - root.t)
-            readonly property string at: Theme.state.barAt
-            x: at === "top" ? (parent.width - width) / 2 : at === "right" ? parent.width - off - width : off
-            y: at === "top" ? off : (parent.height - height) / 2
+            readonly property bool onTop: Theme.state.barAt === "top"
+            x: onTop ? (parent.width - width) / 2 : off
+            y: onTop ? off : (parent.height - height) / 2
             width: 440
             height: col.height + 52
             opacity: root.t
