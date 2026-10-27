@@ -5,7 +5,9 @@ import QtQuick
 // Старт — поэтапное включение, как приборка машины: красная точка, насечка обходит круг, глифы до упора и стрелка
 // туда-обратно (самотест), потом часы и сессии. Слева за насечкой — лог шагов.
 // Буквы пароля разгоняют стрелку, Enter — до отсечки, пока pam думает; не тот — красная вспышка и стрелка падает.
-// ←→, колесо мыши или Tab — крутить диск (сессия), ↑↓ — пользователь, Esc — стереть
+// ←→ или колесо мыши — крутить диск (сессия), Tab — следующий пользователь, Shift+Tab или клик по имени — вписать своё,
+// Esc — стереть.
+// ↑ — второе кольцо, питание справа: там ←→ выбрать, Enter — выполнить, ↓ или Esc — назад, буква — назад к паролю
 Rectangle {
     id: root
 
@@ -80,14 +82,54 @@ Rectangle {
     Behavior on rot { SpringAnimation { spring: 5; damping: 0.35 } }
     function turn(d) { if (labels.count) si = (si + d + labels.count) % labels.count; }
 
+    // ---- второе кольцо: питание. pm — выбранное с клавиатуры, -1 — кольцо не выбрано ----
+    readonly property var power: [
+        { t: "sleep", a: 37, can: sddm.canSuspend, go: () => sddm.suspend() },
+        { t: "reboot", a: 52, can: sddm.canReboot, go: () => sddm.reboot() },
+        { t: "power off", a: 68, can: sddm.canPowerOff, go: () => sddm.powerOff() }
+    ]
+    property int pm: -1
+    // следующее доступное от i в сторону d; нет такого — остаётся i
+    function next(i, d) {
+        for (let j = i + d; j >= 0 && j < power.length; j += d) if (power[j].can) return j;
+        return i;
+    }
+    // стрелки и Enter на кольце — общие для обоих полей. true — клавиша съедена, поле её не увидит
+    function key(e) {
+        if (pm >= 0) {
+            if (e.key === Qt.Key_Left || e.key === Qt.Key_Right) pm = next(pm, e.key === Qt.Key_Right ? 1 : -1);
+            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) power[pm].go();
+            else if (e.key === Qt.Key_Down || e.key === Qt.Key_Escape) pm = -1;
+            else if (e.key !== Qt.Key_Up) { pm = -1; return false; } // печатают — назад, буква уходит в поле
+            return true;
+        }
+        if (e.key === Qt.Key_Up) { pm = next(-1, 1); return pm >= 0; }
+        if (e.key === Qt.Key_Left || e.key === Qt.Key_Right) { turn(e.key === Qt.Key_Right ? 1 : -1); return true; }
+        return false;
+    }
+
+    // ---- кто входит: имя — поле, список sddm его только заполняет (Tab). Вписать можно любого, в том числе скрытого ----
+    property int ui: Math.max(0, userModel.lastIndex)
+    function pick(d) {
+        if (!names.count) return;
+        ui = (ui + d + names.count) % names.count;
+        user.text = names.itemAt(ui).name;
+    }
+    Component.onCompleted: {
+        if (!user.text && names.count) user.text = names.itemAt(ui).name; // sddm не запомнил последнего — первый из списка
+        (user.text ? pwd : user).forceActiveFocus();
+    }
+
     property bool queued: false
     function login() {
-        if (busy || ok || !users.currentItem) return;
+        if (busy || ok) return;
+        const who = user.text.trim();
+        if (!who) { user.forceActiveFocus(); return; }
         if (step < 4) { queued = true; return; } // Enter во время самотеста — войдём, как только он кончится
         queued = false;
         busy = true;
         fail = false;
-        sddm.login(users.currentItem.login, pwd.text, si);
+        sddm.login(who, pwd.text, si);
     }
     onStepChanged: if (step === 4 && queued) login()
     Connections {
@@ -219,7 +261,7 @@ Rectangle {
                         px: 14
                         text: name
                         color: index === root.si ? root.fg : root.grey
-                        opacity: root.face * Math.max(0, 1 - off / 80)
+                        opacity: root.face * Math.max(0, 1 - off / 80) * (root.pm < 0 ? 1 : 0.35)
                         button: opacity > 0.2
                         onHit: root.si = index
                     }
@@ -233,7 +275,7 @@ Rectangle {
                 px: 11
                 color: root.mute
                 opacity: root.face
-                text: "←→ · session      " + (users.count > 1 ? "↑↓ · user      " : "") + "enter · start"
+                text: "←→ · session      ↑ · power      " + "tab · user      " + "enter · start"
             }
 
             // за насечкой по дуге: слева лог включения снизу вверх (шаг идёт — мигает, кончился — ok) и имя машины,
@@ -254,9 +296,32 @@ Rectangle {
             }
             Arc { r: 845; a: -22; color: root.mute; opacity: root.face; text: sddm.hostName }
             Arc { r: 845; a: 22; color: root.mute; opacity: root.face; text: keyboard.layouts[keyboard.currentLayout]?.shortName ?? "" }
-            Arc { r: 845; a: 37; button: sddm.canSuspend; color: button ? root.grey : root.mute; opacity: root.face; text: "sleep"; onHit: sddm.suspend() }
-            Arc { r: 845; a: 52; button: sddm.canReboot; color: button ? root.grey : root.mute; opacity: root.face; text: "reboot"; onHit: sddm.reboot() }
-            Arc { r: 845; a: 68; button: sddm.canPowerOff; color: button ? root.grey : root.mute; opacity: root.face; text: "power off"; onHit: sddm.powerOff() }
+            Repeater {
+                model: root.power
+                Arc {
+                    required property var modelData
+                    required property int index
+                    r: 845
+                    a: modelData.a
+                    button: modelData.can
+                    color: !button ? root.mute : root.pm === index ? root.fg : root.grey
+                    opacity: root.face
+                    text: modelData.t
+                    onHit: modelData.go()
+                }
+            }
+            // метка второго кольца: снаружи у выбранного, ездит, как метка диска
+            Polar {
+                a: root.power[Math.max(0, root.pm)].a
+                r: 885
+                width: 4
+                height: 16
+                radius: 2
+                color: root.fg
+                opacity: root.pm >= 0 ? 1 : 0
+                Behavior on a { SpringAnimation { spring: 5; damping: 0.35 } }
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+            }
 
             // шкала: глифы-капсулы, горят до стрелки. Отсечка — пока pam думает, по ним бежит провал
             Repeater {
@@ -355,29 +420,26 @@ Rectangle {
             }
 
             // под часами — кто входит и что происходит
-            ListView {
-                id: users
+            Repeater { id: names; model: userModel; Item { required property string name } } // логины для Tab
+            TextInput {
+                id: user
                 x: -width / 2
                 y: -98
                 width: 360
                 height: 30
-                interactive: false
-                clip: true
-                model: userModel
-                currentIndex: userModel.lastIndex
-                highlightRangeMode: ListView.StrictlyEnforceRange
-                highlightMoveDuration: 300
                 opacity: root.face
-                delegate: Text {
-                    required property string name
-                    required property string realName
-                    readonly property string login: name
-                    width: users.width
-                    height: users.height
-                    horizontalAlignment: Text.AlignHCenter
-                    text: realName || name
-                    font { family: grotesk.name; pixelSize: 24 }
-                    color: root.fg
+                text: userModel.lastUser
+                horizontalAlignment: TextInput.AlignHCenter
+                font { family: grotesk.name; pixelSize: 24 }
+                color: root.fg
+                selectionColor: root.s3
+                selectedTextColor: root.fg
+                Lb { anchors.centerIn: parent; visible: !parent.text; text: "user" }
+                onActiveFocusChanged: if (activeFocus) selectAll() // начали печатать — имя заменяется целиком
+                onAccepted: pwd.forceActiveFocus()
+                Keys.onPressed: e => {
+                    if (root.key(e)) e.accepted = true;
+                    else if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) { pwd.forceActiveFocus(); e.accepted = true; }
                 }
             }
             Lb {
@@ -387,6 +449,8 @@ Rectangle {
                 opacity: root.face
                 color: root.flash || root.fail ? root.red : root.grey
                 text: root.ok ? "welcome" : root.busy ? "ignition…" : root.fail ? "denied · try again"
+                    : root.pm >= 0 ? `enter · ${root.power[root.pm].t}      ↓ · back`
+                    : user.activeFocus ? "type user · tab"
                     : pwd.text ? `${pwd.text.length} · enter to start` : "type password"
             }
         }
@@ -401,13 +465,16 @@ Rectangle {
             echoMode: TextInput.Password
             onTextEdited: root.fail = false
             onAccepted: root.login()
-            Keys.onEscapePressed: text = ""
-            Keys.onUpPressed: users.decrementCurrentIndex()
-            Keys.onDownPressed: users.incrementCurrentIndex()
-            Keys.onLeftPressed: root.turn(-1) // курсор в невидимом поле не нужен — стрелки крутят диск
-            Keys.onRightPressed: root.turn(1)
-            Keys.onTabPressed: root.turn(1)
-            Keys.onBacktabPressed: root.turn(-1)
+            // курсор в невидимом поле не нужен — стрелки отданы диску и кольцу
+            Keys.onPressed: e => {
+                if (root.key(e)) e.accepted = true;
+                else if (e.key === Qt.Key_Escape) { text = ""; e.accepted = true; }
+                else if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) {
+                    if (e.key === Qt.Key_Tab && names.count > 1) root.pick(1);
+                    else user.forceActiveFocus(); // один в списке или Shift+Tab — вписать имя
+                    e.accepted = true;
+                }
+            }
         }
 
         // углы сверху: слева марка, справа индикаторы — точка горит, пока клавиша включена
