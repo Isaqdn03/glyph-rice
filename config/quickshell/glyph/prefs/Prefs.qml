@@ -703,7 +703,7 @@ PanelWindow {
                             readonly property real l: 78 * Theme.s * desk.k + o // бар 64 + отступ 14, в логических px
                             readonly property real w: (desk.width - (at === "top" ? o : l) - o - 2 * gIn.v * desk.k) / 2
                             readonly property string at: Theme.state.barAt
-                            x: (at === "left" ? l : o) + (index ? w + 2 * gIn.v * desk.k : 0)
+                            x: (at !== "top" ? l : o) + (index ? w + 2 * gIn.v * desk.k : 0)
                             y: at === "top" ? l : o
                             width: w
                             height: desk.height - (at === "top" ? l : o) - o

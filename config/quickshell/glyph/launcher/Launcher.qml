@@ -114,6 +114,7 @@ PanelWindow {
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
     function open() {
+        focusT.stop(); // окно из прошлого открытия не перехватит фокус у лаунчера
         input.text = "";
         mode = 0;
         sel = 0;
