@@ -9,7 +9,7 @@ import qs
 import qs.components
 import qs.settings
 
-// бар: вертикальная пилюля у левого края. Сверху знак (кольцо из 16 точек) — лаунчер, центр краснеет, пока запись или микрофон.
+// бар: вертикальная пилюля у левого края (или правого — Theme.state.barRight). Сверху знак (кольцо из 16 точек) — лаунчер, центр краснеет, пока запись или микрофон.
 // Воркспейсы точками, заголовок окна столбиком, часы Doto по центру, трей снизу — клик открывает быстрые настройки.
 // Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
 PanelWindow {
@@ -20,7 +20,8 @@ PanelWindow {
     signal powerClicked
     signal clockClicked
 
-    anchors { left: true; top: true; bottom: true }
+    readonly property bool atRight: Theme.state.barRight
+    anchors { left: !atRight; right: atRight; top: true; bottom: true }
     implicitWidth: Math.ceil(78 * Theme.s)
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
@@ -40,7 +41,7 @@ PanelWindow {
     Stage {
         Rectangle {
             id: pill
-            x: 14
+            x: root.atRight ? 0 : 14 // 14 от края экрана
             y: 14
             width: 64
             height: parent.height - 28
@@ -264,7 +265,7 @@ PanelWindow {
         }
     }
 
-    // ---- батарея и режим питания: навёл на батарею или засечки — карточка справа от бара, как поповер caelestia.
+    // ---- батарея и режим питания: навёл на батарею или засечки — карточка сбоку от бара (со стороны экрана), как поповер caelestia.
     // Заряд Doto, статус, шкала; ниже режимы кругами с засечками — клик выбирает, под курсором — что он делает.
     // Ушёл и с бара, и с карточки — гаснет ----
     property bool batHot: false
@@ -290,11 +291,11 @@ PanelWindow {
         property real t: root.powOpen ? 1 : 0
         Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         visible: t > 0
-        // от правого края пилюли бара с зазором 14; низом — по popY, растёт вверх
+        // от внутреннего края пилюли бара с зазором 14; низом — по popY, растёт вверх
         anchor.item: pill
-        anchor.rect: Qt.rect(pill.width + 14, root.popY, 1, 1)
+        anchor.rect: Qt.rect(root.atRight ? -15 : pill.width + 14, root.popY, 1, 1)
         anchor.edges: Edges.Top | Edges.Left
-        anchor.gravity: Edges.Top | Edges.Right
+        anchor.gravity: Edges.Top | (root.atRight ? Edges.Left : Edges.Right)
         implicitWidth: Math.ceil(440 * Theme.s)
         implicitHeight: Math.ceil(card.height * Theme.s)
         color: "transparent"
@@ -308,7 +309,7 @@ PanelWindow {
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
                 opacity: pop.t
-                transform: Translate { x: -16 * (1 - pop.t) }
+                transform: Translate { x: (root.atRight ? 16 : -16) * (1 - pop.t) }
                 HoverHandler { id: popHov }
 
                 Column {

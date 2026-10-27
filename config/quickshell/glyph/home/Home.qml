@@ -48,6 +48,7 @@ PanelWindow {
 
     Stage {
         id: stage
+        x: Theme.state.barRight ? -78 * Theme.s : 0 // бар справа — всё на его ширину влево, бенто не липнет к пилюле
 
         Row {
             x: 182

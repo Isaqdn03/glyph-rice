@@ -432,7 +432,7 @@ PanelWindow {
         Page {
             id: bar
             k: 2
-            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · left edge`
+            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · ${Theme.state.barRight ? "right" : "left"} edge`
             property int cur: 0
             // тянут from (-1 — никого): dy — сдвиг курсора в px макета, at — где он в столбике, to — куда встанет
             property int from: -1
@@ -522,6 +522,7 @@ PanelWindow {
                     spacing: 14
                     Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
                     Lb { topPadding: 6; text: "above the clock"; px: 10 }
+                    Toggle { width: 200; text: "right edge"; on: Theme.state.barRight; onFlip: Theme.state.barRight = !Theme.state.barRight }
                 }
             }
 
@@ -641,7 +642,7 @@ PanelWindow {
                             readonly property real o: gOut.v * desk.k
                             readonly property real l: 78 * desk.k + o // бар 64 + отступ 14
                             readonly property real w: (desk.width - l - o - 2 * gIn.v * desk.k) / 2
-                            x: index ? l + w + 2 * gIn.v * desk.k : l
+                            x: (Theme.state.barRight ? o : l) + (index ? w + 2 * gIn.v * desk.k : 0)
                             y: o
                             width: w
                             height: desk.height - 2 * o
