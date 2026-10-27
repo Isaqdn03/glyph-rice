@@ -3,6 +3,7 @@
 #   ./install.sh                   пакеты + сервисы + симлинки; спросит, что из EXTRA поставить ещё
 #   ./install.sh --with telegram   то же без вопроса (--with "" — только сам рис)
 #   ./install.sh --links           только симлинки (на уже готовой системе)
+#   ./install.sh --sddm            только тема входа (sudo); после правок в config/sddm — снова
 set -euo pipefail
 
 DOTS="$(cd "$(dirname "$0")" && pwd)"
@@ -135,15 +136,29 @@ links() {
     gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
 }
 
+greeter() { # тема входа. Копия, а не ссылка: пользователь sddm не прочтёт закрытый $HOME. fonts в теме — ссылка на config/fonts, -L копирует сами файлы
+    say "sddm: тема glyph"
+    sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    # InputMethod пустой: умолчание sddm — qtvirtualkeyboard, и с этой темой вылезает экранная клавиатура на весь экран
+    sudo mkdir -p /etc/sddm.conf.d
+    # zz-: файлы conf.d читаются по алфавиту, следующий перекрывает — наш последним, поверх чужих (virtualkbd.conf у astronaut)
+    printf '[Theme]\nCurrent=glyph\n\n[General]\nInputMethod=\n' | sudo tee /etc/sddm.conf.d/zz-glyph.conf >/dev/null
+    # /etc/sddm.conf главнее conf.d
+    if grep -qsE '^\s*Current=' /etc/sddm.conf && ! grep -qsE '^\s*Current=glyph\s*$' /etc/sddm.conf; then
+        say "в /etc/sddm.conf своя тема, он главнее: поставь там Current=glyph"
+    fi
+}
+
 [ "$EUID" -eq 0 ] && { echo "запускай от пользователя, sudo спросит сам"; exit 1; }
 
 case "${1:-}" in
     --links) links ;; # на любом дистрибутиве (NixOS, Fedora…): пакеты тогда свои, список — в README
+    --sddm) greeter ;;
     ""|--with) command -v pacman >/dev/null || { echo "пакеты ставлю только на Arch; на другом дистрибутиве: $0 --links"; exit 1; }
         [ "${1:-}" = --with ] && WITH="${*:2}" # и через запятую, и через пробел
-        extras; packages; services; links
+        extras; packages; services; links; greeter
         # spicetify нужен уже скачанный Spotify с входом в аккаунт, поэтому применять до первого запуска нечего
         [[ " ${WITH//,/ } " == *" spotify "* ]] && say "spotify: запусти, войди, потом spicetify config custom_apps marketplace && spicetify backup apply"
         say "готово. перезагрузись и выбери Hyprland в sddm" ;;
-    *) echo "usage: $0 [--with telegram,spotify,clash | --links]"; exit 1 ;;
+    *) echo "usage: $0 [--with telegram,spotify,clash | --links | --sddm]"; exit 1 ;;
 esac

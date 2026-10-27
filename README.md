@@ -32,6 +32,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Buds** | Nothing / CMF earbuds: battery, ANC | |
 | **Power** | power menu | `Super` `Esc` |
 | **Lock** | lock screen | `Super` `L` |
+| **Login** | SDDM theme: sessions on a camera dial, a Glyph tachometer that fills as you type, a staged power-on | `←` `→` |
 | **Rice** | shell switcher, if Demon's Shot is installed too | `rice switch <name>` |
 
 Also: Hyprland (Lua), hypridle, kitty, fish, starship, fastfetch, btop, cava (dots in fish; `command cava` for bars), GTK, Qt and folder colours.
@@ -45,7 +46,7 @@ Also: Hyprland (Lua), hypridle, kitty, fish, starship, fastfetch, btop, cava (do
 | ![launcher](screenshots/launcher.png) **Launcher** | ![quick](screenshots/quick.png) **Quick** |
 | ![deck](screenshots/deck.png) **Deck** | ![prefs](screenshots/settings.png) **Prefs** |
 | ![shot](screenshots/shot.png) **Shot** | ![clip](screenshots/clip.png) **Clip** |
-| ![power](screenshots/power.png) **Power** | |
+| ![power](screenshots/power.png) **Power** | ![login](screenshots/login.png) **Login** |
 
 <div align="center"><img src="assets/divider-matrix.svg" width="720" alt=""></div>
 
@@ -56,6 +57,7 @@ git clone https://github.com/Nebelung-cloud/glyph-rice ~/.local/share/glyph
 ~/.local/share/glyph/install.sh                  # Arch: packages, services, symlinks
 ~/.local/share/glyph/install.sh --with telegram  # same, extras picked up front
 ~/.local/share/glyph/install.sh --links          # any distro: symlinks only
+~/.local/share/glyph/install.sh --sddm           # login theme only (sudo); run again after editing it
 ```
 
 Without `--with` it asks which extras to add: `telegram` (`Super` `D`), `spotify` with Spicetify (`Super` `M`),
@@ -70,6 +72,7 @@ Without `--with` it asks which extras to add: `telegram` (`Super` `D`), `spotify
 | `kitty/` `qtengine/` | `~/.config/…` |
 | `fish/` | `~/.config/fish` |
 | `fonts/` | `~/.local/share/fonts/glyph` |
+| `sddm/glyph/` | copied to `/usr/share/sddm/themes/glyph` (the `sddm` user can't read your home), set in `/etc/sddm.conf.d/zz-glyph.conf` |
 
 Monitor, backlight, GPU and sensors are detected. Keyboard layouts are in `hypr/hyprland/input.lua`,
 default apps in `hypr/variables.lua`. Earbuds photo: `quickshell/glyph/buds/<device-name>.png`.
