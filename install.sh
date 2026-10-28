@@ -138,7 +138,11 @@ links() {
 
 greeter() { # тема входа. Копия, а не ссылка: пользователь sddm не прочтёт закрытый $HOME. fonts в теме — ссылка на config/fonts, -L копирует сами файлы
     say "sddm: тема glyph"
+    [ -d /usr/share/sddm/themes ] || { say "sddm не стоит — тему ставить некуда"; return 0; }
+    # rm: файлы, удалённые из репо, не остаются висеть в теме; chmod: при umask 077 копия вышла бы 600 и sddm её не прочтёт
+    sudo rm -rf /usr/share/sddm/themes/glyph
     sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    sudo chmod -R a+rX /usr/share/sddm/themes/glyph
     # InputMethod пустой: умолчание sddm — qtvirtualkeyboard, и с этой темой вылезает экранная клавиатура на весь экран
     sudo mkdir -p /etc/sddm.conf.d
     # zz-: файлы conf.d читаются по алфавиту, следующий перекрывает — наш последним, поверх чужих (virtualkbd.conf у astronaut)

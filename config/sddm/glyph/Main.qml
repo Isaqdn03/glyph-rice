@@ -98,7 +98,7 @@ Rectangle {
     function key(e) {
         if (pm >= 0) {
             if (e.key === Qt.Key_Left || e.key === Qt.Key_Right) pm = next(pm, e.key === Qt.Key_Right ? 1 : -1);
-            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) power[pm].go();
+            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { const p = power[pm]; pm = -1; p.go(); } // проснулись — кольцо отпущено, Enter будит, а не усыпляет снова
             else if (e.key === Qt.Key_Down || e.key === Qt.Key_Escape) pm = -1;
             else if (e.key !== Qt.Key_Up) { pm = -1; return false; } // печатают — назад, буква уходит в поле
             return true;
@@ -121,6 +121,7 @@ Rectangle {
     }
 
     property bool queued: false
+    property string msg // что сказал pam: «заблокирован после 3 попыток» у faillock
     function login() {
         if (busy || ok) return;
         const who = user.text.trim();
@@ -129,6 +130,7 @@ Rectangle {
         queued = false;
         busy = true;
         fail = false;
+        msg = "";
         sddm.login(who, pwd.text, si);
     }
     onStepChanged: if (step === 4 && queued) login()
@@ -136,6 +138,7 @@ Rectangle {
         target: sddm
         function onLoginFailed() { root.busy = false; root.fail = true; pwd.text = ""; denied.restart(); }
         function onLoginSucceeded() { root.busy = false; root.ok = true; }
+        function onInformationMessage(m) { root.msg = m; }
     }
 
     // метка: Space Mono капсом, трекинг .14em, серая
@@ -275,7 +278,7 @@ Rectangle {
                 px: 11
                 color: root.mute
                 opacity: root.face
-                text: "←→ · session      ↑ · power      " + "tab · user      " + "enter · start"
+                text: `←→ · session      ${root.next(-1, 1) >= 0 ? "↑ · power      " : ""}tab · user      enter · start`
             }
 
             // за насечкой по дуге: слева лог включения снизу вверх (шаг идёт — мигает, кончился — ok) и имя машины,
@@ -438,6 +441,7 @@ Rectangle {
                 onActiveFocusChanged: if (activeFocus) selectAll() // начали печатать — имя заменяется целиком
                 onAccepted: pwd.forceActiveFocus()
                 Keys.onPressed: e => {
+                    if (root.pm < 0 && (e.key === Qt.Key_Left || e.key === Qt.Key_Right)) return; // поле видно — стрелки двигают курсор, не диск
                     if (root.key(e)) e.accepted = true;
                     else if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) { pwd.forceActiveFocus(); e.accepted = true; }
                 }
@@ -448,7 +452,7 @@ Rectangle {
                 px: 12
                 opacity: root.face
                 color: root.flash || root.fail ? root.red : root.grey
-                text: root.ok ? "welcome" : root.busy ? "ignition…" : root.fail ? "denied · try again"
+                text: root.ok ? "welcome" : root.busy ? "ignition…" : root.fail ? root.msg || "denied · try again"
                     : root.pm >= 0 ? `enter · ${root.power[root.pm].t}      ↓ · back`
                     : user.activeFocus ? "type user · tab"
                     : pwd.text ? `${pwd.text.length} · enter to start` : "type password"
