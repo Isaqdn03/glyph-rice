@@ -22,8 +22,8 @@ Row {
         width: root.play
         height: root.play
         radius: root.play / 2
-        color: Theme.red
-        Icon { anchors.centerIn: parent; text: Media.playing ? "\u{F03E4}" : "\u{F040A}"; color: "#FFFFFF"; font.pixelSize: root.play * 0.46 }
+        color: Theme.accent
+        Icon { anchors.centerIn: parent; text: Media.playing ? "\u{F03E4}" : "\u{F040A}"; color: Theme.on(Theme.accent); font.pixelSize: root.play * 0.46 }
         TapHandler { onTapped: Media.player?.togglePlaying() }
     }
     Icon {

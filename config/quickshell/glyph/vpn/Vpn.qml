@@ -288,7 +288,7 @@ PanelWindow {
                             width: 18
                             height: 18
                             radius: 9
-                            color: root.live ? Theme.red : Theme.s3
+                            color: root.live ? Theme.accent : Theme.s3
                             Behavior on color { ColorAnimation { duration: Theme.t } }
                         }
                         Num {

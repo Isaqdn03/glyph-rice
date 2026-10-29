@@ -238,7 +238,7 @@ Scope {
                                     }
                                 }
                                 // красная точка — только у самой новой: красное на экране одно
-                                Rectangle { id: dot; visible: c.index === 0; anchors { right: parent.right; rightMargin: 22; verticalCenter: parent.verticalCenter } width: 12; height: 12; radius: 6; color: Theme.red }
+                                Rectangle { id: dot; visible: c.index === 0; anchors { right: parent.right; rightMargin: 22; verticalCenter: parent.verticalCenter } width: 12; height: 12; radius: 6; color: Theme.accent }
                             }
 
                             // клик — действие по умолчанию; плашка уходит, в истории остаётся. Уведомление могли уже закрыть —

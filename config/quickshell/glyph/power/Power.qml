@@ -75,7 +75,7 @@ PanelWindow {
                         width: 30
                         height: 30
                         radius: 15
-                        color: Theme.red
+                        color: Theme.accent
                     }
                     Num {
                         text: it.modelData[0]

@@ -7,14 +7,17 @@ import qs
 import qs.components
 
 // лаунчер: тап Super или Super+Space. Панель 860 по центру, экран гаснет до 74%. Поиск-пилюля с красной кареткой,
-// режимы чипами (Tab): apps / run / windows / calc. Без запроса — «recent» и все приложения сеткой по 6, справа алфавит.
+// режимы чипами (Tab): apps / style / windows / calc. Без запроса — «recent» и все приложения сеткой по 6, справа алфавит.
+// style — цвет, как scheme в caelestia: откуда (nothing, обои, палитра), под ним — тона обоев и варианты (tonal spot…) или палитры
+// (catppuccin, rosé pine…), тема (Theme.styles, те же, что STYLE в настройках). Кружки — образцы, точка — что стоит,
+// ↵ ставит и лаунчер не закрывает. При палитрах поиск — и по группе: «catppuccin».
 // Появляется как Charms и Clip: подъём на 24 и fade. Иконки — монохромные глифы в кругах, неизвестные — сама иконка точками; выбранная — белый круг
 PanelWindow {
     id: root
 
     property int mode: 0
     property int sel: 0
-    readonly property var modes: ["apps", "run", "windows", "calc"]
+    readonly property var modes: ["apps", "style", "windows", "calc"]
     readonly property string query: input.text
     property var uses: ({}) // id приложения → сколько раз открыли
 
@@ -89,7 +92,7 @@ PanelWindow {
     readonly property var blocks: {
         const q = query.trim().toLowerCase();
         let b;
-        if (mode === 1) b = q ? [{ head: "run", items: [{ name: query, glyph: "\u{F018D}", hl: [], run: () => Quickshell.execDetached(["sh", "-c", query]) }] }] : [];
+        if (mode === 1) b = Theme.styles.map(x => ({ head: x.head, items: filter(x.items.map(it => Object.assign({ extra: "", keep: true }, it)), q) })).filter(x => x.items.length);
         else if (mode === 3) b = [];
         else if (mode === 2) b = [{ head: "windows", sub: String(wins.length), items: filter(wins, q) }];
         else if (q) {
@@ -138,6 +141,7 @@ PanelWindow {
         }
         const it = cur;
         if (!it) return;
+        if (it.keep) return it.run();
         close();
         if (it.id) {
             uses = Object.assign({}, uses, { [it.id]: (uses[it.id] ?? 0) + 1 });
@@ -216,13 +220,13 @@ PanelWindow {
                     clip: true
                     cursorDelegate: Rectangle {
                         width: 2
-                        color: Theme.red
+                        color: Theme.accent
                         Timer { running: input.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
                     }
                     Text {
                         visible: !input.text
                         x: 6
-                        text: ["Search apps, files, commands", "Run a command", "Find a window", "2 + 2, 20 usd to eur…"][root.mode]
+                        text: ["Search apps", "Color from nothing, the wallpaper or a palette", "Find a window", "2 + 2, 20 usd to eur…"][root.mode]
                         font: input.font
                         color: Theme.mute
                     }
@@ -266,7 +270,7 @@ PanelWindow {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 function ensure(y, h) {
-                    if (y < contentY) contentY = y;
+                    if (y < contentY) contentY = Math.max(0, y);
                     else if (y + h > contentY + height) contentY = y + h - height;
                 }
 
@@ -370,15 +374,21 @@ PanelWindow {
         width: body.width / 6
         height: 88 + spacing + label.implicitHeight
         spacing: 10
-        onOnChanged: if (on) flick.ensure(mapToItem(body, 0, 0).y, height)
+        onOnChanged: if (on) flick.ensure(mapToItem(body, 0, 0).y - 8, height + 8) // 8 — кольцо образца над кругом
 
         Rectangle {
+            id: disc
             visible: cell.near
             anchors.horizontalCenter: parent.horizontalCenter
             width: 88
             height: 88
             radius: 44
-            color: cell.on ? Theme.fg : Theme.s2
+            color: cell.modelData.fill ?? (cell.on ? Theme.fg : Theme.s2)
+            border { width: cell.modelData.fill ? 1 : 0; color: Theme.s3 } // чёрный образец на панели
+            // образец под курсором — кольцо вокруг: залить белым — пропал бы цвет. dot — акцент палитры, что стоит сейчас — точка
+            Rectangle { visible: cell.on && !!cell.modelData.fill; anchors.centerIn: parent; width: 104; height: 104; radius: 52; color: "transparent"; border { width: 2; color: Theme.fg } }
+            Rectangle { id: inner; visible: !!cell.modelData.dot; anchors.centerIn: parent; width: 40; height: 40; radius: 20; color: cell.modelData.dot ?? "transparent" }
+            Rectangle { visible: !!cell.modelData.now; anchors.centerIn: parent; width: 14; height: 14; radius: 7; color: Theme.on(inner.visible ? inner.color : disc.color) }
             Icon {
                 anchors.centerIn: parent
                 visible: !!cell.modelData.glyph

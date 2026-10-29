@@ -97,7 +97,7 @@ PanelWindow {
                     clip: true
                     cursorDelegate: Rectangle {
                         width: 2
-                        color: Theme.red
+                        color: Theme.accent
                         Timer { running: input.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
                     }
                     Text {

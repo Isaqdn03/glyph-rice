@@ -19,10 +19,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "WINDOWS", "DISPLAY", "POWER", "INPUT", "IDLE", "SHELL"]
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "POWER", "INPUT", "IDLE", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", rings, rings, "↵ or click a mode", rings, "drag the marks", ""]
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, rings, "↵ or click a mode", rings, "drag the marks", ""]
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -177,7 +177,7 @@ PanelWindow {
                         width: 26
                         height: 26
                         radius: 13
-                        color: name.activeFocus ? Theme.fg : Theme.red
+                        color: name.activeFocus ? Theme.fg : Theme.accent
                     }
                     Num {
                         text: word.modelData
@@ -686,7 +686,7 @@ PanelWindow {
 
                 Column {
                     spacing: 14
-                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.state.light = !Theme.state.light }
+                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.setLight(!Theme.light) }
                     Toggle { width: 200; text: "dot grid"; on: Theme.state.grid; onFlip: Theme.state.grid = !Theme.state.grid }
                     Toggle { width: 200; text: "orb"; on: Theme.state.orb; onFlip: Theme.state.orb = !Theme.state.orb }
                     Toggle { width: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
@@ -724,7 +724,7 @@ PanelWindow {
                     onTextEdited: Theme.state.name = text
                     cursorDelegate: Rectangle {
                         width: 2
-                        color: name.activeFocus ? Theme.red : "transparent"
+                        color: name.activeFocus ? Theme.accent : "transparent"
                         Timer { running: name.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
                     }
                     Text { visible: !name.text; text: Quickshell.env("USER"); font: name.font; color: Theme.mute }
@@ -738,9 +738,126 @@ PanelWindow {
             }
         }
 
+        // ---- STYLE: откуда цвет и куда он ложится. Сверху — рабочий стол в палитре образца под курсором или в фокусе (нет
+        // такого — в нынешней): бар, быстрые настройки, kitty, плеер, полоса Glyph; справа от него — роли выносками, как на
+        // чертеже: какой цвет где. Под ним откуда цвет и тема; дальше — что у источника: обои точками (клик — пикер), их тона
+        // и варианты (кольцо — сколько цвета) или палитры по группам. Выбор тот же, что style в лаунчере (Theme.styles).
+        // Образцы по индексу: новый Theme.styles на каждый выбор не пересоздаёт кружки, и фокус остаётся где был ----
+        Page {
+            id: tint
+            k: 4
+            property Item hot: null // образец под курсором или в фокусе
+            readonly property var p: hot?.item.pal ?? Theme.pal
+            readonly property string src: Theme.state.paint === "scheme" ? (Theme.pal.group === "more" ? "" : Theme.pal.group + " ") + Theme.pal.name
+                : Theme.state.paint === "wall" && Theme.tones.length ? `wallpaper · ${Theme.pal.name}` : "nothing"
+            caption: `style · ${src} · ${Theme.light ? "light" : "dark"}` + (hot && !hot.item.now ? `   →   ${hot.item.name} · ↵ sets it` : "")
+            function block(h) { return Theme.styles.find(b => b.head === h)?.items ?? []; }
+            function peek(sw) {
+                if (sw.peek) hot = sw;
+                else if (hot === sw) hot = null;
+            }
+
+            Desk { p: tint.p }
+
+            Row {
+                spacing: 24
+                Pick {
+                    label: "from"
+                    opts: ["nothing", "wall", "palette"]
+                    cur: ["", "wall", "scheme"].indexOf(Theme.state.paint)
+                    onPicked: i => Theme.state.paint = ["", "wall", "scheme"][i]
+                }
+                Pick { label: "theme"; opts: ["dark", "light"]; cur: Theme.light ? 1 : 0; onPicked: i => Theme.setLight(i === 1) }
+            }
+
+            // что у источника. Высота одна на все: Page по центру, и макет не прыгал бы при смене источника. ponytail: 300 — на
+            // глаз, палитры в два ряда; вырастет — Item растёт за ним
+            Item {
+                width: 1040
+                height: Math.max(300, own.height)
+                Column {
+                    id: own
+                    spacing: 28
+                    Lb { visible: !Theme.state.paint; text: "black · white dots · one red — nothing to pick"; color: Theme.mute }
+                    Row {
+                        visible: Theme.state.paint === "wall"
+                        spacing: 34
+                        // обои точками; клик — пикер
+                        Rectangle {
+                            width: 168
+                            height: 105
+                            radius: Theme.corner(14)
+                            color: "transparent"
+                            border { width: Theme.state.wall ? 0 : 1; color: Theme.s3 }
+                            Image {
+                                anchors.fill: parent
+                                source: visible ? Theme.url(Theme.wallSrc(Theme.state.wall)) : "" // не видно — без текстуры
+                                fillMode: Image.PreserveAspectCrop
+                                sourceSize: Qt.size(336, 210)
+                                asynchronous: true
+                                layer.enabled: true
+                                layer.effect: Dm { step: 4 }
+                            }
+                            Lb { visible: !Theme.state.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
+                            TapHandler {
+                                onTapped: {
+                                    root.close();
+                                    root.wallRequested();
+                                }
+                            }
+                            HoverHandler { cursorShape: Qt.PointingHandCursor }
+                        }
+                        Column {
+                            spacing: 6
+                            Lb { text: Theme.tones.length ? "tones · from the wallpaper" : "no colour in it · click it for another" }
+                            Row {
+                                Repeater {
+                                    model: tint.block("tones").length
+                                    Swatch { id: tw; item: tint.block("tones")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(tw) }
+                                }
+                            }
+                        }
+                    }
+                    Column {
+                        visible: Theme.state.paint === "wall" && Theme.tones.length > 0
+                        spacing: 6
+                        Lb { text: "variant · how much colour, like material you" }
+                        Row {
+                            Repeater {
+                                model: tint.block("variant").length
+                                Swatch { id: vw; item: tint.block("variant")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(vw) }
+                            }
+                        }
+                    }
+                    // палитры по группам — блоки между source и theme
+                    Flow {
+                        visible: Theme.state.paint === "scheme"
+                        width: 1040
+                        spacing: 40
+                        Repeater {
+                            model: Theme.state.paint === "scheme" ? Theme.styles.length - 2 : 0
+                            Column {
+                                id: sb
+                                required property int index
+                                readonly property var block: Theme.styles[index + 1] ?? ({ head: "", items: [] })
+                                spacing: 6
+                                Lb { text: sb.block.head }
+                                Row {
+                                    Repeater {
+                                        model: sb.block.items.length
+                                        Swatch { id: pw; item: sb.block.items[index] ?? ({ name: "" }); onPeekChanged: tint.peek(pw) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ---- WINDOWS: рабочий стол с двумя окнами по живым значениям колец. Анимация окон — только если motion ----
         Page {
-            k: 4
+            k: 5
             caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v} · panels ${pan.v} %`
 
             Row {
@@ -810,7 +927,7 @@ PanelWindow {
 
         // ---- DISPLAY: яркость большим кольцом (живая, из sysfs), экран точками — с масштабом точки крупнее и реже ----
         Page {
-            k: 5
+            k: 6
             caption: `display · ${Rules.mon.name.toLowerCase()} · ${Rules.hz} hz`
 
             Row {
@@ -862,7 +979,7 @@ PanelWindow {
         // ---- POWER: режимы питания (Rules.modes) — четыре круга, кольцо горит по силе, выбранный белый.
         // ultra — power saver и ещё 60 Гц, без анимаций, blur и теней поверх настроек ----
         Page {
-            k: 6
+            k: 7
             caption: `power · ${Rules.modes[Rules.mode].what} · ${Rules.hz} hz`
 
             Row {
@@ -905,7 +1022,7 @@ PanelWindow {
         // ---- INPUT: держишь клавишу — первая точка сразу, пауза delay, дальше rate в секунду; по живым кольцам ----
         Page {
             id: inp
-            k: 7
+            k: 8
             caption: "input · keyboard · touchpad"
             property int n: 0 // сколько «напечатано»; 0 — клавиша отпущена
             Timer {
@@ -964,7 +1081,7 @@ PanelWindow {
         // ---- IDLE: шкала минут без ввода. Точки тускнеют на каждом событии: бодр → заперт → экран погас → спит.
         // Метки тянутся вдоль, правее 60 — never ----
         Page {
-            k: 8
+            k: 9
             caption: "idle · minutes without input · hypridle"
 
             Item {
@@ -1019,7 +1136,7 @@ PanelWindow {
 
         // ---- SHELL: знак райса и имя живого шелла; переключатель — приложение Rice ----
         Page {
-            k: 9
+            k: 10
             caption: "shell · quickshell"
 
             Row {

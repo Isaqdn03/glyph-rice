@@ -68,7 +68,7 @@ PanelWindow {
                     width: 9
                     height: 9
                     radius: 4.5
-                    color: Sys.live ? Theme.red : Theme.fg
+                    color: !Sys.live ? Theme.fg : Qt.colorEqual(Theme.accent, Theme.fg) ? Theme.red : Theme.accent // monochrome: акцент = fg
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.markClicked() }
             }

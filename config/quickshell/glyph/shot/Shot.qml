@@ -211,7 +211,7 @@ Scope {
                         anchors.bottom: parent.bottom
                         spacing: 10
                         // запись — красная точка: единственное «живое» на экране
-                        Rectangle { visible: root.mode === 3; anchors.verticalCenter: parent.verticalCenter; width: 10; height: 10; radius: 5; color: Theme.red }
+                        Rectangle { visible: root.mode === 3; anchors.verticalCenter: parent.verticalCenter; width: 10; height: 10; radius: 5; color: Theme.accent }
                         Lb { text: root.modes[root.mode]; color: Theme.fg }
                     }
                     Row {
@@ -370,7 +370,7 @@ Scope {
                 width: root.shotRect.width + o * 2
                 height: root.shotRect.height + o * 2
                 color: root.shotRec ? "transparent" : Theme.fade(Theme.fg, 0.12)
-                border { width: 2; color: root.shotRec ? Theme.red : Theme.fg }
+                border { width: 2; color: root.shotRec ? Theme.accent : Theme.fg }
                 layer.enabled: fired.visible && !root.shotRec
                 layer.effect: MultiEffect {
                     shadowEnabled: true

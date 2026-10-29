@@ -161,7 +161,7 @@ WlSessionLockSurface {
                             NumberAnimation on scale { from: 0.2; to: 1; duration: 180; easing.type: Easing.OutCubic }
                         }
                     }
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 2; height: 24; color: Theme.red; opacity: root.blink ? 1 : 0 }
+                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 2; height: 24; color: Theme.accent; opacity: root.blink ? 1 : 0 }
                     Repeater {
                         model: Math.max(0, 6 - root.auth.buffer.length)
                         Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 11; height: 11; radius: 5.5; color: Theme.s3 }
