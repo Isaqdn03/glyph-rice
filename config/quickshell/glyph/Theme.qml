@@ -47,6 +47,8 @@ Singleton {
     function wallSrc(p) { return p ? `${wallCache}/${p.slice(p.lastIndexOf("/") + 1)}.jpg` : ""; }
 
     function fade(c, a) { return Qt.rgba(c.r, c.g, c.b, a); }
+    // радиус угла панели, плитки, пилюли — по настройке corners (prefs → WINDOWS → panels): 0 прямые, 100 как задумано
+    function corner(px) { return px * st.corners / 100; }
     // часы по настройке 12/24: «09» или «9»
     function hh(d) { const h = d.getHours(); return st.clock24 ? String(h).padStart(2, "0") : String(h % 12 || 12); }
     function hex(c) { return c.toString().slice(1, 7).toUpperCase(); }
@@ -85,6 +87,7 @@ Singleton {
             property string gif: ""        // гифка плитки-кота (services/Gifs), путь; пусто — первая в папке
             property string gifDir: ""     // пусто — ~/Pictures/Gifs
             property int rounding: 20      // окна hypr
+            property int corners: 100      // углы панелей шелла, % от своих; круги остаются кругами (Theme.corner)
             property bool edges: true      // Glyph-полосы по краям (громкость/яркость, вспышки, прогресс)
             property int briSteps: 20      // яркость с клавиш: делений на шкалу, 40/20/10 — шаг 2.5/5/10 %
             property bool quickHover: true // быстрые настройки по наведению на правый край
@@ -130,8 +133,6 @@ Singleton {
         // тень: в тёмной — еле заметное белое свечение, в светлой — мягкая чёрная
         const shadow = light ? "rgba(0000002E)" : `rgba(${hex(fg)}1A)`;
         hypr(`hl.config({ general = { gaps_in = ${g ? 0 : r.gapsIn}, gaps_out = ${g ? 0 : r.gapsOut}, border_size = ${g ? 1 : r.border}, allow_tearing = ${g}, `
-    // радиус угла панели, плитки, пилюли — по настройке corners (prefs → WINDOWS → panels): 0 прямые, 100 как задумано
-    function corner(px) { return px * st.corners / 100; }
            + `col = { active_border = ${c(fg)}, inactive_border = ${c(s3)} } }, `
            + `decoration = { rounding = ${g ? 0 : st.rounding}, blur = { enabled = ${Rules.blurOn} }, shadow = { enabled = ${Rules.shadowOn}, color = "${shadow}" } }, `
            + `group = { col = { border_active = ${c(fg)}, border_inactive = ${c(s3)}, border_locked_active = ${c(fg)}, border_locked_inactive = ${c(mute)} }, `
@@ -150,4 +151,3 @@ Singleton {
         Quickshell.execDetached(["pkill", "-USR1", "-x", "kitty"]);
     }
 }
-            property int corners: 100      // углы панелей шелла, % от своих; круги остаются кругами (Theme.corner)
