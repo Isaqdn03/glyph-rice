@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Effects
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
@@ -7,6 +9,7 @@ import Quickshell.Services.UPower
 import Quickshell.Wayland
 import qs
 import qs.components
+import qs.services
 import qs.settings
 
 // бар: пилюля у левого края или сверху — Theme.state.barAt. Первым знак (кольцо из 16 точек) — лаунчер, центр краснеет,
@@ -136,7 +139,7 @@ PanelWindow {
             }
 
             // трей — Theme.state.bar по порядку (настройки, раздел BAR). Раскладка, сеть, bluetooth, звук (колесо — громкость),
-            // уведомления, батарея: клик открывает быстрые настройки. Режим питания и питание — свои клики
+            // уведомления, батарея, бегущий кот: клик открывает быстрые настройки. Режим питания и питание — свои клики
             Pile {
                 x: root.vert ? (parent.width - width) / 2 : parent.width - width - 22
                 y: root.vert ? parent.height - height - 22 : (parent.height - height) / 2
@@ -157,13 +160,46 @@ PanelWindow {
             }
         }
     }
-    readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
+    readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC, cat: catC })
     Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
+    // кот RunCat: чем больше cpu, тем быстрее бежит (250 мс на кадр в простое, 50 на полной). cpu опрашивается, пока он в трее;
+    // Binding не в делегате — уничтоженный значение не возвращает. Серый как есть, в светлой теме на белом теряется — чёрный, как buds
+    Component {
+        id: catC
+        AnimatedImage {
+            width: 44
+            height: 26
+            source: "runcat.gif"
+            mipmap: true
+            speed: 1 + 4 * SysStats.cpu
+            layer.enabled: Theme.light
+            layer.effect: MultiEffect { brightness: -1 }
+        }
+    }
+    Binding { target: SysStats; property: "cat"; value: Theme.state.bar.includes("cat") }
+    // сеть: две дуги и точка, концы круглые, как у батареи; выключен — косая черта
     Component {
         id: wifiC
-        Icon {
-            text: Networking.wifiEnabled ? "\u{F05A9}" : "\u{F05AA}"
-            color: root.wifi?.connected ? Theme.fg : Theme.grey
+        Shape {
+            id: wf
+            width: 20
+            height: 18
+            preferredRendererType: Shape.CurveRenderer
+            readonly property color ink: root.wifi?.connected ? Theme.fg : Theme.grey
+            ShapePath {
+                strokeColor: wf.ink; strokeWidth: 2.2; capStyle: ShapePath.RoundCap; fillColor: "transparent"
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 5.5; radiusY: 5.5; startAngle: 220; sweepAngle: 100 }
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 10.5; radiusY: 10.5; startAngle: 220; sweepAngle: 100 }
+            }
+            ShapePath {
+                strokeColor: Networking.wifiEnabled ? "transparent" : wf.ink; strokeWidth: 2.2; capStyle: ShapePath.RoundCap
+                startX: 3; startY: 2
+                PathLine { x: 17; y: 17 }
+            }
+            ShapePath {
+                strokeWidth: -1; fillColor: wf.ink
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 1.9; radiusY: 1.9; startAngle: 0; sweepAngle: 360 }
+            }
         }
     }
     Component {

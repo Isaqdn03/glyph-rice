@@ -105,7 +105,7 @@ Singleton {
     // секции deck
     readonly property var decks: ["clock", "weather", "perf", "net", "media"]
     // трей бара
-    readonly property var bars: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"]
+    readonly property var bars: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power", "cat"]
 
     // ---- вид всего, что вне шелла. Зовёт только shell.qml: на старте и при смене темы ----
     // hypr наследует demonshot: монитор, ввод, простой, ночник и движение ставит его же Rules (shell.qml), анимации — из

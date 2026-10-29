@@ -4,12 +4,14 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// система из /proc и sysfs раз в 2 с, пока открыт алтарь (detailed); perf — вкладка Performance: ещё процессы и частота
+// система из /proc и sysfs раз в 2 с, пока открыт алтарь (detailed); perf — вкладка Performance: ещё процессы и частота;
+// cat — в трее бара бежит кот (RunCat): ему cpu, тот же шаг, но без detailed — только /proc/stat, meminfo и uptime
 Singleton {
     id: root
 
     property bool detailed: false
     property bool perf: false
+    property bool cat: false
 
     property real cpu: 0          // 0…1
     property var cores: []        // 0…1 по ядрам
@@ -124,7 +126,7 @@ for c in /sys/class/drm/card*/device; do [ -e "$c/gpu_busy_percent" ] && { echo 
 
     Timer {
         interval: 2000
-        running: root.detailed
+        running: root.detailed || root.cat
         repeat: true
         triggeredOnStart: true
         onTriggered: root.sample()
