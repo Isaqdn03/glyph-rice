@@ -83,7 +83,7 @@ Scope {
                     width: row.width + 52
                     height: root.h + 52
                     opacity: win.t // не visible: у скрытого Row ширина 0, а по ней меряется окно
-                    radius: 40
+                    radius: Theme.corner(40)
                     color: Theme.s1
                     border { width: 1; color: Theme.s2 }
 

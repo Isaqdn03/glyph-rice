@@ -311,7 +311,7 @@ PanelWindow {
                                 readonly property bool on: index === Gifs.sel
                                 width: 58
                                 height: 58
-                                radius: width * 0.18
+                                radius: Theme.corner(width * 0.18)
                                 color: Theme.s1
                                 border { width: on ? 2 : 1; color: on ? Theme.fg : Theme.s2 }
                                 GifDots { anchors { fill: parent; margins: 6 } path: th.modelData; bg: th.color; playing: gifPick.visible && root.visible }
@@ -387,7 +387,7 @@ PanelWindow {
                         anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 30 }
                         width: Math.max(1, Theme.state.deck.length) * 104 + 20
                         height: 116
-                        radius: 40
+                        radius: Theme.corner(40)
                         color: Theme.s1
                         border { width: 1; color: strip.activeFocus ? Theme.fg : Theme.s2 }
                         Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
@@ -507,7 +507,7 @@ PanelWindow {
                     readonly property int n: Math.max(1, Theme.state.bar.length)
                     width: bar.onTop ? n * 104 + 20 : 88
                     height: bar.onTop ? 116 : n * 68 + 20
-                    radius: bar.onTop ? 40 : 44
+                    radius: Theme.corner(bar.onTop ? 40 : 44)
                     color: Theme.s1
                     border { width: 1; color: col.activeFocus ? Theme.fg : Theme.s2 }
                     Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
@@ -623,7 +623,7 @@ PanelWindow {
                                         y: 10
                                         width: ed.modelData === "top" ? parent.width - 20 : 16
                                         height: ed.modelData === "top" ? 16 : parent.height - 20
-                                        radius: 8
+                                        radius: Theme.corner(8)
                                         color: ed.on ? Theme.fg : Theme.s3
                                         Behavior on color { ColorAnimation { duration: Theme.t } }
                                     }
@@ -707,7 +707,7 @@ PanelWindow {
             Rectangle {
                 width: 760
                 height: 72
-                radius: 36
+                radius: Theme.corner(36)
                 color: Theme.s2
                 border { width: name.activeFocus ? 1 : 0; color: Theme.fg }
                 Lb { id: nameL; x: 30; anchors.verticalCenter: parent.verticalCenter; text: "name"; color: name.activeFocus ? Theme.fg : Theme.grey }
@@ -741,7 +741,7 @@ PanelWindow {
         // ---- WINDOWS: рабочий стол с двумя окнами по живым значениям колец. Анимация окон — только если motion ----
         Page {
             k: 4
-            caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v}`
+            caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v} · panels ${pan.v} %`
 
             Row {
                 spacing: 40
@@ -833,6 +833,7 @@ PanelWindow {
                         Image {
                             readonly property real p: 5 * Rules.scale
                             anchors { fill: parent; margins: 14 }
+                Dial { id: pan; label: "panels"; to: 100; step: 5; value: Theme.state.corners; onMoved: v => Theme.state.corners = v } // углы шелла, %
                             fillMode: Image.Tile
                             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${p}" height="${p}"><circle cx="${p / 2}" cy="${p / 2}" r="${p * 0.2}" fill="#${Theme.hex(Theme.mute)}"/></svg>`)
                         }
@@ -1091,7 +1092,7 @@ PanelWindow {
             y: 14 * u
             width: onTop ? parent.width - 28 * u : 64 * u
             height: onTop ? 64 * u : parent.height - 28 * u
-            radius: Math.min(width, height) / 2
+            radius: Theme.corner(Math.min(width, height) / 2)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
         }
@@ -1120,7 +1121,7 @@ PanelWindow {
         readonly property bool round: root.rounds.includes(modelData.id)
         width: modelData.span * cell + (modelData.span - 1) * gap
         height: cell
-        radius: round ? cell / 2 : cell * 0.18
+        radius: round ? cell / 2 : Theme.corner(cell * 0.18)
         color: hot ? Theme.fg : modelData.fits ? Theme.s1 : "transparent"
         border { width: on ? 2 : 1; color: on ? Theme.fg : modelData.fits ? Theme.s2 : Theme.mute }
         z: drag.active ? 1 : 0
@@ -1228,7 +1229,7 @@ PanelWindow {
         signal hit
         width: actL.implicitWidth + 110
         height: 64
-        radius: 32
+        radius: Theme.corner(32)
         color: Theme.s2
         border { width: activeFocus ? 1 : 0; color: Theme.fg }
         activeFocusOnTab: true

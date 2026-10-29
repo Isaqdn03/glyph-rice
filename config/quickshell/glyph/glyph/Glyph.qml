@@ -180,7 +180,7 @@ Scope {
                             x: (600 - width) / 2
                             y: -24 * (1 - c.drop)
                             opacity: c.drop
-                            radius: Math.min(34, height / 2)
+                            radius: Theme.corner(Math.min(34, height / 2))
                             clip: true
                             color: Theme.s1
                             border { width: 1; color: c.crit ? Theme.red : Theme.fg }
@@ -326,7 +326,7 @@ Scope {
         property bool vertical
         width: vertical ? Math.max(52, box.width + 24) : box.width + 32
         height: vertical ? box.height + 36 : 52
-        radius: Math.min(width, height) / 2
+        radius: Theme.corner(Math.min(width, height) / 2)
         color: Theme.s1
         border { width: 1; color: Theme.s2 }
         Grid {

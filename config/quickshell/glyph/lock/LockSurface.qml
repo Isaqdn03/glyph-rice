@@ -137,7 +137,7 @@ WlSessionLockSurface {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 58 + (380 - 58) * root.ph(0.5, 0.9) // вырастает из точки в пилюлю
                 height: 58
-                radius: 29
+                radius: Theme.corner(29)
                 opacity: root.ph(0.45, 0.6)
                 color: Theme.s1
                 border { width: 1; color: root.auth.fail ? Theme.red : Theme.s3 }

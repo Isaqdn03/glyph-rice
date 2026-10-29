@@ -337,7 +337,7 @@ PanelWindow {
         property bool round
         width: span * 220 + (span - 1) * 20
         height: 220
-        radius: round ? 110 : 40
+        radius: round ? 110 : Theme.corner(40)
         color: Theme.s1
         border { width: 1; color: Theme.s2 }
     }

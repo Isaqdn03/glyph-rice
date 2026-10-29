@@ -130,6 +130,8 @@ Singleton {
         // тень: в тёмной — еле заметное белое свечение, в светлой — мягкая чёрная
         const shadow = light ? "rgba(0000002E)" : `rgba(${hex(fg)}1A)`;
         hypr(`hl.config({ general = { gaps_in = ${g ? 0 : r.gapsIn}, gaps_out = ${g ? 0 : r.gapsOut}, border_size = ${g ? 1 : r.border}, allow_tearing = ${g}, `
+    // радиус угла панели, плитки, пилюли — по настройке corners (prefs → WINDOWS → panels): 0 прямые, 100 как задумано
+    function corner(px) { return px * st.corners / 100; }
            + `col = { active_border = ${c(fg)}, inactive_border = ${c(s3)} } }, `
            + `decoration = { rounding = ${g ? 0 : st.rounding}, blur = { enabled = ${Rules.blurOn} }, shadow = { enabled = ${Rules.shadowOn}, color = "${shadow}" } }, `
            + `group = { col = { border_active = ${c(fg)}, border_inactive = ${c(s3)}, border_locked_active = ${c(fg)}, border_locked_inactive = ${c(mute)} }, `
@@ -148,3 +150,4 @@ Singleton {
         Quickshell.execDetached(["pkill", "-USR1", "-x", "kitty"]);
     }
 }
+            property int corners: 100      // углы панелей шелла, % от своих; круги остаются кругами (Theme.corner)

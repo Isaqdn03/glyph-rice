@@ -51,7 +51,7 @@ PanelWindow {
             width: 440
             height: col.height + 52
             opacity: root.t
-            radius: 36
+            radius: Theme.corner(36)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             focus: true
@@ -173,7 +173,7 @@ PanelWindow {
                             Rectangle {
                                 width: 146
                                 height: 44
-                                radius: 22
+                                radius: Theme.corner(22)
                                 color: Focus.running ? Theme.s2 : Theme.fg
                                 Row {
                                     anchors.centerIn: parent

@@ -392,7 +392,7 @@ Scope {
                 opacity: t
                 width: 360
                 height: col.height + 32
-                radius: 40
+                radius: Theme.corner(40)
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
 
@@ -424,7 +424,7 @@ Scope {
                     }
                     Lb { x: 8; text: "copied · click to edit"; px: 10; color: Theme.mute }
                 }
-                Rectangle { id: thumbMask; width: 328; height: 184; radius: 24; visible: false; layer.enabled: true }
+                Rectangle { id: thumbMask; width: 328; height: 184; radius: Theme.corner(24); visible: false; layer.enabled: true }
 
                 TapHandler { onTapped: { fx.stop(); fired.visible = false; editor.open(root.shot, root.scr); } }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }

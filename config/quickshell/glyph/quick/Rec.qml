@@ -12,7 +12,7 @@ Rectangle {
     readonly property var st: Theme.state
 
     height: list.height + 32
-    radius: 30
+    radius: Theme.corner(30)
     color: Theme.s2
 
     Column {
@@ -34,7 +34,7 @@ Rectangle {
         Rectangle {
             width: list.width
             height: 54
-            radius: 27
+            radius: Theme.corner(27)
             color: Theme.fg
             Row {
                 anchors.centerIn: parent
