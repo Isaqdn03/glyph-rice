@@ -4,7 +4,7 @@ import Quickshell.Wayland
 import qs
 import qs.components
 
-// календарь и фокус-таймер: клик по часам бара. Панель 440 справа от бара, по центру — напротив часов, выезжает слева.
+// календарь и фокус-таймер: клик по часам бара. Панель 440 у бара (со стороны экрана), по центру — напротив часов, выезжает от бара.
 // Месяц сеткой 7×6 (сегодня — белый круг), стрелки и ←→ листают, клик по месяцу — обратно к сегодня. Ниже таймер:
 // кольцо точек заполняется по часовой, пресеты минут, старт/пауза (и пробел), сброс. Пока идёт — Glyph заливает нижнюю полосу.
 // Esc или клик мимо — закрыть
@@ -43,12 +43,15 @@ PanelWindow {
     Stage {
         Rectangle {
             id: panel
-            x: 92 - 24 * (1 - root.t) // правый край пилюли бара (14 + 64) и зазор 14
-            anchors.verticalCenter: parent.verticalCenter
+            // внутренний край пилюли бара (14 + 64) и зазор 14, выезжает от бара; поперёк — по центру, где часы
+            readonly property real off: 92 - 24 * (1 - root.t)
+            readonly property bool onTop: Theme.state.barAt === "top"
+            x: onTop ? (parent.width - width) / 2 : off
+            y: onTop ? off : (parent.height - height) / 2
             width: 440
             height: col.height + 52
             opacity: root.t
-            radius: 36
+            radius: Theme.corner(36)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             focus: true
@@ -170,7 +173,7 @@ PanelWindow {
                             Rectangle {
                                 width: 146
                                 height: 44
-                                radius: 22
+                                radius: Theme.corner(22)
                                 color: Focus.running ? Theme.s2 : Theme.fg
                                 Row {
                                     anchors.centerIn: parent

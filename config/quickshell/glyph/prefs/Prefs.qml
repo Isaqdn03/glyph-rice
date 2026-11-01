@@ -5,7 +5,7 @@ import Quickshell.Services.UPower
 import Quickshell.Wayland
 import qs
 import qs.components
-import qs.services // local: Gifs
+import qs.services
 import qs.settings
 
 // настройки glyph: Super+I. Не форма, а предметы. Слева столбец слов Doto, как в меню питания, — выбранное крупно, с красной
@@ -19,10 +19,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL"] // local: AUDIO
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL"] // local: AUDIO
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", rings, rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""] // local: AUDIO
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""] // local: AUDIO
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -178,7 +178,7 @@ PanelWindow {
                         width: 26
                         height: 26
                         radius: 13
-                        color: name.activeFocus ? Theme.fg : Theme.red
+                        color: name.activeFocus ? Theme.fg : Theme.accent
                     }
                     Num {
                         text: word.modelData
@@ -273,7 +273,7 @@ PanelWindow {
                         elide: Text.ElideRight
                         text: !home.cur_ ? "empty · ↵ adds one" : `${home.cur_.id} · ${home.cur_.span} cell${home.cur_.span > 1 ? "s" : ""}${home.cur_.fits ? "" : " · off grid"}`
                     }
-                    // local: the cat tile's gif (services/Gifs), while the cat is selected. Click, or ←→ in focus
+                    // гифка кота (services/Gifs) — пока выбран кот. Клик или ←→ в фокусе
                     Column {
                         id: gifPick
                         visible: home.cur_?.id === "cat"
@@ -290,7 +290,7 @@ PanelWindow {
                             width: 404
                             height: 58
                             orientation: ListView.Horizontal
-                            spacing: (width - 6 * 58) / 5 // six whole ones in view
+                            spacing: (width - 6 * 58) / 5 // ровно шесть в ряд
                             clip: true
                             snapMode: ListView.SnapToItem
                             boundsBehavior: Flickable.StopAtBounds
@@ -312,7 +312,7 @@ PanelWindow {
                                 readonly property bool on: index === Gifs.sel
                                 width: 58
                                 height: 58
-                                radius: width * 0.18
+                                radius: Theme.corner(width * 0.18)
                                 color: Theme.s1
                                 border { width: on ? 2 : 1; color: on ? Theme.fg : Theme.s2 }
                                 GifDots { anchors { fill: parent; margins: 6 } path: th.modelData; bg: th.color; playing: gifPick.visible && root.visible }
@@ -388,7 +388,7 @@ PanelWindow {
                         anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 30 }
                         width: Math.max(1, Theme.state.deck.length) * 104 + 20
                         height: 116
-                        radius: 40
+                        radius: Theme.corner(40)
                         color: Theme.s1
                         border { width: 1; color: strip.activeFocus ? Theme.fg : Theme.s2 }
                         Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
@@ -483,28 +483,35 @@ PanelWindow {
             }
         }
 
-        // ---- BAR: трей бара столбиком, как в баре, — по порядку сверху вниз; подписи сбоку. Лоток — что есть ----
+        // ---- BAR: край — два экрана в миниатюре, клик выбирает. Трей — как в баре: слева столбиком (подписи сбоку), сверху
+        // строкой (подписи под иконкой), по порядку; тянуть — вдоль бара. Лоток — что есть ----
         Page {
             id: bar
             k: 2
-            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · left edge`
+            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · ${onTop ? "top" : "left"} edge`
+            readonly property bool onTop: Theme.state.barAt === "top"
+            readonly property real step: onTop ? 104 : 68 // слот вдоль бара
             property int cur: 0
-            // тянут from (-1 — никого): dy — сдвиг курсора в px макета, at — где он в столбике, to — куда встанет
+            // тянут from (-1 — никого): d — сдвиг курсора вдоль бара в px макета, at — где он, to — куда встанет
             property int from: -1
-            property real dy: 0
-            readonly property real at: Math.max(10, Math.min(10 + (Theme.state.bar.length - 1) * 68, 10 + from * 68 + dy))
-            readonly property int to: Math.round((at - 10) / 68)
+            property real d: 0
+            readonly property real at: Math.max(10, Math.min(10 + (Theme.state.bar.length - 1) * step, 10 + from * step + d))
+            readonly property int to: Math.round((at - 10) / step)
 
-            Row {
-                spacing: 200
+            Grid {
+                columns: bar.onTop ? 1 : 2
+                columnSpacing: 200
+                rowSpacing: 40
 
                 Rectangle {
                     id: col
-                    width: 88
-                    height: Math.max(1, Theme.state.bar.length) * 68 + 20
-                    radius: 44
+                    readonly property int n: Math.max(1, Theme.state.bar.length)
+                    width: bar.onTop ? n * 104 + 20 : 88
+                    height: bar.onTop ? 116 : n * 68 + 20
+                    radius: Theme.corner(bar.onTop ? 40 : 44)
                     color: Theme.s1
                     border { width: 1; color: col.activeFocus ? Theme.fg : Theme.s2 }
+                    Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                     Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                     activeFocusOnTab: true
                     Keys.onPressed: e => {
@@ -526,17 +533,22 @@ PanelWindow {
                             readonly property int slot: bar.from < 0 ? index
                                 : index > bar.from && index <= bar.to ? index - 1
                                 : index < bar.from && index >= bar.to ? index + 1 : index
-                            y: bd.active ? bar.at : 10 + slot * 68
-                            width: col.width
-                            height: 68
-                            z: bd.active ? 1 : 0
-                            Behavior on y {
+                            // место вдоль бара: за курсором, пока тянут
+                            property real pos: bd.active ? bar.at : 10 + slot * bar.step
+                            Behavior on pos {
                                 enabled: !bd.active
                                 NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
                             }
+                            x: bar.onTop ? pos : 0
+                            y: bar.onTop ? 0 : pos
+                            width: bar.onTop ? 104 : col.width
+                            height: bar.onTop ? col.height : 68
+                            z: bd.active ? 1 : 0
 
                             Rectangle {
-                                anchors.centerIn: parent
+                                id: bdot
+                                x: (parent.width - width) / 2
+                                y: bar.onTop ? 18 : (parent.height - height) / 2
                                 width: 52
                                 height: 52
                                 radius: 26
@@ -544,7 +556,13 @@ PanelWindow {
                                 border { width: bs.on && !bs.hot ? 1 : 0; color: Theme.fg }
                                 Icon { anchors.centerIn: parent; text: root.icons[bs.modelData] ?? ""; font.pixelSize: 22; color: bs.hot ? Theme.ink : Theme.fg }
                             }
-                            Lb { x: parent.width + 24; anchors.verticalCenter: parent.verticalCenter; text: bs.modelData; px: 10; color: bs.on ? Theme.fg : Theme.grey }
+                            Lb {
+                                x: bar.onTop ? (parent.width - width) / 2 : parent.width + 24
+                                y: bar.onTop ? bdot.y + bdot.height + 10 : (parent.height - height) / 2
+                                text: bs.modelData
+                                px: 10
+                                color: bs.on ? Theme.fg : Theme.grey
+                            }
                             TapHandler {
                                 onTapped: {
                                     col.forceActiveFocus();
@@ -554,8 +572,9 @@ PanelWindow {
                             DragHandler {
                                 id: bd
                                 target: null
-                                xAxis.enabled: false
-                                onActiveTranslationChanged: bar.dy = activeTranslation.y / Theme.s
+                                xAxis.enabled: bar.onTop
+                                yAxis.enabled: !bar.onTop
+                                onActiveTranslationChanged: bar.d = (bar.onTop ? activeTranslation.x : activeTranslation.y) / Theme.s
                                 onActiveChanged: {
                                     if (active) {
                                         bar.cur = bs.index;
@@ -575,8 +594,50 @@ PanelWindow {
 
                 Column {
                     spacing: 14
+                    Lb { text: "edge" }
+                    // экраны с пилюлей у своего края; ←→ — другой
+                    Row {
+                        id: edges
+                        spacing: 20
+                        activeFocusOnTab: true
+                        Keys.onPressed: e => {
+                            if (e.key !== Qt.Key_Left && e.key !== Qt.Key_Right && e.key !== Qt.Key_Space && e.key !== Qt.Key_Return) return;
+                            Theme.state.barAt = bar.onTop ? "left" : "top";
+                            e.accepted = true;
+                        }
+                        Repeater {
+                            model: ["left", "top"]
+                            Column {
+                                id: ed
+                                required property string modelData
+                                readonly property bool on: (modelData === "top") === bar.onTop
+                                spacing: 10
+                                Rectangle {
+                                    width: 200
+                                    height: 125
+                                    radius: 18
+                                    color: Theme.bg
+                                    border { width: ed.on && edges.activeFocus ? 2 : 1; color: ed.on ? Theme.fg : Theme.s3 }
+                                    Behavior on border.color { ColorAnimation { duration: Theme.t } }
+                                    Rectangle {
+                                        x: 10
+                                        y: 10
+                                        width: ed.modelData === "top" ? parent.width - 20 : 16
+                                        height: ed.modelData === "top" ? 16 : parent.height - 20
+                                        radius: Theme.corner(8)
+                                        color: ed.on ? Theme.fg : Theme.s3
+                                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                                    }
+                                    TapHandler { onTapped: Theme.state.barAt = ed.modelData }
+                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                }
+                                Lb { anchors.horizontalCenter: parent.horizontalCenter; text: ed.modelData; px: 10; color: ed.on ? Theme.fg : Theme.grey }
+                            }
+                        }
+                    }
+                    Item { width: 1; height: 12 }
                     Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
-                    Lb { topPadding: 6; text: "above the clock"; px: 10 }
+                    Lb { topPadding: 6; text: bar.onTop ? "left of the clock" : "above the clock"; px: 10 }
                     // local: auto-hide per monitor, by model (bar/Bar.qml) — keeps static white off OLEDs
                     Lb { topPadding: 26; text: "auto-hide" }
                     Repeater {
@@ -641,7 +702,7 @@ PanelWindow {
 
                 Column {
                     spacing: 14
-                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.state.light = !Theme.state.light }
+                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.setLight(!Theme.light) }
                     Toggle { width: 200; text: "dot grid"; on: Theme.state.grid; onFlip: Theme.state.grid = !Theme.state.grid }
                     Toggle { width: 200; text: "orb"; on: Theme.state.orb; onFlip: Theme.state.orb = !Theme.state.orb }
                     Toggle { width: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
@@ -662,7 +723,7 @@ PanelWindow {
             Rectangle {
                 width: 760
                 height: 72
-                radius: 36
+                radius: Theme.corner(36)
                 color: Theme.s2
                 border { width: name.activeFocus ? 1 : 0; color: Theme.fg }
                 Lb { id: nameL; x: 30; anchors.verticalCenter: parent.verticalCenter; text: "name"; color: name.activeFocus ? Theme.fg : Theme.grey }
@@ -679,7 +740,7 @@ PanelWindow {
                     onTextEdited: Theme.state.name = text
                     cursorDelegate: Rectangle {
                         width: 2
-                        color: name.activeFocus ? Theme.red : "transparent"
+                        color: name.activeFocus ? Theme.accent : "transparent"
                         Timer { running: name.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
                     }
                     Text { visible: !name.text; text: Quickshell.env("USER"); font: name.font; color: Theme.mute }
@@ -691,22 +752,139 @@ PanelWindow {
                     }
                 }
             }
+        }
 
-            // local: grey ramp of the dark theme — bar, panels, desktop, kitty
-            Pick {
-                enabled: !Theme.light
-                opacity: enabled ? 1 : 0.4
-                label: "tone"
-                opts: Theme.tones.map(t => t.name)
-                cur: Theme.state.tone
-                onPicked: i => Theme.state.tone = i
+        // ---- STYLE: откуда цвет и куда он ложится. Сверху — рабочий стол в палитре образца под курсором или в фокусе (нет
+        // такого — в нынешней): бар, быстрые настройки, kitty, плеер, полоса Glyph; справа от него — роли выносками, как на
+        // чертеже: какой цвет где. Под ним откуда цвет и тема; дальше — что у источника: обои точками (клик — пикер), их тона
+        // и варианты (кольцо — сколько цвета) или палитры по группам. Выбор тот же, что style в лаунчере (Theme.styles).
+        // Образцы по индексу: новый Theme.styles на каждый выбор не пересоздаёт кружки, и фокус остаётся где был ----
+        Page {
+            id: tint
+            k: 4
+            property Item hot: null // образец под курсором или в фокусе
+            readonly property var p: hot?.item.pal ?? Theme.pal
+            readonly property string src: Theme.state.paint === "scheme" ? (Theme.pal.group === "more" ? "" : Theme.pal.group + " ") + Theme.pal.name
+                : Theme.state.paint === "wall" && Theme.tones.length ? `wallpaper · ${Theme.pal.name}` : "nothing"
+            caption: `style · ${src} · ${Theme.light ? "light" : "dark"}` + (hot && !hot.item.now ? `   →   ${hot.item.name} · ↵ sets it` : "")
+            function block(h) { return Theme.styles.find(b => b.head === h)?.items ?? []; }
+            function peek(sw) {
+                if (sw.peek) hot = sw;
+                else if (hot === sw) hot = null;
+            }
+
+            Desk { p: tint.p }
+
+            Row {
+                spacing: 24
+                Pick {
+                    label: "from"
+                    opts: ["nothing", "wall", "palette"]
+                    cur: ["", "wall", "scheme"].indexOf(Theme.state.paint)
+                    onPicked: i => Theme.state.paint = ["", "wall", "scheme"][i]
+                }
+                Pick { label: "theme"; opts: ["dark", "light"]; cur: Theme.light ? 1 : 0; onPicked: i => Theme.setLight(i === 1) }
+            }
+
+            // что у источника. Высота одна на все: Page по центру, и макет не прыгал бы при смене источника. ponytail: 300 — на
+            // глаз, палитры в два ряда; вырастет — Item растёт за ним
+            Item {
+                width: 1040
+                height: Math.max(300, own.height)
+                Column {
+                    id: own
+                    spacing: 28
+                    // local: nothing's dark greys come in tones (Theme.greyTones) — bar, panels, desktop, kitty
+                    Lb { visible: !Theme.state.paint; text: "black · white dots · one red — the greys come in tones"; color: Theme.mute }
+                    Pick {
+                        visible: !Theme.state.paint
+                        enabled: !Theme.light
+                        opacity: enabled ? 1 : 0.4
+                        label: "tone"
+                        opts: Theme.greyTones.map(t => t.name)
+                        cur: Theme.state.tone
+                        onPicked: i => Theme.state.tone = i
+                    }
+                    Row {
+                        visible: Theme.state.paint === "wall"
+                        spacing: 34
+                        // обои точками; клик — пикер
+                        Rectangle {
+                            width: 168
+                            height: 105
+                            radius: Theme.corner(14)
+                            color: "transparent"
+                            border { width: Theme.state.wall ? 0 : 1; color: Theme.s3 }
+                            Image {
+                                anchors.fill: parent
+                                source: visible ? Theme.url(Theme.wallSrc(Theme.state.wall)) : "" // не видно — без текстуры
+                                fillMode: Image.PreserveAspectCrop
+                                sourceSize: Qt.size(336, 210)
+                                asynchronous: true
+                                layer.enabled: true
+                                layer.effect: Dm { step: 4 }
+                            }
+                            Lb { visible: !Theme.state.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
+                            TapHandler {
+                                onTapped: {
+                                    root.close();
+                                    root.wallRequested();
+                                }
+                            }
+                            HoverHandler { cursorShape: Qt.PointingHandCursor }
+                        }
+                        Column {
+                            spacing: 6
+                            Lb { text: Theme.tones.length ? "tones · from the wallpaper" : "no colour in it · click it for another" }
+                            Row {
+                                Repeater {
+                                    model: tint.block("tones").length
+                                    Swatch { id: tw; item: tint.block("tones")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(tw) }
+                                }
+                            }
+                        }
+                    }
+                    Column {
+                        visible: Theme.state.paint === "wall" && Theme.tones.length > 0
+                        spacing: 6
+                        Lb { text: "variant · how much colour, like material you" }
+                        Row {
+                            Repeater {
+                                model: tint.block("variant").length
+                                Swatch { id: vw; item: tint.block("variant")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(vw) }
+                            }
+                        }
+                    }
+                    // палитры по группам — блоки между source и theme
+                    Flow {
+                        visible: Theme.state.paint === "scheme"
+                        width: 1040
+                        spacing: 40
+                        Repeater {
+                            model: Theme.state.paint === "scheme" ? Theme.styles.length - 2 : 0
+                            Column {
+                                id: sb
+                                required property int index
+                                readonly property var block: Theme.styles[index + 1] ?? ({ head: "", items: [] })
+                                spacing: 6
+                                Lb { text: sb.block.head }
+                                Row {
+                                    Repeater {
+                                        model: sb.block.items.length
+                                        Swatch { id: pw; item: sb.block.items[index] ?? ({ name: "" }); onPeekChanged: tint.peek(pw) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
         // ---- WINDOWS: рабочий стол с двумя окнами по живым значениям колец. Анимация окон — только если motion ----
         Page {
-            k: 4
-            caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v}`
+            k: 5
+            caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v} · panels ${pan.v} %`
 
             Row {
                 spacing: 40
@@ -719,12 +897,13 @@ PanelWindow {
                             id: wnd
                             required property int index
                             readonly property real o: gOut.v * desk.k
-                            readonly property real l: 78 * desk.k + o // бар 64 + отступ 14
-                            readonly property real w: (desk.width - l - o - 2 * gIn.v * desk.k) / 2
-                            x: index ? l + w + 2 * gIn.v * desk.k : l
-                            y: o
+                            readonly property real l: 78 * Theme.s * desk.k + o // бар 64 + отступ 14, в логических px
+                            readonly property real w: (desk.width - (at === "top" ? o : l) - o - 2 * gIn.v * desk.k) / 2
+                            readonly property string at: Theme.state.barAt
+                            x: (at !== "top" ? l : o) + (index ? w + 2 * gIn.v * desk.k : 0)
+                            y: at === "top" ? l : o
                             width: w
-                            height: desk.height - 2 * o
+                            height: desk.height - (at === "top" ? l : o) - o
                             radius: rnd.v * desk.k
                             color: Theme.s1
                             border { width: bord.v ? Math.max(1, bord.v * desk.k) : 0; color: index ? Theme.s3 : Theme.fg }
@@ -768,12 +947,13 @@ PanelWindow {
                 Dial { id: gOut; label: "gaps out"; to: 60; value: root.r.gapsOut; onMoved: v => { root.r.gapsOut = v; Theme.apply(); } }
                 Dial { id: bord; label: "border"; to: 6; n: 24; value: root.r.border; onMoved: v => { root.r.border = v; Theme.apply(); } }
                 Dial { id: rnd; label: "rounding"; to: 40; value: Theme.state.rounding; onMoved: v => Theme.state.rounding = v } // shell.qml сам зовёт Theme.apply
+                Dial { id: pan; label: "panels"; to: 100; step: 5; value: Theme.state.corners; onMoved: v => Theme.state.corners = v } // углы шелла, %
             }
         }
 
         // ---- DISPLAY: яркость большим кольцом (живая, из sysfs), экран точками — с масштабом точки крупнее и реже ----
         Page {
-            k: 5
+            k: 6
             caption: `display · ${Rules.mon.name.toLowerCase()} · ${Rules.hz} hz`
 
             Row {
@@ -844,7 +1024,7 @@ PanelWindow {
         // local: AUDIO — output and input: volume, mute, level, default device (prefs/Audio)
         Page {
             id: audioPage
-            k: 6
+            k: 7
             caption: aud.caption
             Audio { id: aud; live: audioPage.visible && root.shown }
         }
@@ -852,7 +1032,7 @@ PanelWindow {
         // ---- POWER: режимы питания (Rules.modes) — четыре круга, кольцо горит по силе, выбранный белый.
         // ultra — power saver и ещё 60 Гц, без анимаций, blur и теней поверх настроек ----
         Page {
-            k: 7 // local: AUDIO is 6
+            k: 8 // local: AUDIO is 7
             caption: `power · ${Rules.modes[Rules.mode].what} · ${Rules.hz} hz`
 
             Row {
@@ -895,7 +1075,7 @@ PanelWindow {
         // ---- INPUT: держишь клавишу — первая точка сразу, пауза delay, дальше rate в секунду; по живым кольцам ----
         Page {
             id: inp
-            k: 8 // local
+            k: 9 // local: AUDIO is 7
             caption: "input · keyboard · touchpad"
             property int n: 0 // сколько «напечатано»; 0 — клавиша отпущена
             Timer {
@@ -954,7 +1134,7 @@ PanelWindow {
         // ---- IDLE: шкала минут без ввода. Точки тускнеют на каждом событии: бодр → заперт → экран погас → спит.
         // Метки тянутся вдоль, правее 60 — never ----
         Page {
-            k: 9 // local
+            k: 10 // local: AUDIO is 7
             caption: "idle · minutes without input · hypridle"
 
             Item {
@@ -1009,7 +1189,7 @@ PanelWindow {
 
         // ---- SHELL: знак райса и имя живого шелла; переключатель — приложение Rice ----
         Page {
-            k: 10 // local
+            k: 11 // local: AUDIO is 7
             caption: "shell · quickshell"
 
             Row {
@@ -1074,12 +1254,15 @@ PanelWindow {
             fillMode: Image.Tile
             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
         }
+        // бар у своего края: отступ 14 и толщина 64 — px макета, на экране они Theme.s логических
         Rectangle {
-            x: 14 * parent.k
-            y: 14 * parent.k
-            width: 64 * parent.k
-            height: parent.height - 28 * parent.k
-            radius: width / 2
+            readonly property real u: Theme.s * parent.k
+            readonly property bool onTop: Theme.state.barAt === "top"
+            x: 14 * u
+            y: 14 * u
+            width: onTop ? parent.width - 28 * u : 64 * u
+            height: onTop ? 64 * u : parent.height - 28 * u
+            radius: Theme.corner(Math.min(width, height) / 2)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
         }
@@ -1108,7 +1291,7 @@ PanelWindow {
         readonly property bool round: root.rounds.includes(modelData.id)
         width: modelData.span * cell + (modelData.span - 1) * gap
         height: cell
-        radius: round ? cell / 2 : cell * 0.18
+        radius: round ? cell / 2 : Theme.corner(cell * 0.18)
         color: hot ? Theme.fg : modelData.fits ? Theme.s1 : "transparent"
         border { width: on ? 2 : 1; color: on ? Theme.fg : modelData.fits ? Theme.s2 : Theme.mute }
         z: drag.active ? 1 : 0
@@ -1216,7 +1399,7 @@ PanelWindow {
         signal hit
         width: actL.implicitWidth + 110
         height: 64
-        radius: 32
+        radius: Theme.corner(32)
         color: Theme.s2
         border { width: activeFocus ? 1 : 0; color: Theme.fg }
         activeFocusOnTab: true

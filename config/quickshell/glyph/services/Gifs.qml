@@ -5,8 +5,8 @@ import Qt.labs.folderlistmodel
 import Quickshell
 import qs
 
-// local: gifs for the home gif tile (home/Gif.qml) and its picker in prefs → home: every *.gif in Theme.state.gifDir
-// (empty — ~/Pictures/Gifs); none there — the built-in cat. Choice — Theme.state.gif, a path; empty — the first one
+// гифки для плитки-кота дома (home/Gif) и её выбора в настройках → home: все *.gif из Theme.state.gifDir
+// (пусто — ~/Pictures/Gifs); там ни одной — встроенный кот. Выбор — Theme.state.gif, путь; пусто — первая
 Singleton {
     id: root
 
@@ -18,7 +18,7 @@ Singleton {
         caseSensitive: false
         showDirs: false
     }
-    readonly property bool ready: folder.status === FolderListModel.Ready // read async: until then the list is just the cat
+    readonly property bool ready: folder.status === FolderListModel.Ready // папку читают асинхронно: до того в списке один кот
     readonly property var list: {
         const a = [];
         for (let i = 0; i < folder.count; i++) a.push(folder.get(i, "filePath"));
@@ -31,7 +31,7 @@ Singleton {
     function step(d) { if (list.length > 1) pick(list[(sel + d + list.length) % list.length]); }
     function name(p) { return p ? p.slice(p.lastIndexOf("/") + 1).replace(/\.gif$/i, "") : "cat"; }
     function url(p) { return p ? "file://" + p.split("/").map(encodeURIComponent).join("/") : Qt.resolvedUrl("../home/cat.gif"); }
-    // crop for wall.frag that fits the whole gif in a square, whatever its shape: past the edge the texture is clamped
+    // обрезка для wall.frag, при которой гифка любой формы целиком в квадрате: за краем текстура тянет крайние пиксели
     function fit(img) {
         const w = img.implicitWidth, h = img.implicitHeight;
         return w && h ? (w > h ? Qt.size(1, w / h) : Qt.size(h / w, 1)) : Qt.size(1, 1);

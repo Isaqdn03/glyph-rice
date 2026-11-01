@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Effects
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
@@ -7,12 +9,12 @@ import Quickshell.Services.UPower
 import Quickshell.Wayland
 import qs
 import qs.components
+import qs.services
 import qs.settings
-import qs.services // local: Usage for the agent meter
 
-// бар: вертикальная пилюля у левого края. Сверху знак (кольцо из 16 точек) — лаунчер, центр краснеет, пока запись или микрофон.
-// Воркспейсы точками, заголовок окна столбиком, часы Doto по центру, трей снизу — клик открывает быстрые настройки.
-// Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
+// бар: пилюля у левого края или сверху — Theme.state.barAt. Первым знак (кольцо из 16 точек) — лаунчер, центр краснеет,
+// пока запись или микрофон. Воркспейсы точками, заголовок окна, часы Doto по центру, трей последним — клик открывает быстрые настройки.
+// Сбоку всё столбиком, сверху — строкой. Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
 PanelWindow {
     id: root
 
@@ -22,15 +24,17 @@ PanelWindow {
     signal clockClicked
     signal agentsClicked // local
 
-    anchors { left: true; top: true; bottom: true }
-    implicitWidth: Math.ceil((64 + gap) * Theme.s)
+    readonly property bool vert: Theme.state.barAt !== "top" // всё, кроме top (и неизвестное), — слева
+    anchors { left: true; right: !vert; top: true; bottom: vert }
+    implicitWidth: Math.ceil((64 + gap) * Theme.s)  // сбоку; local: gap, not 14
+    implicitHeight: Math.ceil((64 + gap) * Theme.s) // сверху; local: gap
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
     // local: auto-hide, for OLEDs (burn-in). Theme.state.barHide lists the monitors (by model) it hides on. Hidden: no
     // exclusive zone, input only on a 2px strip at the left edge. Rest there for barShowMs, or shell:bar (peek), and the
     // pill slides in over the windows; leave it and it slides back out
-    readonly property bool autoHide: Theme.state.barHide.includes(screen?.model || screen?.name || "")
+    readonly property bool autoHide: vert && Theme.state.barHide.includes(screen?.model || screen?.name || "") // left bar only
     property bool hov: false
     property bool peeked: false
     property int peeks: 0 // shell.qml bumps it on every bar; the one on the focused monitor answers
@@ -76,12 +80,12 @@ PanelWindow {
         }
         Rectangle {
             id: pill
-            x: root.gap - (1 - root.slide) * (64 + root.gap + 2) // local: auto-hide slides it off the left edge
+            x: root.gap - (root.vert ? (1 - root.slide) * (64 + root.gap + 2) : 0) // local: gap; auto-hide slides it off the left edge
             visible: root.slide > 0 // local
             y: root.gap
-            width: 64
-            height: parent.height - 2 * root.gap
-            radius: 32
+            width: root.vert ? 64 : parent.width - 2 * root.gap
+            height: root.vert ? parent.height - 2 * root.gap : 64
+            radius: Theme.corner(32)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
 
@@ -90,8 +94,8 @@ PanelWindow {
             // знак: кольцо из точек, центр — красный, пока что-то пишет
             Item {
                 id: mark
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 18
+                x: root.vert ? (parent.width - width) / 2 : 18
+                y: root.vert ? 18 : (parent.height - height) / 2
                 width: 34
                 height: 34
                 Ring { anchors.fill: parent; n: 16; dot: 3 }
@@ -100,16 +104,16 @@ PanelWindow {
                     width: 9
                     height: 9
                     radius: 4.5
-                    color: Sys.live ? Theme.red : Theme.fg
+                    color: !Sys.live ? Theme.fg : Qt.colorEqual(Theme.accent, Theme.fg) ? Theme.red : Theme.accent // monochrome: акцент = fg
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.markClicked() }
             }
 
             // воркспейсы: текущий вытягивается в белую пилюлю, занятые серые, пустые — линия
-            Column {
+            Pile {
                 id: ws
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: mark.y + mark.height + 24
+                x: root.vert ? (parent.width - width) / 2 : mark.x + mark.width + 24
+                y: root.vert ? mark.y + mark.height + 24 : (parent.height - height) / 2
                 spacing: 8
 
                 Repeater {
@@ -120,31 +124,32 @@ PanelWindow {
                         readonly property int n: index + 1
                         readonly property bool occ: (Hyprland.workspaces.values.find(w => w.id === root.base + n)?.toplevels.values.length ?? 0) > 0
                         readonly property bool on: root.active === n
-                        width: 8
-                        height: on ? 28 : 8
+                        property real len: on ? 28 : 8
+                        width: root.vert ? 8 : len
+                        height: root.vert ? len : 8
                         radius: 4
                         color: on ? Theme.fg : occ ? Theme.grey : Theme.s3
-                        Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                        Behavior on len { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         Behavior on color { ColorAnimation { duration: Theme.t } }
                         MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.slot(parent.n) }
                     }
                 }
             }
 
-            // заголовок окна, повёрнутый: от воркспейсов до часов
+            // заголовок окна: от воркспейсов до часов, сбоку — повёрнутый
             Item {
                 id: title
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: ws.y + ws.height + 24
-                width: 20
-                height: Math.max(0, clk.y - 24 - y)
+                x: root.vert ? (parent.width - width) / 2 : ws.x + ws.width + 24
+                y: root.vert ? ws.y + ws.height + 24 : (parent.height - height) / 2
+                width: root.vert ? 20 : Math.max(0, clk.x - 24 - x)
+                height: root.vert ? Math.max(0, clk.y - 24 - y) : 20
                 clip: true
                 visible: Theme.state.barTitle
                 Lb {
                     x: (parent.width - width) / 2
                     y: (parent.height - height) / 2
-                    width: parent.height
-                    rotation: 90
+                    width: root.vert ? parent.height : parent.width
+                    rotation: root.vert ? 90 : 0
                     elide: Text.ElideRight
                     visible: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
                     text: root.top ? `${root.top.appId.split(".").pop()} · ${root.top.title}` : ""
@@ -152,34 +157,28 @@ PanelWindow {
                 }
             }
 
-            // часы столбиком: 14 над 32 и день. Клик — календарь и фокус-таймер (cal/Cal)
-            Column {
+            // часы: сбоку столбиком 14 над 32 и день, сверху строкой. Клик — календарь и фокус-таймер (cal/Cal)
+            Pile {
                 id: clk
                 anchors.centerIn: parent
                 TapHandler { onTapped: root.clockClicked() }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
-                Num {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Theme.hh(clock.date)
-                    font.pixelSize: 30
-                }
-                Num {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Qt.formatTime(clock.date, "mm")
-                    font.pixelSize: 30
-                }
+                Num { text: Theme.hh(clock.date); font.pixelSize: 30 }
+                Num { visible: !root.vert; text: ":"; font.pixelSize: 30 }
+                Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 30 }
                 Lb {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    topPadding: 8
+                    topPadding: root.vert ? 8 : 0
+                    leftPadding: root.vert ? 0 : 12
                     text: Qt.locale("en_US").toString(clock.date, "ddd d")
                     px: 10
                 }
             }
 
             // трей — Theme.state.bar по порядку (настройки, раздел BAR). Раскладка, сеть, bluetooth, звук (колесо — громкость),
-            // уведомления, батарея: клик открывает быстрые настройки. Режим питания и питание — свои клики
-            Column {
-                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 22 }
+            // уведомления, батарея, бегущий кот: клик открывает быстрые настройки. Режим питания и питание — свои клики
+            Pile {
+                x: root.vert ? (parent.width - width) / 2 : parent.width - width - 22
+                y: root.vert ? parent.height - height - 22 : (parent.height - height) / 2
                 spacing: 20
 
                 Repeater {
@@ -188,7 +187,6 @@ PanelWindow {
                         id: part
                         required property string modelData
                         readonly property bool quick: modelData !== "mode" && modelData !== "power" && modelData !== "agents" // local: agents opens its own card
-                        anchors.horizontalCenter: parent.horizontalCenter
                         sourceComponent: root.parts[modelData] ?? null
                         visible: !!sourceComponent && (modelData !== "battery" || root.bat.isLaptopBattery)
                         TapHandler { enabled: part.quick; onTapped: root.trayClicked() }
@@ -199,17 +197,16 @@ PanelWindow {
         }
     }
 
-    readonly property var parts: ({ agents: agentsC, layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
+    readonly property var parts: ({ agents: agentsC, layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC, cat: catC }) // local: agents
     // local: agent meter — Claude and Codex, a column of five dots each, filled to its 5h window (red from 80%);
-    // Claude's number under them. Click — the agents card (agents/Agents)
+    // Claude's number under them (beside them on a top bar). Click — the agents card (agents/Agents)
     Component {
         id: agentsC
-        Column {
+        Pile {
             spacing: 8
             HoverHandler { cursorShape: Qt.PointingHandCursor }
             TapHandler { onTapped: root.agentsClicked() }
             Row {
-                anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 6
                 Repeater {
                     model: [Usage.claude, Usage.codex]
@@ -225,15 +222,48 @@ PanelWindow {
                     }
                 }
             }
-            Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Usage.top(Usage.claude)?.pct ?? "--"; px: 10 }
+            Lb { text: Usage.top(Usage.claude)?.pct ?? "--"; px: 10 }
         }
     }
     Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
+    // кот RunCat: чем больше cpu, тем быстрее бежит (250 мс на кадр в простое, 50 на полной). cpu опрашивается, пока он в трее;
+    // Binding не в делегате — уничтоженный значение не возвращает. Серый как есть, в светлой теме на белом теряется — чёрный, как buds
+    Component {
+        id: catC
+        AnimatedImage {
+            width: 44
+            height: 26
+            source: "runcat.gif"
+            mipmap: true
+            speed: 1 + 4 * SysStats.cpu
+            layer.enabled: Theme.light
+            layer.effect: MultiEffect { brightness: -1 }
+        }
+    }
+    Binding { target: SysStats; property: "cat"; value: Theme.state.bar.includes("cat") }
+    // сеть: две дуги и точка, концы круглые, как у батареи; выключен — косая черта
     Component {
         id: wifiC
-        Icon {
-            text: Networking.wifiEnabled ? "\u{F05A9}" : "\u{F05AA}"
-            color: root.wifi?.connected ? Theme.fg : Theme.grey
+        Shape {
+            id: wf
+            width: 20
+            height: 18
+            preferredRendererType: Shape.CurveRenderer
+            readonly property color ink: root.wifi?.connected ? Theme.fg : Theme.grey
+            ShapePath {
+                strokeColor: wf.ink; strokeWidth: 2.2; capStyle: ShapePath.RoundCap; fillColor: "transparent"
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 5.5; radiusY: 5.5; startAngle: 220; sweepAngle: 100 }
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 10.5; radiusY: 10.5; startAngle: 220; sweepAngle: 100 }
+            }
+            ShapePath {
+                strokeColor: Networking.wifiEnabled ? "transparent" : wf.ink; strokeWidth: 2.2; capStyle: ShapePath.RoundCap
+                startX: 3; startY: 2
+                PathLine { x: 17; y: 17 }
+            }
+            ShapePath {
+                strokeWidth: -1; fillColor: wf.ink
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 1.9; radiusY: 1.9; startAngle: 0; sweepAngle: 360 }
+            }
         }
     }
     Component {
@@ -257,10 +287,10 @@ PanelWindow {
             color: Notes.list.length ? Theme.fg : Theme.grey
         }
     }
-    // в вертикальном баре батарея стоит, заряд растёт снизу. На зарядке — молния сверху, заливка дышит, пока заряжается
+    // слева батарея стоит, заряд растёт снизу; сверху — лежит, растёт слева. На зарядке — молния первой, заливка дышит, пока заряжается
     Component {
         id: batC
-        Column {
+        Pile {
             id: batc
             HoverHandler { onHoveredChanged: { root.batHot = hovered; root.peek(batc); } Component.onDestruction: root.batHot = false }
             spacing: 8
@@ -271,25 +301,26 @@ PanelWindow {
             property real phase: 0
             readonly property real pulse: charging ? 0.675 + 0.325 * Math.cos(phase * Math.PI / 1.1) : 1
             Timer { running: batc.charging; interval: 50; repeat: true; onTriggered: batc.phase = (batc.phase + 0.05) % 2.2; onRunningChanged: batc.phase = 0 }
-            Icon { visible: batc.ac; anchors.horizontalCenter: parent.horizontalCenter; text: "\u{F140B}"; font.pixelSize: 14 }
+            Icon { visible: batc.ac; text: "\u{F140B}"; font.pixelSize: 14 }
             Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: 14
-                height: 26
+                width: root.vert ? 14 : 26
+                height: root.vert ? 26 : 14
                 radius: 7
                 color: "transparent"
                 border { width: 1.5; color: Theme.grey }
                 Rectangle {
                     x: 3
-                    width: parent.width - 6
-                    height: (parent.height - 6) * root.bat.percentage
-                    anchors { bottom: parent.bottom; bottomMargin: 3 }
+                    y: parent.height - 3 - height
+                    width: root.vert ? parent.width - 6 : (parent.width - 6) * root.bat.percentage
+                    height: root.vert ? (parent.height - 6) * root.bat.percentage : parent.height - 6
                     radius: 4
                     color: root.batLow ? Theme.red : Theme.fg
                     opacity: batc.pulse
                 }
             }
-            Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
+            // ширина — под «100»: сверху трей прижат вправо, 99 → 100 сдвигал бы всё левее
+            Lb { width: full.implicitWidth; horizontalAlignment: Text.AlignHCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
+            Lb { id: full; visible: false; text: "100"; px: 10 }
         }
     }
     // режим питания засечками (Rules.modes): ultra — одна, performance — все; клик — следующий,
@@ -329,16 +360,17 @@ PanelWindow {
         }
     }
 
-    // ---- батарея и режим питания: навёл на батарею или засечки — карточка справа от бара, как поповер caelestia.
+    // ---- батарея и режим питания: навёл на батарею или засечки — карточка сбоку от бара (со стороны экрана), как поповер caelestia.
     // Заряд Doto, статус, шкала; ниже режимы кругами с засечками — клик выбирает, под курсором — что он делает.
     // Ушёл и с бара, и с карточки — гаснет ----
     property bool batHot: false
     property bool tickHot: false
     readonly property bool powHot: batHot || tickHot || popHov.hovered
     readonly property bool batLow: UPower.onBattery && root.bat.percentage < 0.15
-    // карточка встаёт низом по тому, на что навели (батарея или засечки); пока видна — не прыгает
-    property real popY: 0
-    function peek(it) { if (!pop.visible) popY = it.mapToItem(pill, 0, it.height).y; }
+    // карточка встаёт по тому, на что навели (батарея или засечки): сбоку — низом к его низу, сверху — правым краем к его правому;
+    // пока видна — не прыгает
+    property point popAt
+    function peek(it) { if (!pop.visible) popAt = it.mapToItem(pill, it.width, it.height); }
     property bool powOpen: false
     property int powPeek: -1
     onPowHotChanged: powHot ? powOpenT.restart() : powCloseT.restart()
@@ -355,11 +387,11 @@ PanelWindow {
         property real t: root.powOpen ? 1 : 0
         Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         visible: t > 0
-        // от правого края пилюли бара с зазором 14; низом — по popY, растёт вверх
+        // от внутреннего края пилюли бара с зазором 14; сбоку растёт вверх от popAt, сверху — вниз и влево
         anchor.item: pill
-        anchor.rect: Qt.rect(pill.width + 14, root.popY, 1, 1)
+        anchor.rect: root.vert ? Qt.rect(pill.width + 14, root.popAt.y, 1, 1) : Qt.rect(root.popAt.x, pill.height + 14, 1, 1)
         anchor.edges: Edges.Top | Edges.Left
-        anchor.gravity: Edges.Top | Edges.Right
+        anchor.gravity: root.vert ? Edges.Top | Edges.Right : Edges.Bottom | Edges.Left
         implicitWidth: Math.ceil(440 * Theme.s)
         implicitHeight: Math.ceil(card.height * Theme.s)
         color: "transparent"
@@ -369,11 +401,11 @@ PanelWindow {
                 id: card
                 width: 440
                 height: body.height + 52
-                radius: 36
+                radius: Theme.corner(36)
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
                 opacity: pop.t
-                transform: Translate { x: -16 * (1 - pop.t) }
+                transform: Translate { x: root.vert ? -16 * (1 - pop.t) : 0; y: root.vert ? 0 : -16 * (1 - pop.t) }
                 HoverHandler { id: popHov }
 
                 Column {

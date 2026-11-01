@@ -48,6 +48,7 @@ PanelWindow {
 
     Stage {
         id: stage
+        x: Theme.state.barAt === "top" ? -39 * Theme.s : 0 // раскладка под бар слева; бар сверху — на его полширины влево, по центру
 
         Row {
             x: 182
@@ -248,8 +249,8 @@ PanelWindow {
             }
         }
 
-        // кот: гифка матрицей в тон темы через шейдер обоев (как Wall в look 0). Танцует, только пока дом виден
-        // local: any gif from a folder, click/wheel to switch — see Gif.qml
+        // кот: гифка матрицей в тон темы через шейдер обоев (как Wall в look 0), какая — services/Gifs, сама плитка — Gif.
+        // Танцует, только пока дом виден
         Component {
             id: catW
             W {
@@ -340,7 +341,7 @@ PanelWindow {
         property bool round
         width: span * 220 + (span - 1) * 20
         height: 220
-        radius: round ? 110 : 40
+        radius: round ? 110 : Theme.corner(40)
         color: Theme.s1
         border { width: 1; color: Theme.s2 }
     }

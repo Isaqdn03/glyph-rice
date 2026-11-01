@@ -13,7 +13,7 @@ Scope {
     readonly property var tools: ["pen", "arrow", "rect", "blur", "text"]
     readonly property var hotkeys: [Qt.Key_P, Qt.Key_A, Qt.Key_R, Qt.Key_B, Qt.Key_T]
     // чернила запекаются в файл — от темы не зависят. Красный здесь — содержимое снимка, не интерфейс
-    readonly property var inks: [Theme.red, "#FFFFFF", "#000000", "#8C8C8C"]
+    readonly property var inks: [Theme.nothingRed, "#FFFFFF", "#000000", "#8C8C8C"]
     readonly property var sizes: [3, 6, 12] // толщина в логических пикселях; в снимке — × dpr
 
     property string shot: ""
@@ -131,7 +131,7 @@ Scope {
                         font { family: Theme.ui; pixelSize: root.w * 6; weight: Font.DemiBold }
                         color: root.inks[root.ink]
                         selectionColor: Theme.s3
-                        cursorDelegate: Rectangle { width: 2 * root.dpr; color: Theme.red } // каретка — «живое»
+                        cursorDelegate: Rectangle { width: 2 * root.dpr; color: Theme.accent } // каретка — «живое»
                         onAccepted: root.commitWord()
                         Keys.onEscapePressed: { visible = false; st.forceActiveFocus(); }
                     }

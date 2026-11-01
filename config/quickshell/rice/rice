@@ -3,7 +3,7 @@
 #   rice                текущий
 #   rice list           все шеллы: папки в ~/.config/quickshell с rice.json
 #   rice start          поднять текущий (hypr на старте)
-#   rice restart|kill   перезапустить / погасить текущий
+#   rice restart|kill   перезапустить (и hypr) / погасить текущий
 #   rice switch <имя>   погасить текущий, вернуть hypr к его конфигу, поднять другой
 #   rice lock           блокировка текущего шелла (бинд, hypridle, меню питания)
 q=$HOME/.config/quickshell
@@ -76,7 +76,7 @@ case $1 in
     "") echo "$cur" ;;
     list) for f in "$q"/*/rice.json; do basename "$(dirname "$f")"; done ;;
     start) [ -n "$(pids "$cur")" ] && exit 0; mkdir -p "$state"; term "$cur"; exec qs -p "$q/$cur" -d ;;
-    restart) term "$cur"; stop "$cur"; exec qs -p "$q/$cur" -d ;;
+    restart) term "$cur"; stop "$cur"; hyprctl reload >/dev/null; exec qs -p "$q/$cur" -d ;; # reload снимает и залипшую плашку ошибок hypr
     kill) stop "$cur" ;;
     switch)
         [ -f "$q/$2/rice.json" ] || { echo "rice: нет шелла «$2»" >&2; exit 1; }
