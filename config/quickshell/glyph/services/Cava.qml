@@ -20,6 +20,9 @@ Singleton {
     property real slow: 0.5
     onBarsChanged: {
         const b = Math.min(1, ((bars[0] ?? 0) + (bars[1] ?? 0)) / 2);
+        // a cava that can't open its input (pipewire not up yet at login) prints only "\e]0;cava\a": NaN bars would
+        // stick in slow for good, and a NaN beat paints the wallpaper black
+        if (!isFinite(b)) return;
         slow = slow * 0.95 + b * 0.05;
         const t = Math.max(0, Math.min(1, (b - slow) * 5));
         bass = t > bass ? t : bass * 0.8 + t * 0.2;
