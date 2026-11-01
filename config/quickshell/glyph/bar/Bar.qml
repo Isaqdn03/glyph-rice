@@ -223,6 +223,32 @@ PanelWindow {
                 }
             }
             Lb { text: Usage.top(Usage.claude)?.pct ?? "--"; px: 10 }
+            // local: a dot per Claude Code session (services/Sessions) — grey working, unlit idle,
+            // breathing red when one finished unseen or waits on an answer
+            Pile {
+                visible: Sessions.list.length > 0
+                spacing: 6
+                Repeater {
+                    model: Sessions.list.slice(0, 5)
+                    Rectangle {
+                        id: ses
+                        required property var modelData
+                        readonly property bool needs: Sessions.needs(modelData)
+                        width: 6
+                        height: 6
+                        radius: 3
+                        color: needs ? Theme.red : modelData.state === "working" ? Theme.grey : Theme.s3
+                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                        SequentialAnimation on opacity {
+                            running: ses.needs
+                            loops: Animation.Infinite
+                            onRunningChanged: if (!running) ses.opacity = 1
+                            NumberAnimation { to: 0.25; duration: 900; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 1; duration: 900; easing.type: Easing.InOutSine }
+                        }
+                    }
+                }
+            }
         }
     }
     Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
