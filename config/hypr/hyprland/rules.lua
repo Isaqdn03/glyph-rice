@@ -114,7 +114,7 @@ hl.window_rule({
     workspace = "special:music",
 })
 hl.window_rule({ match = { initial_title = "Spotify( \\(?Free\\)?)?" }, workspace = "special:music" }) -- Spotify wayland, it has no class for some reason; regex (re2), не lua-паттерн
-hl.window_rule({ match = { class = "discord|equibop|vesktop|whatsapp|org\\.telegram\\.desktop|TelegramDesktop" }, workspace = "special:communication" })
+hl.window_rule({ match = { class = "discord|equibop|whatsapp|org\\.telegram\\.desktop|TelegramDesktop" }, workspace = "special:communication" }) -- local: vesktop opens as a normal window
 hl.window_rule({ match = { class = "Todoist|io\\.github\\.alainm23\\.planify" }, workspace = "special:todo" })
 
 ---------------------
