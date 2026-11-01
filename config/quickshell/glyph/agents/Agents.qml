@@ -19,7 +19,7 @@ PanelWindow {
         open = !open;
     }
     function close() { open = false; }
-    onOpenChanged: if (open) Usage.refresh(false)
+    onOpenChanged: open ? Usage.refresh(false) : Sessions.ack() // seen: finished sessions stop calling
 
     property real t: open ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
@@ -148,6 +148,51 @@ PanelWindow {
                                 Lb { anchors.verticalCenter: parent.verticalCenter; width: 48; horizontalAlignment: Text.AlignRight; text: `${lim.pct}%`; color: Theme.fg; px: 11 }
                                 // an untouched window has no real reset yet (Codex reports now + window), so say nothing
                                 Lb { anchors.verticalCenter: parent.verticalCenter; width: 92; horizontalAlignment: Text.AlignRight; text: lim.pct > 0 && lim.modelData.reset ? root.left(lim.modelData.reset) : ""; px: 10 }
+                            }
+                        }
+                    }
+                }
+
+                // Claude Code sessions (services/Sessions): a dot like the bar's, the project, what it's doing
+                Column {
+                    visible: Sessions.list.length > 0
+                    width: col.width
+                    spacing: 12
+
+                    Rectangle { width: parent.width; height: 1; color: Theme.s2 }
+                    Lb { text: "sessions"; color: Theme.fg }
+
+                    Repeater {
+                        model: Sessions.list
+
+                        Item {
+                            id: ses
+                            required property var modelData
+                            readonly property bool needs: Sessions.needs(modelData)
+                            width: col.width
+                            height: 18
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 8
+                                height: 8
+                                radius: 4
+                                color: ses.needs ? Theme.red : ses.modelData.state === "working" ? Theme.grey : Theme.s3
+                            }
+                            Lb {
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: 22
+                                width: parent.width - 22 - 160
+                                elide: Text.ElideRight
+                                text: ses.modelData.name
+                                color: Theme.fg
+                                px: 11
+                            }
+                            Lb {
+                                anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                                text: `${({ working: "working", ask: "needs you", done: "done", idle: "idle" })[ses.modelData.state] ?? ""} · ${root.ago(ses.modelData.at)}`
+                                color: ses.needs ? Theme.red : Theme.grey
+                                px: 10
                             }
                         }
                     }
