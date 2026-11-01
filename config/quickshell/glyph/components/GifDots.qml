@@ -30,6 +30,7 @@ Item {
         readonly property real wave: 0
         readonly property real hasA: img.status === Image.Ready ? 1 : 0
         readonly property real hasB: 0
+        readonly property real beat: 0 // local: wall.frag has a beat now
         readonly property var srcA: img
         readonly property var srcB: img
         fragmentShader: Qt.resolvedUrl("shaders/wall.frag.qsb")
