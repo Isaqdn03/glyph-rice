@@ -52,7 +52,7 @@ Singleton {
         if (s.autoGame === false || root.on) return;
         s.gameAuto = { game: Rules.store.game, dnd: s.dnd };
         Rules.store.game = true;
-        s.dnd = true;
+        if (Rules.store.gameDnd) s.dnd = true; // prefs → WINDOWS → in a game → dnd
     }
     function exit() {
         const s = Theme.state, was = s.gameAuto;

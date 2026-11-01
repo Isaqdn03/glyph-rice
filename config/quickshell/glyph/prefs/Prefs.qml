@@ -953,6 +953,18 @@ PanelWindow {
                     Toggle { width: 200; text: "shadow"; on: root.r.shadow; onFlip: { root.r.shadow = !root.r.shadow; Theme.apply(); } }
                     Toggle { width: 200; text: "motion"; on: root.r.motion; onFlip: { root.r.motion = !root.r.motion; Rules.motion(); } }
                 }
+
+                // local: what stays on in game mode (Rules.store.game*). Off — game mode drops it; dnd — only auto game
+                // mode (services/Game) sets it. The label takes a toggle's row so the rows line up
+                Column {
+                    spacing: 14
+                    Item { width: 200; height: keepT.height; Lb { x: 22; anchors.verticalCenter: parent.verticalCenter; text: "in a game" } }
+                    Toggle { id: keepT; width: 200; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
+                    Toggle { width: 200; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
+                    Toggle { width: 200; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
+                    Toggle { width: 200; text: "shadow"; on: root.r.gameShadow; onFlip: { root.r.gameShadow = !root.r.gameShadow; Theme.apply(); } }
+                    Toggle { width: 200; text: "dnd"; on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
+                }
             }
 
             Row {

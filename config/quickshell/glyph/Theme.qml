@@ -223,13 +223,13 @@ Singleton {
     function apply() {
         // игровой режим (Rules.store.game) — поверх настроек, как ultra: рамка 1, без зазоров и скругления, tearing для
         // окон с immediate (игры, hyprland/rules.lua). Вышли — свои значения вернутся, allow_tearing — false, как в general.lua
-        const r = Rules.store, g = r.game;
+        const r = Rules.store, g = r.game, flat = g && !r.gameGaps; // local: flat — game mode without "keep gaps"
         const c = x => `"rgb(${hex(x)})"`;
         // тень: в тёмной — еле заметное белое свечение, в светлой — мягкая чёрная
         const shadow = light ? "rgba(0000002E)" : `rgba(${hex(fg)}1A)`;
-        hypr(`hl.config({ general = { gaps_in = ${g ? 0 : r.gapsIn}, gaps_out = ${g ? 0 : r.gapsOut}, border_size = ${g ? 1 : r.border}, allow_tearing = ${g}, `
+        hypr(`hl.config({ general = { gaps_in = ${flat ? 0 : r.gapsIn}, gaps_out = ${flat ? 0 : r.gapsOut}, border_size = ${flat ? 1 : r.border}, allow_tearing = ${g}, `
            + `col = { active_border = ${c(edge)}, inactive_border = ${c(s3)} } }, `
-           + `decoration = { rounding = ${g ? 0 : st.rounding}, blur = { enabled = ${Rules.blurOn} }, shadow = { enabled = ${Rules.shadowOn}, color = "${shadow}" } }, `
+           + `decoration = { rounding = ${flat ? 0 : st.rounding}, blur = { enabled = ${Rules.blurOn} }, shadow = { enabled = ${Rules.shadowOn}, color = "${shadow}" } }, `
            + `group = { col = { border_active = ${c(edge)}, border_inactive = ${c(s3)}, border_locked_active = ${c(edge)}, border_locked_inactive = ${c(mute)} }, `
            + `groupbar = { font_family = "${mono}", text_color = ${c(fg)}, col = { active = ${c(s3)}, inactive = ${c(s1)}, locked_active = ${c(s3)}, locked_inactive = ${c(s1)} } } }, `
            + `misc = { background_color = ${c(bg)} } })`);
