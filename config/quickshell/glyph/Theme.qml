@@ -243,7 +243,15 @@ Singleton {
             ["inactive_tab_foreground", grey], ["inactive_tab_background", s1], ["tab_bar_background", bg]
         ].concat(pal.ansi.map((c, i) => ["color" + i, c])).map(([k, v]) => `${k} ${typeof v === "string" ? v : v.toString().slice(0, 7).toUpperCase()}`).join("\n") + "\n");
         Quickshell.execDetached(["pkill", "-USR1", "-x", "kitty"]);
+
+        // local: tmux follows the palette too. tmux.conf sources this file and draws pane borders, the session name and
+        // messages in @thm_accent; running servers re-read it (no server — tmux just fails, quietly)
+        tmux.setText("# glyph: Theme.apply() writes this (local:), don't edit\n" + [
+            ["@thm_accent", accent], ["@thm_accent_fg", ink], ["@thm_fg", fg], ["@thm_surface", s2], ["@thm_muted", grey], ["@thm_dim", s3]
+        ].map(([k, v]) => `set -g ${k} "#${hex(v)}"`).join("\n") + `\nsetw -g clock-mode-colour "#${hex(accent)}"\n`);
+        Quickshell.execDetached(["sh", "-c", "tmux source-file -q \"$HOME/.config/tmux/theme.conf\" 2>/dev/null; tmux refresh-client -S 2>/dev/null; true"]);
     }
+    FileView { id: tmux; path: Quickshell.env("HOME") + "/.config/tmux/theme.conf"; blockWrites: true; printErrors: false } // local:
 
     // gtk и qt — только при смене цвета (shell.qml): apply() зовут и на каждый шаг кольца скругления. Шаблоны — свои term/
     // (тёмная палитра glyph): её цвета в них меняются на цвета тех же ролей в палитре (серые, красный, у qt ещё
