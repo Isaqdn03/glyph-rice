@@ -18,16 +18,6 @@ Singleton {
     readonly property var pal: make({})
     readonly property bool light: pal.light
 
-    // local: the dark greys of "nothing" come in tones (prefs → STYLE): bg s1 s2 s3 mute grey. void is Glyph's own
-    readonly property var greyTones: [
-        { name: "void", c: ["#000000", "#0E0E0E", "#1A1A1A", "#2A2A2A", "#4A4A4A", "#8C8C8C"] },
-        { name: "coal", c: ["#080808", "#131313", "#1F1F1F", "#303030", "#505050", "#909090"] },
-        { name: "ash", c: ["#111111", "#1B1B1B", "#282828", "#3A3A3A", "#5A5A5A", "#999999"] },
-        { name: "slate", c: ["#0A0B0D", "#13161A", "#1E2228", "#2E333B", "#4C525C", "#8D939C"] },
-        { name: "stone", c: ["#0C0B0A", "#161412", "#23201D", "#34302C", "#55504A", "#969089"] }
-    ]
-    readonly property var greyTone: (greyTones[st.tone] ?? greyTones[0]).c
-
     // светлая тема — та же раскладка, серые наоборот; красный не меняется
     readonly property var glyphDark: ["#000000", "#0E0E0E", "#1A1A1A", "#2A2A2A", "#4A4A4A", "#8C8C8C", "#F2F2F2"]
     readonly property var glyphLight: ["#E9E9E9", "#FFFFFF", "#F1F1F1", "#D9D9D9", "#B8B8B8", "#6E6E6E", "#0B0B0B"]
@@ -81,11 +71,8 @@ Singleton {
         const k = Object.assign({ paint: st.paint, scheme: st.scheme, at: st.paintAt, variant: st.variant, light: st.light }, o);
         if (k.paint === "scheme") return Schemes.ALL.find(p => p.id === k.scheme) ?? Schemes.ALL[0];
         // 16 ANSI glyph: в светлой 0↔15 и 7↔8, чтобы белое не терялось на белом
-        // local: dark greys follow the grey tone; kitty's black/bright black too, so color0 still matches the background
-        const dark = greyTone.concat([glyphDark[6]]);
-        const base = { light: k.light, c: k.light ? glyphLight : dark, accent: nothingRed, red: nothingRed,
-                       ansi: k.light ? [15, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 0].map(i => ansi[i])
-                                     : ansi.map((x, i) => i === 0 ? dark[1] : i === 8 ? dark[4] : x) };
+        const base = { light: k.light, c: k.light ? glyphLight : glyphDark, accent: nothingRed, red: nothingRed,
+                       ansi: k.light ? [15, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 0].map(i => ansi[i]) : ansi };
         const src = tones[Math.min(k.at, tones.length - 1)];
         return k.paint === "wall" && src ? Schemes.dynamic(src, k.variant, base) : base;
     }
@@ -164,7 +151,6 @@ Singleton {
         JsonAdapter {
             id: st
             property bool light: false
-            property int tone: 0      // local: index into greyTones, dark "nothing" only
             property string paint: ""     // откуда цвет: пусто — nothing, wall — обои, scheme — палитра
             property string scheme: "mocha" // какая палитра, id из schemes.js
             property int paintAt: 0       // какой из тонов обоев

@@ -794,17 +794,7 @@ PanelWindow {
                 Column {
                     id: own
                     spacing: 28
-                    // local: nothing's dark greys come in tones (Theme.greyTones) — bar, panels, desktop, kitty
-                    Lb { visible: !Theme.state.paint; text: "black · white dots · one red — the greys come in tones"; color: Theme.mute }
-                    Pick {
-                        visible: !Theme.state.paint
-                        enabled: !Theme.light
-                        opacity: enabled ? 1 : 0.4
-                        label: "tone"
-                        opts: Theme.greyTones.map(t => t.name)
-                        cur: Theme.state.tone
-                        onPicked: i => Theme.state.tone = i
-                    }
+                    Lb { visible: !Theme.state.paint; text: "black · white dots · one red — nothing to pick"; color: Theme.mute }
                     Row {
                         visible: Theme.state.paint === "wall"
                         spacing: 34
