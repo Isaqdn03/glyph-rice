@@ -50,7 +50,7 @@ Row {
                                 width: 10
                                 height: 10
                                 radius: 5
-                                color: Rgb.lit ? Rgb.base : Theme.s3
+                                color: !Rgb.lit ? Theme.s3 : modelData.mono ? Theme.fg : Rgb.base
                                 opacity: Rgb.lit ? 0.3 + 0.7 * Rgb.gain : 1
                                 Behavior on color { ColorAnimation { duration: Theme.t } }
                                 Behavior on opacity { NumberAnimation { duration: Theme.t } }
