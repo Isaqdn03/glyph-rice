@@ -43,8 +43,11 @@ Singleton {
     readonly property bool gaming: st.gameDark && Rules.store.game
     readonly property bool lit: st.on && !gaming && !night
     readonly property color base: st.white ? "#FFFFFF" : Theme.accent
-    readonly property real gain: Math.pow(st.level / 100, 2) // LEDs are linear; squared, half the ring looks like half
-    readonly property string hex: lit ? Theme.hex(Qt.rgba(base.r * gain, base.g * gain, base.b * gain, 1)) : "000000"
+    // LEDs are linear, a screen isn't: each channel goes through the sRGB curve (≈2.2), level with it. Without it the
+    // accent's faint green and blue glow at full LED strength (#D71921 came out pink), and half the ring looks like half
+    readonly property real gain: Math.pow(st.level / 100, 2.2)
+    function led(c) { return Math.pow(c, 2.2) * gain; }
+    readonly property string hex: lit ? Theme.hex(Qt.rgba(led(base.r), led(base.g), led(base.b), 1)) : "000000"
 
     readonly property int lcd: lit ? st.level : 0 // the LCD's own brightness is already even, no squaring
 
