@@ -15,7 +15,7 @@ Singleton {
     // local: the wallpaper's beat — how far the bass jumps above its last ~second, fast rise, slow fall: rests near 0,
     // kicks reach .5–.9. Cava runs for it whenever music plays (Theme.state.wallPulse) or the wallpaper picker is open —
     // its autosens needs ~2 s to stop clipping, so it isn't started only when a wallpaper shows; home/Back gates the shader
-    readonly property bool beatOn: Media.playing && (Sys.wallOpen || Theme.state.wallPulse && Theme.state.wall !== "")
+    readonly property bool beatOn: Media.playing && (Sys.wallOpen || Theme.state.wallPulse && Theme.state.wall !== "" && !Game.on)
     property real bass: 0
     property real slow: 0.5
     onBarsChanged: {
