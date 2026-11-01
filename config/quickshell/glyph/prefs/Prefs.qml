@@ -19,10 +19,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL", "LIGHTS"] // local: AUDIO, LIGHTS
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL", "LIGHTS"] // local: LIGHTS
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", "", rings] // local: AUDIO, LIGHTS
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", "", rings] // local: LIGHTS
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -1047,7 +1047,7 @@ PanelWindow {
             }
         }
 
-        // local: AUDIO — output and input: volume, mute, level, default device (prefs/Audio)
+        // ---- AUDIO: output and input — volume, mute, level, the default device (prefs/Audio) ----
         Page {
             id: audioPage
             k: 7
@@ -1058,7 +1058,7 @@ PanelWindow {
         // ---- POWER: режимы питания (Rules.modes) — четыре круга, кольцо горит по силе, выбранный белый.
         // ultra — power saver и ещё 60 Гц, без анимаций, blur и теней поверх настроек ----
         Page {
-            k: 8 // local: AUDIO is 7
+            k: 8
             caption: `power · ${Rules.modes[Rules.mode].what} · ${Rules.hz} hz`
 
             Row {
@@ -1101,7 +1101,7 @@ PanelWindow {
         // ---- INPUT: держишь клавишу — первая точка сразу, пауза delay, дальше rate в секунду; по живым кольцам ----
         Page {
             id: inp
-            k: 9 // local: AUDIO is 7
+            k: 9
             caption: "input · keyboard · touchpad"
             property int n: 0 // сколько «напечатано»; 0 — клавиша отпущена
             Timer {
@@ -1160,7 +1160,7 @@ PanelWindow {
         // ---- IDLE: шкала минут без ввода. Точки тускнеют на каждом событии: бодр → заперт → экран погас → спит.
         // Метки тянутся вдоль, правее 60 — never ----
         Page {
-            k: 10 // local: AUDIO is 7
+            k: 10
             caption: "idle · minutes without input · hypridle"
 
             Item {
@@ -1215,7 +1215,7 @@ PanelWindow {
 
         // ---- SHELL: знак райса и имя живого шелла; переключатель — приложение Rice ----
         Page {
-            k: 11 // local: AUDIO is 7
+            k: 11
             caption: "shell · quickshell"
 
             Row {

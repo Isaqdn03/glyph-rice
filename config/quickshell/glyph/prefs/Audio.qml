@@ -3,7 +3,7 @@ import Quickshell.Services.Pipewire
 import qs
 import qs.components
 
-// local: AUDIO page of prefs. Output and input side by side: a volume ring, mute, a live level row, then every
+// AUDIO page of prefs. Output and input side by side: a volume ring, mute, a live level row, then every
 // device on the machine. The white pill is the default; click or ←→ moves it (Pipewire.preferredDefault*,
 // which wireplumber remembers across reboots)
 Row {
@@ -14,28 +14,30 @@ Row {
     readonly property var ins: devs(false)
     readonly property string caption: `audio · pipewire · ${outs.length} out · ${ins.length} in`
 
-    // hardware only (no app streams), grouped by card: "SSL 2+" + "Line Outputs 1/L + 2/R"
-    function devs(sink) {
-        return Pipewire.nodes.values.filter(n => n.audio && !n.isStream && n.isSink === sink)
+    // hardware only (no app streams), grouped by card: "SSL 2+" + "Line Outputs 1/L + 2/R".
+    // A duplex node (a virtual mic-and-speaker) is a sink and a source at once — it goes in both lists
+    function devs(out) {
+        return Pipewire.nodes.values.filter(n => n.audio && !n.isStream && (out ? n.isSink : n.type & PwNodeType.Source))
             .map(n => Object.assign({ node: n }, split(n)))
             .sort((a, b) => a.card.localeCompare(b.card) || a.port.localeCompare(b.port));
     }
     function split(n) {
         const d = n.description || n.name, nick = (n.nickname || "").replace(/ #\d+$/, "");
         if (nick && d.startsWith(nick + " ")) return { card: nick, port: d.slice(nick.length + 1) };
-        // HDMI: "GA102 … Digital Stereo (HDMI) [ED340CU S3]" — the monitor is the name
-        const bus = d.match(/\((\w+)\)/);
+        // HDMI: "GA102 … Digital Stereo (HDMI 2) [ED340CU S3]" — the monitor is the name
+        const bus = d.match(/\(((?:HDMI|DP)[^)]*)\)/);
         if (nick && d.includes(`[${nick}]`)) return { card: bus ? bus[1] : "", port: nick };
         return { card: "", port: d };
     }
 
     spacing: 70
 
-    Side { label: "output"; node: Pipewire.defaultAudioSink; list: root.outs }
-    Side { label: "input"; node: Pipewire.defaultAudioSource; list: root.ins }
+    Side { out: true; label: "output"; node: Sys.sink; list: root.outs } // Sys tracks both
+    Side { out: false; label: "input"; node: Sys.mic; list: root.ins }
 
     component Side: Column {
         id: side
+        required property bool out
         required property string label
         required property var node // the default device
         required property var list
@@ -43,37 +45,34 @@ Row {
         function pick(i) {
             const n = list[(i + list.length) % list.length]?.node;
             if (!n) return;
-            if (n.isSink) Pipewire.preferredDefaultAudioSink = n;
+            if (out) Pipewire.preferredDefaultAudioSink = n;
             else Pipewire.preferredDefaultAudioSource = n;
         }
 
         width: 470
         spacing: 26
 
-        PwObjectTracker { objects: [side.node] }
-        PwNodePeakMonitor { id: peak; node: side.node; enabled: root.live && !!side.node }
-        // peak is linear 0-1; the row shows -60…0 dB, falls back slowly so a word stays readable
+        // no node while hidden — no capture stream, whichever binding Qt sets first
+        PwNodePeakMonitor { id: peak; node: root.live ? side.node : null; onNodeChanged: side.lv = 0 }
+        // peak is ∛amplitude, so dB = 60·log10(peak); the row shows -60…0 dB → 1 + log10(peak). Above 1 when the node's
+        // volume is software (quickshell divides by it). Jumps up on a peak, falls back slowly on the timer so a word stays
+        // readable: in silence peak sits at 0 and peakChanged never fires
+        readonly property real at: Math.max(0, Math.min(1, 1 + Math.log10(peak.peak)))
         property real lv: 0
-        Connections {
-            target: peak
-            function onPeakChanged() {
-                const db = peak.peak > 0 ? 20 * Math.log10(peak.peak) : -100;
-                side.lv = Math.max(Math.max(0, (db + 60) / 60), side.lv - 0.03);
-            }
-        }
-        onNodeChanged: lv = 0
+        onAtChanged: lv = Math.max(lv, at)
+        Timer { interval: 33; repeat: true; running: root.live && side.lv > 0; onTriggered: side.lv = Math.max(side.at, side.lv - 0.03) }
 
         Row {
             spacing: 36
             Dial {
+                enabled: !!side.node?.audio
                 size: 200
                 n: 48
                 live: true
                 label: side.label
                 value: Math.round((side.node?.audio?.volume ?? 0) * 100)
                 onMoved: v => {
-                    if (!side.node?.audio) return;
-                    side.node.audio.muted = false;
+                    if (side.out) side.node.audio.muted = false; // the mic stays muted: its gain isn't a reason to open it
                     side.node.audio.volume = v / 100;
                 }
             }
@@ -81,27 +80,19 @@ Row {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 22
                 Toggle {
+                    enabled: !!side.node?.audio
                     width: 200
                     text: "mute"
                     on: side.node?.audio?.muted ?? false
-                    onFlip: if (side.node?.audio) side.node.audio.muted = !side.node.audio.muted
+                    onFlip: side.node.audio.muted = !side.node.audio.muted
                 }
-                // level: 12 dots, the last two red — that's -10 dB and up, close to clipping
+                // level: 12 dots — 10 white, then 2 red from -7.5 dB, close to clipping
                 Column {
                     spacing: 12
                     Row {
                         spacing: 7
-                        Repeater {
-                            model: 12
-                            Rectangle {
-                                required property int index
-                                readonly property bool lit: index < Math.round(side.lv * 12)
-                                width: 10
-                                height: 10
-                                radius: 5
-                                color: !lit ? Theme.s3 : index >= 10 ? Theme.red : Theme.fg
-                            }
-                        }
+                        Seg { n: 10; spacing: 7; width: 163; height: 10; f: side.lv * 1.2 }
+                        Seg { n: 2; spacing: 7; width: 27; height: 10; f: side.lv * 6 - 5; on: Theme.red }
                     }
                     Lb { text: side.node?.audio?.muted ? "level · muted" : "level"; px: 10 }
                 }
@@ -113,7 +104,7 @@ Row {
             id: box
             width: side.width
             height: Math.max(1, side.list.length) * 56 + 12
-            radius: 34
+            radius: Theme.corner(34)
             color: Theme.s1
             border { width: 1; color: box.activeFocus ? Theme.fg : Theme.s2 }
             activeFocusOnTab: true
@@ -128,10 +119,10 @@ Row {
             Rectangle {
                 visible: side.cur >= 0
                 x: 6
-                y: 6 + side.cur * 56
+                y: 6 + Math.max(side.cur, 0) * 56 // from -1 it shows up in place, not flying in from above
                 width: box.width - 12
                 height: 56
-                radius: 28
+                radius: Theme.corner(28)
                 color: Theme.fg
                 Behavior on y { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
             }
@@ -157,7 +148,7 @@ Row {
                     }
                     Text {
                         anchors { left: parent.left; leftMargin: 50; right: card.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                        elide: Text.ElideRight
+                        elide: Text.ElideMiddle // long ALSA names differ at the end: "… (HDMI 2)"
                         text: dv.modelData.port
                         font { family: Theme.ui; pixelSize: 19 }
                         color: dv.on ? Theme.ink : Theme.grey
