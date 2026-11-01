@@ -134,8 +134,11 @@ PanelWindow {
             id: weatherW
             W {
                 round: true
+                // local: centred on the ink — the glyph sits low in its 1em box, Doto pads every cell on the right (° most);
+                // name and low/high on two lines, one didn't fit the circle's chord
                 Column {
                     anchors.centerIn: parent
+                    anchors.verticalCenterOffset: -6
                     Icon {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: Weather.glyph(Weather.now?.code ?? 3, Weather.now?.day)
@@ -143,13 +146,24 @@ PanelWindow {
                         layer.enabled: true
                         layer.effect: Dm { step: 4 }
                     }
-                    Num { anchors.horizontalCenter: parent.horizontalCenter; topPadding: lead + 6; text: Weather.ok ? Math.round(Weather.now.temp) + "°" : "--"; font.pixelSize: 66 }
+                    Num {
+                        id: wxTemp
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.horizontalCenterOffset: width / 2 - wxInk.tightBoundingRect.x - wxInk.tightBoundingRect.width / 2
+                        topPadding: lead + 6
+                        text: Weather.ok ? Math.round(Weather.now.temp) + "°" : "--"
+                        font.pixelSize: 66
+                        TextMetrics { id: wxInk; font: wxTemp.font; text: wxTemp.text }
+                    }
                     Lb {
                         anchors.horizontalCenter: parent.horizontalCenter
                         topPadding: 8
-                        width: Math.min(implicitWidth, 160) // хорда круга на этой высоте
-                        elide: Text.ElideRight
-                        text: Weather.ok ? `${Weather.name(Weather.now.code)} · ${Math.round(Weather.days[0]?.min)}°/${Math.round(Weather.days[0]?.max)}°` : "no sky"
+                        text: Weather.ok ? Weather.name(Weather.now.code) : "no sky"
+                    }
+                    Lb {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: Weather.ok
+                        text: `${Math.round(Weather.days[0]?.min)}°/${Math.round(Weather.days[0]?.max)}°`
                     }
                 }
             }
