@@ -50,10 +50,12 @@ void main() {
     float l = dot(rgb, vec3(0.299, 0.587, 0.114));
     vec3 col = has > 0.5 ? mix(bg.rgb, mix(rgb, mix(lo.rgb, hi.rgb, l), mono), bright) : bg.rgb;
     col = mix(col, hi.rgb, 0.4 * crest);
-    col = mix(col, hi.rgb, 0.12 * beat * l); // local: the bright parts of the picture lift on the beat
+    col = mix(col, hi.rgb, 0.3 * beat * l); // local: the bright parts of the picture lift on the beat
 
     // точка: радиус от «вся клетка» (фото) до .3 шага (как Dm), на гребне вспухает
-    float r = pitch * mix(0.75, 0.3, d) * (1.0 + 0.55 * crest) * (1.0 + 0.45 * beat * d * (0.4 + 0.6 * l)); // local: beat
+    float r = pitch * mix(0.75, 0.3, d) * (1.0 + 0.55 * crest);
+    // local: beat — dots swell up to ~75 %, light ones most, but stop short of touching their neighbours
+    r = mix(r, min(r * (1.0 + 0.85 * beat * (0.6 + 0.4 * l)), pitch * 0.48), d);
     float m = 1.0 - smoothstep(r - 0.6, r + 0.6, distance(p, c));
     float a = has > 0.5 ? 1.0 : m * crest;
     fragColor = vec4(mix(bg.rgb, col, m) * a, a) * qt_Opacity;
