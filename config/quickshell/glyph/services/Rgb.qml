@@ -9,7 +9,8 @@ import qs.settings
 // local: the case lights. RAM, the Thermaltake fan box and the board's Aura headers go through OpenRGB's server (root,
 // 127.0.0.1:6742 — ~/dev/glyph-desktop-install/rgb.sh), the Kraken's Aer fans through liquidctl (OpenRGB has no Kraken Z).
 // One steady colour — the Style's accent or white — dimmed by level; dark when off, in game mode, or in the night hours.
-// The Kraken's LCD keeps showing what it shows (liquid temperature) — only its brightness follows: level, or 0 when dark.
+// The Kraken's LCD shows Glyph's dial of the coolant temperature (kraken.py) or its own liquid screen; its brightness
+// follows too: level, or 0 when dark.
 // Direct mode only: volatile, nothing lands in the RAM's own memory (a cold boot shows its rainbow until the shell is up).
 // Mouse and keyboard are left alone. Settings: riceState/lights.json, prefs → LIGHTS
 Singleton {
@@ -51,6 +52,51 @@ Singleton {
     onLcdChanged: soon.restart()
     Timer { id: soon; interval: 120; onTriggered: root.push() }
 
+    // the screen's face (kraken.py): a Glyph dial of the coolant temperature. Redrawn only when the reading moves 0.8 °C
+    // past the whole degree it shows (35.5 doesn't flicker 35↔36), uploaded at most every 30 s, untouched while dark —
+    // nobody says if the Kraken keeps its images in flash, so writes stay rare. st.face false — the Kraken's own screen
+    property real liquid: 0 // °C, from the kernel's z53 hwmon: no USB traffic
+    property int shows: -1  // the whole degree on the face
+    onLiquidChanged: if (liquid > 0 && (shows < 0 || Math.abs(liquid - shows) >= 0.8)) shows = Math.round(liquid)
+    FileView { id: coolant; path: SysStats.hwmon(["z53"]); blockAllReads: true; printErrors: false }
+    Timer {
+        interval: 10000
+        running: root.screen && st.face
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            coolant.reload();
+            const t = parseInt(coolant.text());
+            if (t > 0) root.liquid = t / 1000;
+        }
+    }
+    readonly property string facePng: (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/glyph/kraken.png"
+    // what the screen should show: "" — nothing to do (no screen, dark, no reading yet), "liquid", or the dial's arguments.
+    // The panel is round and black, so the dial keeps the dark greys in a light theme too
+    readonly property var faceGreys: Theme.light ? Theme.glyphDark : Theme.greys
+    readonly property string face: !screen || !lit ? "" : !st.face ? "liquid" : shows < 0 ? ""
+        : [shows, faceGreys[6], faceGreys[3], faceGreys[5], base].map(v => typeof v === "number" ? String(v) : Theme.hex(v)).join(" ")
+    property string drawn: ""
+    property string sentFace: ""
+    onFaceChanged: draw()
+    function draw() {
+        if (face === "" || face === "liquid" || face === drawn || painter.running) return;
+        const a = face.split(" ");
+        painter.key = face;
+        painter.command = ["/usr/bin/python3", "-I", Qt.resolvedUrl("kraken.py").toString().replace("file://", ""), a[0], facePng].concat(a.slice(1));
+        painter.running = true;
+    }
+    Process {
+        id: painter
+        property string key
+        onExited: code => {
+            if (code === 0) root.drawn = key;
+            root.draw();
+            root.push();
+        }
+    }
+    Timer { id: cool; interval: 30000; onTriggered: root.push() }
+
     // one write per tool at a time; a drag that moved on meanwhile sends its newest value when the last one lands.
     // The Kraken's fans and screen are one device: one liquidctl at a time, fans first
     property string sent: ""     // openrgb
@@ -71,12 +117,19 @@ Singleton {
             sentLcd = lcd;
             kraken.command = ["liquidctl", "--match", "kraken", "set", "lcd", "screen", "brightness", String(sentLcd)];
             kraken.running = true;
+        } else if (face !== "" && face !== sentFace && (face === "liquid" || face === drawn) && !cool.running) {
+            sentFace = face;
+            kraken.command = ["liquidctl", "--match", "kraken", "set", "lcd", "screen"].concat(face === "liquid" ? ["liquid"] : ["static", facePng]);
+            kraken.running = true;
+            if (face !== "liquid") cool.restart();
         }
     }
     function again() {
         sent = "";
         sentFans = "";
         sentLcd = -1;
+        sentFace = "";
+        cool.stop();
         push();
     }
 
@@ -152,6 +205,7 @@ Singleton {
             property bool white: false   // false — the Style's accent
             property bool gameDark: true // dark while game mode is on (manual or services/Game)
             property var night: []       // [from, to] hours, dark inside; [] — never
+            property bool face: true     // the Kraken's screen shows Glyph's dial (kraken.py), not its own liquid screen
         }
     }
 }

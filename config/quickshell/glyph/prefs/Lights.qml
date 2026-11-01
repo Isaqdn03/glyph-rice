@@ -31,7 +31,11 @@ Row {
             cur: root.hours.findIndex(h => h.length === (root.st.night || []).length && h.every((x, j) => x === root.st.night[j]))
             onPicked: i => root.st.night = root.hours[i]
         }
-        Toggle { text: "dark in a game"; on: root.st.gameDark; onFlip: root.st.gameDark = !root.st.gameDark }
+        Row {
+            spacing: 22
+            Toggle { text: "dark in a game"; on: root.st.gameDark; onFlip: root.st.gameDark = !root.st.gameDark }
+            Toggle { visible: Rgb.screen; text: "glyph screen"; on: root.st.face; onFlip: root.st.face = !root.st.face }
+        }
 
         Column {
             topPadding: 14
@@ -39,18 +43,19 @@ Row {
             Repeater {
                 model: Rgb.parts
                 Row {
+                    id: part
                     required property var modelData
                     Lb { width: 110; anchors.verticalCenter: parent.verticalCenter; text: modelData.name }
                     Row {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 8
                         Repeater {
-                            model: modelData.n
+                            model: part.modelData.n
                             Rectangle {
                                 width: 10
                                 height: 10
                                 radius: 5
-                                color: !Rgb.lit ? Theme.s3 : modelData.mono ? Theme.fg : Rgb.base
+                                color: !Rgb.lit ? Theme.s3 : part.modelData.mono ? Theme.fg : Rgb.base
                                 opacity: Rgb.lit ? 0.3 + 0.7 * Rgb.gain : 1
                                 Behavior on color { ColorAnimation { duration: Theme.t } }
                                 Behavior on opacity { NumberAnimation { duration: Theme.t } }
