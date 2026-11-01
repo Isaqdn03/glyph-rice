@@ -21,7 +21,7 @@ Singleton {
     onBarsChanged: {
         const b = Math.min(1, ((bars[0] ?? 0) + (bars[1] ?? 0)) / 2);
         slow = slow * 0.95 + b * 0.05;
-        const t = Math.max(0, Math.min(1, (b - slow) * 4));
+        const t = Math.max(0, Math.min(1, (b - slow) * 5));
         bass = t > bass ? t : bass * 0.8 + t * 0.2;
     }
 
