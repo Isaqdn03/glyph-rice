@@ -100,7 +100,7 @@ Singleton {
         command: ["hyprctl", "monitors", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const all = JSON.parse(text), m = all.find(x => x.name.startsWith("eDP")) ?? all[0];
+                const all = JSON.parse(text), m = all.find(x => x.name.startsWith("eDP")); // local: never touch externals, user.lua owns them
                 if (!m) return;
                 const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], Math.round(+r[3])]);
                 const [w, h] = modes.reduce((a, b) => b[0] * b[1] > a[0] * a[1] ? b : a, [m.width, m.height]);
@@ -131,7 +131,7 @@ Singleton {
     }
     // ponytail: только вкл/выкл; slam/snap — переопределять кривые из animations.lua
     function motion() { hypr(`hl.config({ animations = { enabled = ${moving} } })`); }
-    readonly property var switches: [["alt+shift", "grp:alt_shift_toggle"], ["caps", "grp:caps_toggle"], ["ctrl+shift", "grp:ctrl_shift_toggle"]]
+    readonly property var switches: [["alt+shift", "grp:alt_shift_toggle"], ["caps", "grp:caps_toggle"], ["ctrl+shift", "grp:ctrl_shift_toggle"], ["none", "compose:caps"]] // local: "none" — one layout, keep Alt+Shift free for apps
     function input() {
         const s = store;
         hypr(`hl.config({ input = { kb_options = "${switches[s.kbSwitch]?.[1] ?? switches[0][1]}", repeat_delay = ${s.repeatDelay}, repeat_rate = ${s.repeatRate}, `

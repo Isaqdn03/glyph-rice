@@ -1,31 +1,55 @@
-# glyph: ~/dir › — каталог серым, стрелка белая, ошибка красная. Цвета — номерами ANSI, светлая тема kitty их переставит.
-# ~/.config/starship.toml ссылается сюда, пока жив glyph (rice)
+# local: depth as dots — each parent dir is one dot, only the current folder is named.
+#   ~/code/glyph  ->  ∙∙ glyph   on main •   ›
+# Red is reserved for one thing: the last exit code when it failed.
 add_newline = false
-format = "$directory$git_branch$git_status$cmd_duration$character"
+format = "${custom.depth}$directory$git_branch$git_status$cmd_duration$status$character"
+
+[custom.depth]
+command = '''p=${PWD/#$HOME/\~}; [ "$p" = / ] && exit; IFS=/ read -ra a <<< "$p"; n=$(( ${#a[@]} - 1 )); [[ $p == /* ]] && (( n == 1 )) && exit; (( n > 0 )) || exit; (( n > 8 )) && n=8; printf '∙%.0s' $(seq $n)'''
+when = true
+shell = ["bash", "--noprofile", "--norc"]
+style = "bright-black"
+format = "([$output]($style) )"
 
 [directory]
-style = "white"
-truncation_length = 3
-truncation_symbol = "…/"
-read_only = " ●"
-read_only_style = "red"
+style = "bright-white"
+truncation_length = 1
+truncate_to_repo = false
+read_only = " ∘"
+read_only_style = "bright-black"
 format = "[$path]($style)[$read_only]($read_only_style) "
 
 [git_branch]
 symbol = ""
-style = "bright-white"
-format = "[$branch]($style) "
+style = "white"
+format = "[on](bright-black) [$branch]($style) "
 
 [git_status]
-style = "bright-black"
+style = "white"
 format = "([$all_status$ahead_behind]($style) )"
+modified = "•"
+staged = "+"
+untracked = "◦"
+deleted = "−"
+renamed = "→"
+conflicted = "×"
+stashed = ""
+ahead = "↑${count}"
+behind = "↓${count}"
+diverged = "↕"
 
 [cmd_duration]
 min_time = 2000
 style = "bright-black"
 format = "[$duration]($style) "
 
+[status]
+disabled = false
+style = "red"
+symbol = ""
+format = "[$status]($style) "
+
 [character]
 success_symbol = "[›](bright-white)"
-error_symbol = "[›](red)"
+error_symbol = "[›](bright-white)"
 vimcmd_symbol = "[‹](bright-white)"

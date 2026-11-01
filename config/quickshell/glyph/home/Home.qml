@@ -52,9 +52,13 @@ PanelWindow {
         Row {
             x: 182
             y: 150
-            Num { text: Theme.hh(clock.date); font.pixelSize: 300 }
-            Num { text: ":"; font.pixelSize: 300; opacity: Theme.state.blink && root.dim ? 0.2 : 1 }
-            Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 300 }
+            // local: true-circle dot matrix instead of Doto at 300px (see components/DotClock.qml)
+            DotClock {
+                y: 10
+                dot: 22
+                text: Theme.hh(clock.date) + ":" + Qt.formatTime(clock.date, "mm")
+                colonOpacity: Theme.state.blink && root.dim ? 0.2 : 1
+            }
         }
         Lb {
             x: 190
@@ -245,32 +249,12 @@ PanelWindow {
         }
 
         // кот: гифка матрицей в тон темы через шейдер обоев (как Wall в look 0). Танцует, только пока дом виден
+        // local: any gif from a folder, click/wheel to switch — see Gif.qml
         Component {
             id: catW
             W {
                 id: cw
-                AnimatedImage { id: cat; anchors.fill: fx; opacity: 0; source: "cat.gif"; playing: root.home } // текстура для fx, см. Wall
-                ShaderEffect {
-                    id: fx
-                    anchors { fill: parent; margins: 12 }
-                    readonly property size size: Qt.size(width, height)
-                    readonly property point origin: Qt.point(0, 0)
-                    readonly property size cropA: Qt.size(1, 1)
-                    readonly property size cropB: cropA
-                    readonly property color lo: Theme.light ? Theme.fg : Theme.bg
-                    readonly property color hi: Theme.light ? Theme.bg : Theme.fg
-                    readonly property color bg: cw.color // прозрачное в гифке — в цвет плитки
-                    readonly property real pitch: 6
-                    readonly property real dots: 1
-                    readonly property real mono: 1
-                    readonly property real bright: 1
-                    readonly property real wave: 0
-                    readonly property real hasA: cat.status === Image.Ready ? 1 : 0
-                    readonly property real hasB: 0
-                    readonly property var srcA: cat
-                    readonly property var srcB: cat
-                    fragmentShader: Qt.resolvedUrl("../components/shaders/wall.frag.qsb")
-                }
+                Gif { anchors.fill: parent; playing: root.home; bg: cw.color }
             }
         }
 

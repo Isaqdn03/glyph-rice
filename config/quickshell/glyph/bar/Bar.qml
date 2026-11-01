@@ -8,6 +8,7 @@ import Quickshell.Wayland
 import qs
 import qs.components
 import qs.settings
+import qs.services // local: Usage for the agent meter
 
 // бар: вертикальная пилюля у левого края. Сверху знак (кольцо из 16 точек) — лаунчер, центр краснеет, пока запись или микрофон.
 // Воркспейсы точками, заголовок окна столбиком, часы Doto по центру, трей снизу — клик открывает быстрые настройки.
@@ -19,36 +20,72 @@ PanelWindow {
     signal trayClicked
     signal powerClicked
     signal clockClicked
+    signal agentsClicked // local
 
     anchors { left: true; top: true; bottom: true }
-    implicitWidth: Math.ceil(78 * Theme.s)
+    implicitWidth: Math.ceil((64 + gap) * Theme.s)
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
-    readonly property int active: Hyprland.focusedWorkspace?.id ?? 0
+    // local: auto-hide, for OLEDs (burn-in). Theme.state.barHide lists the monitors (by model) it hides on. Hidden: no
+    // exclusive zone, input only on a 2px strip at the left edge. Rest there for barShowMs, or shell:bar (peek), and the
+    // pill slides in over the windows; leave it and it slides back out
+    readonly property bool autoHide: Theme.state.barHide.includes(screen?.model || screen?.name || "")
+    property bool hov: false
+    property bool peeked: false
+    property int peeks: 0 // shell.qml bumps it on every bar; the one on the focused monitor answers
+    readonly property bool shown: !autoHide || hov || peeked || powOpen || pop.visible
+    property real slide: shown ? 1 : 0
+    Behavior on slide { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+    exclusionMode: autoHide ? ExclusionMode.Ignore : ExclusionMode.Auto
+    mask: Region { item: root.shown ? hitAll : hitEdge }
+    onPeeksChanged: if (autoHide && Hyprland.focusedMonitor === mon) { peeked = !peeked; if (peeked) peekT.restart(); }
+    onAutoHideChanged: { hov = false; peeked = false; }
+    Timer { id: showT; interval: Theme.state.barShowMs; onTriggered: root.hov = true }
+    Timer { id: hideT; interval: 500; onTriggered: root.hov = false }
+    Timer { id: peekT; interval: 3000; onTriggered: root.peeked = false }
+    Item { id: hitEdge; width: 2; height: parent.height }
+    Item { id: hitAll; anchors.fill: parent }
+
+    readonly property int gap: Rules.store.gapsOut // local: pill sits at the window gap, not a fixed 14
+    // local: per-monitor workspaces (hypr/monitor-workspaces.lua): each monitor owns a block of ten, and the
+    // workspace it shows is always one of its own, so that gives the block. Dots are this monitor's slots 1-10
+    readonly property var mon: Hyprland.monitorFor(root.screen)
+    readonly property int base: Math.floor(((mon?.activeWorkspace?.id ?? 1) - 1) / 10) * 10
+    readonly property int active: (mon?.activeWorkspace?.id ?? 0) - base
     // шесть точек, больше — если занят или открыт дальний
-    readonly property int count: Math.min(10, Math.max(6, active, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length).map(w => w.id)))
+    readonly property int count: Math.min(10, Math.max(6, active, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length && w.id > base && w.id <= base + 10).map(w => w.id - base)))
     readonly property var top: ToplevelManager.activeToplevel
     readonly property var bat: UPower.displayDevice
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
 
     // hyprland 0.56 с lua: dispatch принимает lua-выражение
     function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
+    // local: slot n on this bar's monitor; plain workspace n if the module isn't loaded
+    function slot(n) { Hyprland.dispatch(`(monitor_workspaces and monitor_workspaces.focus(${n}, "${root.mon?.name ?? ""}")) or hl.dsp.focus({ workspace = "${base + n}" })`); }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
     Stage {
+        // local: auto-hide — Stage covers the whole window, so this sees the edge strip and the pill alike
+        HoverHandler {
+            onHoveredChanged: {
+                if (hovered) { hideT.stop(); showT.restart(); }
+                else { showT.stop(); hideT.restart(); }
+            }
+        }
         Rectangle {
             id: pill
-            x: 14
-            y: 14
+            x: root.gap - (1 - root.slide) * (64 + root.gap + 2) // local: auto-hide slides it off the left edge
+            visible: root.slide > 0 // local
+            y: root.gap
             width: 64
-            height: parent.height - 28
+            height: parent.height - 2 * root.gap
             radius: 32
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
 
-            WheelHandler { onWheel: e => root.go(e.angleDelta.y > 0 ? "-1" : "+1") }
+            WheelHandler { onWheel: e => root.go(e.angleDelta.y > 0 ? "m-1" : "m+1") } // local: m = this monitor
 
             // знак: кольцо из точек, центр — красный, пока что-то пишет
             Item {
@@ -81,7 +118,7 @@ PanelWindow {
                     Rectangle {
                         required property int index
                         readonly property int n: index + 1
-                        readonly property bool occ: (Hyprland.workspaces.values.find(w => w.id === n)?.toplevels.values.length ?? 0) > 0
+                        readonly property bool occ: (Hyprland.workspaces.values.find(w => w.id === root.base + n)?.toplevels.values.length ?? 0) > 0
                         readonly property bool on: root.active === n
                         width: 8
                         height: on ? 28 : 8
@@ -89,7 +126,7 @@ PanelWindow {
                         color: on ? Theme.fg : occ ? Theme.grey : Theme.s3
                         Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         Behavior on color { ColorAnimation { duration: Theme.t } }
-                        MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.go(parent.n) }
+                        MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.slot(parent.n) }
                     }
                 }
             }
@@ -150,7 +187,7 @@ PanelWindow {
                     Loader {
                         id: part
                         required property string modelData
-                        readonly property bool quick: modelData !== "mode" && modelData !== "power"
+                        readonly property bool quick: modelData !== "mode" && modelData !== "power" && modelData !== "agents" // local: agents opens its own card
                         anchors.horizontalCenter: parent.horizontalCenter
                         sourceComponent: root.parts[modelData] ?? null
                         visible: !!sourceComponent && (modelData !== "battery" || root.bat.isLaptopBattery)
@@ -162,7 +199,35 @@ PanelWindow {
         }
     }
 
-    readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
+    readonly property var parts: ({ agents: agentsC, layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
+    // local: agent meter — Claude and Codex, a column of five dots each, filled to its 5h window (red from 80%);
+    // Claude's number under them. Click — the agents card (agents/Agents)
+    Component {
+        id: agentsC
+        Column {
+            spacing: 8
+            HoverHandler { cursorShape: Qt.PointingHandCursor }
+            TapHandler { onTapped: root.agentsClicked() }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 6
+                Repeater {
+                    model: [Usage.claude, Usage.codex]
+                    Seg {
+                        required property var modelData
+                        readonly property int pct: Usage.top(modelData)?.pct ?? 0
+                        width: 5
+                        height: 41
+                        n: 5
+                        vertical: true
+                        f: pct / 100
+                        on: pct >= 80 ? Theme.red : Theme.fg
+                    }
+                }
+            }
+            Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Usage.top(Usage.claude)?.pct ?? "--"; px: 10 }
+        }
+    }
     Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
     Component {
         id: wifiC

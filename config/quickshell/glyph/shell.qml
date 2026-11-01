@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import "agents" // local
 import "bar"
 import "buds"
 import "cal"
@@ -37,6 +38,7 @@ ShellRoot {
     Shot { id: shot }
     Vpn { id: vpn }
     Walls { id: walls }
+    Agents { id: agents } // local: Super+U agent usage card
 
     Variants {
         model: Quickshell.screens
@@ -52,6 +54,8 @@ ShellRoot {
                 onTrayClicked: quick.toggle()
                 onPowerClicked: power.visible ? power.close() : power.open()
                 onClockClicked: cal.toggle()
+                onAgentsClicked: agents.toggle() // local
+                peeks: shell.barPeeks // local: shell:bar
             }
         }
     }
@@ -115,6 +119,9 @@ ShellRoot {
     Shortcut { name: "clip"; description: "буфер обмена"; onPressed: clip.toggle() }
     Shortcut { name: "charms"; description: "эмодзи, каомодзи, символы"; onPressed: charms.toggle() }
     Shortcut { name: "wall"; description: "обои"; onPressed: walls.toggle() }
+    Shortcut { name: "agents"; description: "agent usage: claude, codex"; onPressed: agents.toggle() } // local
+    property int barPeeks: 0 // local: auto-hidden bar on the focused monitor, in or out (bar/Bar.qml)
+    Shortcut { name: "bar"; description: "peek the auto-hidden bar"; onPressed: shell.barPeeks++ } // local
     Shortcut { name: "game"; description: "игровой режим"; onPressed: Rules.store.game = !Rules.store.game }
 
     component Shortcut: GlobalShortcut { appid: "shell" }

@@ -5,6 +5,7 @@ import Quickshell.Services.UPower
 import Quickshell.Wayland
 import qs
 import qs.components
+import qs.services // local: Gifs
 import qs.settings
 
 // настройки glyph: Super+I. Не форма, а предметы. Слева столбец слов Doto, как в меню питания, — выбранное крупно, с красной
@@ -18,10 +19,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "WINDOWS", "DISPLAY", "POWER", "INPUT", "IDLE", "SHELL"]
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL"] // local: AUDIO
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", rings, rings, "↵ or click a mode", rings, "drag the marks", ""]
+    readonly property var hints: [moves, moves, moves, "", rings, rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""] // local: AUDIO
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -30,7 +31,7 @@ PanelWindow {
         battery: "\u{F0079}", buds: "\u{F02CB}", player: "\u{F040A}", system: "\u{F0128}", cat: "\u{F011B}", cava: "\u{F0EA2}",
         clock: "\u{F0150}", perf: "\u{F04C5}", net: "\u{F05A9}", media: "\u{F075A}",
         layout: "\u{F030C}", wifi: "\u{F05A9}", bluetooth: "\u{F00AF}", sound: "\u{F057E}", notes: "\u{F009A}",
-        mode: "\u{F04C5}", power: "\u{F0425}"
+        mode: "\u{F04C5}", power: "\u{F0425}", agents: "\u{F06A9}" // local
     })
     // круглые виджеты дома, остальные — квадрат 40. ponytail: ram/gpu/disk/battery — догадка (кольца); решит Home — поправить
     readonly property var rounds: ["weather", "cpu", "ram", "gpu", "disk", "battery", "buds", "cava"]
@@ -42,6 +43,7 @@ PanelWindow {
     function open() {
         shown = true;
         stage.forceActiveFocus();
+        Ddc.refresh(); // local: monitor buttons may have moved it
     }
     function close() { shown = false; }
     function toggle() { shown ? close() : open(); }
@@ -270,6 +272,59 @@ PanelWindow {
                         width: parent.width
                         elide: Text.ElideRight
                         text: !home.cur_ ? "empty · ↵ adds one" : `${home.cur_.id} · ${home.cur_.span} cell${home.cur_.span > 1 ? "s" : ""}${home.cur_.fits ? "" : " · off grid"}`
+                    }
+                    // local: the cat tile's gif (services/Gifs), while the cat is selected. Click, or ←→ in focus
+                    Column {
+                        id: gifPick
+                        visible: home.cur_?.id === "cat"
+                        topPadding: 28
+                        spacing: 12
+                        Lb {
+                            width: 404
+                            elide: Text.ElideRight
+                            text: `gif · ${Gifs.name(Gifs.cur)} · ${Gifs.sel + 1} of ${Gifs.list.length}`
+                            color: gifStrip.activeFocus ? Theme.fg : Theme.grey
+                        }
+                        ListView {
+                            id: gifStrip
+                            width: 404
+                            height: 58
+                            orientation: ListView.Horizontal
+                            spacing: (width - 6 * 58) / 5 // six whole ones in view
+                            clip: true
+                            snapMode: ListView.SnapToItem
+                            boundsBehavior: Flickable.StopAtBounds
+                            keyNavigationEnabled: false
+                            activeFocusOnTab: true
+                            model: Gifs.list
+                            currentIndex: Gifs.sel
+                            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+                            Keys.onPressed: e => {
+                                if (e.key === Qt.Key_Left) Gifs.step(-1);
+                                else if (e.key === Qt.Key_Right) Gifs.step(1);
+                                else return;
+                                e.accepted = true;
+                            }
+                            delegate: Rectangle {
+                                id: th
+                                required property string modelData
+                                required property int index
+                                readonly property bool on: index === Gifs.sel
+                                width: 58
+                                height: 58
+                                radius: width * 0.18
+                                color: Theme.s1
+                                border { width: on ? 2 : 1; color: on ? Theme.fg : Theme.s2 }
+                                GifDots { anchors { fill: parent; margins: 6 } path: th.modelData; bg: th.color; playing: gifPick.visible && root.visible }
+                                TapHandler {
+                                    onTapped: {
+                                        Gifs.pick(th.modelData);
+                                        gifStrip.forceActiveFocus();
+                                    }
+                                }
+                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                            }
+                        }
                     }
                     Item { width: 1; height: 40 }
                     Lb { text: home.off.length ? `off grid · ${home.off.length}` : "everything fits" }
@@ -522,6 +577,21 @@ PanelWindow {
                     spacing: 14
                     Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
                     Lb { topPadding: 6; text: "above the clock"; px: 10 }
+                    // local: auto-hide per monitor, by model (bar/Bar.qml) — keeps static white off OLEDs
+                    Lb { topPadding: 26; text: "auto-hide" }
+                    Repeater {
+                        model: Quickshell.screens
+                        Toggle {
+                            required property var modelData
+                            readonly property string scr: modelData.model || modelData.name
+                            width: 200
+                            text: scr
+                            on: Theme.state.barHide.includes(scr)
+                            onFlip: root.edit("barHide", a => { const i = a.indexOf(scr); if (i >= 0) a.splice(i, 1); else a.push(scr); })
+                        }
+                    }
+                    Lb { topPadding: 6; text: "left edge or super + `"; px: 10 }
+                    Pick { label: "show after"; opts: ["0.15 s", "0.3 s", "0.6 s"]; cur: [150, 300, 600].indexOf(Theme.state.barShowMs); onPicked: i => Theme.state.barShowMs = [150, 300, 600][i] }
                 }
             }
 
@@ -705,6 +775,25 @@ PanelWindow {
                     // шаг клавиш яркости: делений на шкалу (Backlight.steps)
                     Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
                 }
+                // local: external monitors over DDC (services/Ddc) — a ring each, named by model, left to right as they sit
+                Row {
+                    visible: Ddc.screens.some(s => s.ready)
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 40
+                    Repeater {
+                        model: Ddc.screens
+                        Dial {
+                            required property var modelData
+                            visible: modelData.ready
+                            size: 220
+                            n: 48
+                            live: true
+                            label: modelData.name
+                            value: Math.round(modelData.value * 100)
+                            onMoved: v => modelData.set(v / 100)
+                        }
+                    }
+                }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 22
@@ -742,10 +831,18 @@ PanelWindow {
             }
         }
 
+        // local: AUDIO — output and input: volume, mute, level, default device (prefs/Audio)
+        Page {
+            id: audioPage
+            k: 6
+            caption: aud.caption
+            Audio { id: aud; live: audioPage.visible && root.shown }
+        }
+
         // ---- POWER: режимы питания (Rules.modes) — четыре круга, кольцо горит по силе, выбранный белый.
         // ultra — power saver и ещё 60 Гц, без анимаций, blur и теней поверх настроек ----
         Page {
-            k: 6
+            k: 7 // local: AUDIO is 6
             caption: `power · ${Rules.modes[Rules.mode].what} · ${Rules.hz} hz`
 
             Row {
@@ -788,7 +885,7 @@ PanelWindow {
         // ---- INPUT: держишь клавишу — первая точка сразу, пауза delay, дальше rate в секунду; по живым кольцам ----
         Page {
             id: inp
-            k: 7
+            k: 8 // local
             caption: "input · keyboard · touchpad"
             property int n: 0 // сколько «напечатано»; 0 — клавиша отпущена
             Timer {
@@ -847,7 +944,7 @@ PanelWindow {
         // ---- IDLE: шкала минут без ввода. Точки тускнеют на каждом событии: бодр → заперт → экран погас → спит.
         // Метки тянутся вдоль, правее 60 — never ----
         Page {
-            k: 8
+            k: 9 // local
             caption: "idle · minutes without input · hypridle"
 
             Item {
@@ -902,7 +999,7 @@ PanelWindow {
 
         // ---- SHELL: знак райса и имя живого шелла; переключатель — приложение Rice ----
         Page {
-            k: 9
+            k: 10 // local
             caption: "shell · quickshell"
 
             Row {

@@ -44,3 +44,4 @@ if status is-interactive
         echo -en "\e]133;A\e\\"
     end
 end
+set -gx EDITOR nvim

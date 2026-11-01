@@ -21,6 +21,7 @@ Singleton {
     readonly property color mute: light ? "#B8B8B8" : "#4A4A4A" // неактивное
     readonly property color grey: light ? "#6E6E6E" : "#8C8C8C" // метки, вторичное
     readonly property color fg: light ? "#0B0B0B" : "#F2F2F2"   // текст, вкл., фокус
+    readonly property color edge: light ? "#3A3A3A" : "#B4B4B4" // local: hypr focus border, light grey instead of fg
     readonly property color ink: light ? "#FFFFFF" : "#000000"  // текст на белой плитке
     readonly property color red: "#D71921"                      // максимум одна вещь на экране, и только «живое»
     readonly property color glow: light ? Qt.rgba(0, 0, 0, 0.3) : Qt.rgba(1, 1, 1, 0.6)
@@ -79,9 +80,11 @@ Singleton {
             // обои (пикер wall/Walls, рисует components/Wall): путь к картинке; пусто — сетка и шар. Папку пикера можно сменить здесь
             property string wall: ""
             property string wallDir: ""    // пусто — ~/Pictures/Wallpapers
-            property int wallLook: 0       // 0 точки, 1 серое фото, 2 цвет
+            property int wallLook: 0       // 0 точки, 1 серое фото, 2 цвет, 3 цветные точки (local:)
             property int wallPitch: 10     // шаг точек, px
             property int wallBright: 85    // %, от фона до картинки
+            property string gif: ""        // local: home gif tile (home/Gif.qml), path; empty — the first in gifDir
+            property string gifDir: ""     // local: empty — ~/Pictures/Gifs
             property int rounding: 20      // окна hypr
             property bool edges: true      // Glyph-полосы по краям (громкость/яркость, вспышки, прогресс)
             property int briSteps: 20      // яркость с клавиш: делений на шкалу, 40/20/10 — шаг 2.5/5/10 %
@@ -90,6 +93,8 @@ Singleton {
             property var deck: ["clock", "weather", "perf", "net", "media"] // её секции по порядку, см. decks
             property var bar: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // трей бара сверху вниз, см. bars
             property bool barTitle: true   // заголовок окна столбиком в баре
+            property var barHide: []       // local: monitors (model) where the bar auto-hides, see bar/Bar.qml
+            property int barShowMs: 150    // local: rest at the left edge this long and the hidden bar slides in
             // запись (quick/Rec, Sys.recArgs)
             property int recArea: 0        // 0 весь монитор, 1 область (slurp)
             property int recAudio: 0       // 0 без звука, 1 система, 2 микрофон, 3 оба одной дорожкой
@@ -104,7 +109,7 @@ Singleton {
     // секции deck
     readonly property var decks: ["clock", "weather", "perf", "net", "media"]
     // трей бара
-    readonly property var bars: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"]
+    readonly property var bars: ["agents", "layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // local: agents
 
     // ---- вид всего, что вне шелла. Зовёт только shell.qml: на старте и при смене темы ----
     // hypr наследует demonshot: монитор, ввод, простой, ночник и движение ставит его же Rules (shell.qml), анимации — из
@@ -127,9 +132,9 @@ Singleton {
         // тень: в тёмной — еле заметное белое свечение, в светлой — мягкая чёрная
         const shadow = light ? "rgba(0000002E)" : `rgba(${hex(fg)}1A)`;
         hypr(`hl.config({ general = { gaps_in = ${g ? 0 : r.gapsIn}, gaps_out = ${g ? 0 : r.gapsOut}, border_size = ${g ? 1 : r.border}, allow_tearing = ${g}, `
-           + `col = { active_border = ${c(fg)}, inactive_border = ${c(s3)} } }, `
+           + `col = { active_border = ${c(edge)}, inactive_border = ${c(s3)} } }, `
            + `decoration = { rounding = ${g ? 0 : st.rounding}, blur = { enabled = ${Rules.blurOn} }, shadow = { enabled = ${Rules.shadowOn}, color = "${shadow}" } }, `
-           + `group = { col = { border_active = ${c(fg)}, border_inactive = ${c(s3)}, border_locked_active = ${c(fg)}, border_locked_inactive = ${c(mute)} }, `
+           + `group = { col = { border_active = ${c(edge)}, border_inactive = ${c(s3)}, border_locked_active = ${c(edge)}, border_locked_inactive = ${c(mute)} }, `
            + `groupbar = { font_family = "${mono}", text_color = ${c(fg)}, col = { active = ${c(s3)}, inactive = ${c(s1)}, locked_active = ${c(s3)}, locked_inactive = ${c(s1)} } } }, `
            + `misc = { background_color = ${c(bg)} } })`);
 

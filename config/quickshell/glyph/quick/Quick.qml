@@ -31,7 +31,7 @@ PanelWindow {
     }
     // открытый список: "wifi" | "bt" — под пилюлями (Picker), "rec" — под плитками (Rec), "" — ничего
     property string pick: ""
-    onOpenChanged: if (open) Sys.earRun([]); else pick = ""
+    onOpenChanged: if (open) { Sys.earRun([]); Ddc.refresh(); } else pick = "" // local: Ddc
     // курсор 500мс вне панели и полосы Hot — закрываем. seen: Hyprland не отдаёт курсор свежей поверхности, пока мышь не сдвинется —
     // до первого движения неизвестно, где он, и панель ждёт (иначе у неподвижного курсора открывалась и тут же закрывалась)
     Timer { interval: 500; running: root.open && root.peeked && seen.hovered && !keep.hovered && !edge.hovered; onTriggered: root.close() }
@@ -202,6 +202,18 @@ PanelWindow {
                     Rec { width: parent.width; visible: root.pick === "rec"; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } }
 
                     Slider { icon: "\u{F00E0}"; visible: Sys.hasBri; value: Sys.bri; onMoved: v => Sys.setBri(v) }
+                    // local: external monitors over DDC (services/Ddc), one slider each, its name in the value chip
+                    Repeater {
+                        model: Ddc.screens
+                        Slider {
+                            required property var modelData
+                            icon: "\u{F00E0}"
+                            tag: modelData.name
+                            visible: modelData.ready
+                            value: modelData.value
+                            onMoved: v => modelData.set(v)
+                        }
+                    }
                     Slider { icon: Sys.muted ? "\u{F075F}" : "\u{F057E}"; value: Sys.muted ? 0 : Sys.vol; onMoved: v => Sys.setVol(v) }
 
                     // режим питания, как в caelestia: четыре клетки, белая заливка переезжает к выбранной; засечки — сила.
@@ -476,6 +488,7 @@ PanelWindow {
         id: sl
         property real value
         property string icon
+        property string tag // local: which monitor (Ddc), before the number
         signal moved(real v)
         readonly property real shown: area.pressed ? area.v : value
         width: col.width
@@ -505,7 +518,7 @@ PanelWindow {
             height: val.height + 8
             radius: 10
             color: Theme.s2
-            Lb { id: val; anchors.centerIn: parent; text: Math.round(sl.shown * 100) }
+            Lb { id: val; anchors.centerIn: parent; text: (sl.tag ? sl.tag + " · " : "") + Math.round(sl.shown * 100) } // local: tag
         }
         MouseArea {
             id: area

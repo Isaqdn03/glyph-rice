@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs
 
@@ -10,7 +11,9 @@ PanelWindow {
 
     signal triggered
 
-    visible: Theme.state.quickHover
+    // local: gone while this monitor shows a fullscreen window. An overlay layer above a fullscreen game blocks
+    // Hyprland's direct scanout (CANDIDATE in `hyprctl monitors`), so the game would always go through the compositor
+    visible: Theme.state.quickHover && !(Hyprland.monitorFor(screen)?.activeWorkspace?.hasFullscreen ?? false)
     anchors { right: true; bottom: true }
     implicitWidth: 2
     implicitHeight: Math.round(screen.height * 0.8)
