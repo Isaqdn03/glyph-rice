@@ -89,7 +89,7 @@ Column {
                 Behavior on opacity { NumberAnimation { duration: Theme.t } }
                 Image {
                     anchors.fill: parent
-                    visible: Rgb.mode === "dial"
+                    visible: Rgb.shown === "dial"
                     source: Rgb.frame ? `file://${Rgb.framePath}?${Rgb.frame}` : ""
                     cache: false
                     asynchronous: true
@@ -97,8 +97,8 @@ Column {
                 }
                 AnimatedImage {
                     anchors.fill: parent
-                    visible: Rgb.mode === "gif"
-                    source: Rgb.mode === "gif" ? Gifs.url(Rgb.gif) : ""
+                    visible: Rgb.shown === "gif"
+                    source: Rgb.shown === "gif" ? Gifs.url(Rgb.gif) : ""
                     fillMode: Image.PreserveAspectCrop
                     playing: visible && root.visible
                 }
@@ -126,7 +126,8 @@ Column {
                 Lb {
                     width: 404
                     elide: Text.ElideRight
-                    text: root.gifs.length ? `gif · ${Gifs.name(Rgb.gif)} · ${root.gifs.indexOf(Rgb.gif) + 1} of ${root.gifs.length}` : `no gifs in ${Gifs.dir}`
+                    text: !root.gifs.length ? `no gifs in ${Gifs.dir}` : Rgb.shown !== Rgb.mode ? `gif · ${Gifs.name(Rgb.gif)} · can't play it · the dial meanwhile`
+                        : `gif · ${Gifs.name(Rgb.gif)} · ${root.gifs.indexOf(Rgb.gif) + 1} of ${root.gifs.length}`
                     color: strip.activeFocus ? Theme.fg : Theme.grey
                 }
                 ListView {

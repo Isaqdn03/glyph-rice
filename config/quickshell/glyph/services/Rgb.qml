@@ -98,6 +98,9 @@ Singleton {
     readonly property var colors: [faceGreys[6], faceGreys[3], faceGreys[5], base, Theme.red].map(c => Theme.hex(c))
     readonly property string gif: st.gif && Gifs.list.includes(st.gif) ? st.gif : Gifs.list.find(p => p) ?? ""
     readonly property string mode: st.screen === "gif" && !gif ? "dial" : st.screen
+    // a GIF kraken.py couldn't play (not a GIF, cut short, failed to upload): the panel shows the dial until the file changes
+    property string badGif: ""
+    readonly property string shown: mode === "gif" && gif === badGif ? "dial" : mode
     readonly property var want: ({ fans: hex, bright: lcd, screen: mode, gif: gif, colors: colors })
     onWantChanged: send(want)
     function send(o) { if (kraken.running) kraken.write(JSON.stringify(o) + "\n"); }
@@ -122,6 +125,8 @@ Singleton {
                 } else if (m.frame) {
                     root.frame = m.frame;
                     root.stats = m;
+                } else if (typeof m.bad === "string") {
+                    root.badGif = m.bad;
                 }
             }
         }
