@@ -81,6 +81,7 @@ Item {
         property real wave: 0
         readonly property real hasA: root.cur.status === Image.Ready ? 1 : 0
         readonly property real hasB: root.next.status === Image.Ready ? 1 : 0
+        readonly property real beat: 0 // local: wall.frag has a beat now (services/Cava); the gif tile stays still
         readonly property var srcA: root.cur
         readonly property var srcB: root.next
         fragmentShader: Qt.resolvedUrl("../components/shaders/wall.frag.qsb")

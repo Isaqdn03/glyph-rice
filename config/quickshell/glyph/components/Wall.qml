@@ -13,6 +13,7 @@ Item {
     property real bright: Theme.state.wallBright / 100
     property point origin: Qt.point(width / 2, height / 2)
     property bool animate: true // false — смена сразу, без волны
+    property real beat: 0 // local: 0…1 the music's bass (services/Cava); home/Back and the picker pass it
     readonly property bool opaque: fx.hasA > 0 && !run.running
 
     property bool flip: false // кто на экране: false — ia, true — ib
@@ -90,6 +91,7 @@ Item {
         property real dots: root.look === 0 || root.look === 3 ? 1 : 0 // local: 3 color dots
         property real mono: root.look < 2 ? 1 : 0
         property real wave: 0
+        readonly property real beat: root.beat // local:
         Behavior on dots { NumberAnimation { duration: 700; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         Behavior on mono { NumberAnimation { duration: 700 } }
 

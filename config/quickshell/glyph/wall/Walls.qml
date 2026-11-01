@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import qs
 import qs.components
+import qs.services // local: Cava
 import "../prefs"
 
 // обои: Super+Shift+W или настройки → look. Не сетка картинок — экран целиком и есть превью: выбранная собирается точками
@@ -35,6 +36,7 @@ PanelWindow {
     property int look: 0
     property int pitch: 10
     property int bright: 85
+    property bool pulse: true // local: the wallpaper swells with the music
 
     function name(p) { return p ? p.slice(p.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "") : "nothing"; }
     function go(d) { pick = list[Math.max(0, Math.min(list.length - 1, sel + d))]; }
@@ -73,6 +75,7 @@ PanelWindow {
         look = s.wallLook;
         pitch = s.wallPitch;
         bright = s.wallBright;
+        pulse = s.wallPulse; // local:
         if (!scan.running) {
             fresh = [];
             scan.running = true;
@@ -88,6 +91,7 @@ PanelWindow {
         s.wallLook = look;
         s.wallPitch = pitch;
         s.wallBright = bright;
+        s.wallPulse = pulse; // local:
         close();
     }
 
@@ -135,6 +139,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             else if (e.key === Qt.Key_Home) root.pick = "";
             else if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) root.setLook(!root.dotted, root.colored); // local:
             else if (e.key === Qt.Key_C) root.setLook(root.dotted, !root.colored); // local:
+            else if (e.key === Qt.Key_M) root.pulse = !root.pulse; // local:
             else if ((up || down) && e.modifiers & Qt.ShiftModifier) root.bright = Math.max(10, Math.min(100, root.bright + (up ? 5 : -5)));
             else if (up || down) root.pitch = Math.max(4, Math.min(32, root.pitch + (up ? 1 : -1)));
             else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) root.apply();
@@ -163,6 +168,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
                 pitch: root.pitch
                 bright: root.bright / 100
                 origin: Qt.point(width / 2, 850)
+                beat: root.pulse ? Cava.bass : 0 // local:
             }
         }
 
@@ -224,6 +230,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
                 spacing: 12
                 Pick { label: "look"; opts: ["dots", "photo"]; cur: root.dotted ? 0 : 1; onPicked: i => root.setLook(i === 0, root.colored) }
                 Pick { label: "tone"; opts: ["mono", "color"]; cur: root.colored ? 1 : 0; onPicked: i => root.setLook(root.dotted, i === 1) }
+                Pick { label: "beat"; opts: ["still", "music"]; cur: root.pulse ? 1 : 0; onPicked: i => root.pulse = i === 1 } // local:
             }
             Row {
                 anchors.right: parent.right
@@ -297,6 +304,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             Lb { text: "←→ browse" }
             Lb { text: "tab look" }
             Lb { text: "c tone" } // local:
+            Lb { text: "m beat" } // local:
             Lb { text: "↑↓ dot size" }
             Lb { text: "shift ↑↓ light" }
             Lb { text: "↵ set" }
