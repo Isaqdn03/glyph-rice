@@ -18,6 +18,7 @@ import "settings"
 import "shot"
 import "vpn"
 import "wall"
+import qs.services // local: Game
 
 // glyph: rice в духе nothing os. Дом на обоях, бар, лаунчер, быстрые настройки,
 // Glyph-полосы по краям вместо OSD, остров уведомлений, меню питания, настройки, deck (дашборд снизу), буфер обмена, чары (эмодзи и символы), скриншоты, vpn, обои. Блокировка — отдельный процесс (lock.qml).
@@ -113,6 +114,7 @@ ShellRoot {
         function onUltraChanged() { Theme.apply(); }
         function onGameChanged() { Rules.motion(); Theme.apply(); }
     }
+    readonly property bool autoGame: Game.on // local: starts services/Game (a fullscreen game turns on game mode and dnd)
 
     // тап Super — лаунчер на отпускании; любой Super+<key> по пути шлёт interrupt, и лаунчер не открывается
     property bool interrupted: false

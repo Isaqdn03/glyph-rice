@@ -172,6 +172,8 @@ Singleton {
             property int wallPitch: 10     // шаг точек, px
             property int wallBright: 85    // %, от фона до картинки
             property bool wallPulse: true  // local: the wallpaper swells with the music's bass (services/Cava, wall picker → beat)
+            property bool autoGame: true   // local: a fullscreen game turns on game mode and dnd (services/Game)
+            property var gameAuto: null    // local: services/Game — what game mode and dnd were before it, null when it's not holding them
             property string gif: ""        // гифка плитки-кота (services/Gifs), путь; пусто — первая в папке
             property string gifDir: ""     // пусто — ~/Pictures/Gifs
             property int rounding: 20      // окна hypr
