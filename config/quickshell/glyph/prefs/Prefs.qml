@@ -680,15 +680,17 @@ PanelWindow {
                     Row {
                         x: 60
                         y: 52
+                        visible: Theme.state.homeClock // local:
                         Num { id: hrs; text: Theme.hh(clock.date); font.pixelSize: 120 }
                         Num { text: ":"; font.pixelSize: 120; opacity: Theme.state.blink && look.dim ? 0.2 : 1 }
                         Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 120 }
                         Lb { visible: !Theme.state.clock24; anchors.baseline: hrs.baseline; leftPadding: 12; text: clock.date.getHours() < 12 ? "am" : "pm" }
                     }
-                    Lb { x: 64; y: 172; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 11 }
+                    Lb { x: 64; y: 172; visible: Theme.state.homeClock; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 11 } // local: visible
                     Text {
                         x: 62
                         y: 232
+                        visible: Theme.state.homeHello // local:
                         textFormat: Text.StyledText
                         text: `${root.hello},<br><font color="${Theme.grey}">${root.who}.</font>`
                         font { family: Theme.ui; pixelSize: 30; weight: Font.Light }
@@ -714,6 +716,28 @@ PanelWindow {
                         onHit: {
                             root.close();
                             root.wallRequested();
+                        }
+                    }
+                }
+
+                // local: what home shows — each part, or all of it at once (home/Home.qml)
+                Column {
+                    spacing: 14
+                    readonly property bool all: Theme.state.homeClock && Theme.state.homeHello && Theme.state.homeBento
+                    // the label takes a toggle's row, so the rows line up with the column on the left
+                    Item { width: 200; height: clockT.height; Lb { x: 22; anchors.verticalCenter: parent.verticalCenter; text: "on home" } }
+                    Toggle { id: clockT; width: 200; text: "clock"; on: Theme.state.homeClock; onFlip: Theme.state.homeClock = !Theme.state.homeClock }
+                    Toggle { width: 200; text: "greeting"; on: Theme.state.homeHello; onFlip: Theme.state.homeHello = !Theme.state.homeHello }
+                    Toggle { width: 200; text: "widgets"; on: Theme.state.homeBento; onFlip: Theme.state.homeBento = !Theme.state.homeBento }
+                    Toggle {
+                        width: 200
+                        text: "all"
+                        on: parent.all
+                        onFlip: {
+                            const v = !parent.all;
+                            Theme.state.homeClock = v;
+                            Theme.state.homeHello = v;
+                            Theme.state.homeBento = v;
                         }
                     }
                 }

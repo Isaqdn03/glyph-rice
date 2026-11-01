@@ -39,5 +39,6 @@ PanelWindow {
             animate: !Sys.wallOpen
             // local: the music's bass, only on this monitor's empty workspace — under windows a full-screen pass for nothing
             beat: Theme.state.wallPulse && (Hyprland.monitorFor(root.screen)?.activeWorkspace?.toplevels.values.length ?? 1) === 0 ? Cava.bass : 0
-        }    }
+        }
+    }
 }

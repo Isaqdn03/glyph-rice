@@ -22,7 +22,7 @@ PanelWindow {
     readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
     Binding { target: SysStats; property: "detailed"; value: root.home || Sys.deckOpen }
     // не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно
-    Binding { target: Cava; property: "active"; value: root.home && bento.model.some(w => w.id === "cava") }
+    Binding { target: Cava; property: "active"; value: root.home && Theme.state.homeBento && bento.model.some(w => w.id === "cava") } // local: homeBento
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var en: Qt.locale("en_US")
@@ -50,39 +50,51 @@ PanelWindow {
         id: stage
         x: Theme.state.barAt === "top" ? -39 * Theme.s : 0 // раскладка под бар слева; бар сверху — на его полширины влево, по центру
 
-        Row {
-            x: 182
-            y: 150
-            // local: true-circle dot matrix instead of Doto at 300px (see components/DotClock.qml)
-            DotClock {
-                y: 10
-                dot: 22
-                text: Theme.hh(clock.date) + ":" + Qt.formatTime(clock.date, "mm")
-                colonOpacity: Theme.state.blink && root.dim ? 0.2 : 1
+        // local: clock + date and greeting + meta line can each be hidden (prefs → LOOK → on home); they fade
+        Item {
+            id: clockPart
+            opacity: Theme.state.homeClock ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            Row {
+                x: 182
+                y: 150
+                // local: true-circle dot matrix instead of Doto at 300px (see components/DotClock.qml)
+                DotClock {
+                    y: 10
+                    dot: 22
+                    text: Theme.hh(clock.date) + ":" + Qt.formatTime(clock.date, "mm")
+                    colonOpacity: Theme.state.blink && root.dim ? 0.2 : 1
+                }
+            }
+            Lb {
+                x: 190
+                y: 448
+                text: `${root.en.toString(clock.date, "dddd · d MMMM")} · week ${root.week(clock.date)}`
+                px: 14
             }
         }
-        Lb {
-            x: 190
-            y: 448
-            text: `${root.en.toString(clock.date, "dddd · d MMMM")} · week ${root.week(clock.date)}`
-            px: 14
-        }
-        Text {
-            x: 188
-            y: 560
-            textFormat: Text.StyledText
-            text: `${root.hello},<br><font color="${Theme.grey}">${Theme.state.name || Quickshell.env("USER")}.</font>`
-            font { family: Theme.ui; pixelSize: 54; weight: Font.Light; letterSpacing: -1 }
-            lineHeight: 1.1
-            color: Theme.fg
-        }
-        Row {
-            x: 190
-            y: 700
-            spacing: 28
-            Meta { icon: "\u{F009A}"; text: `${Notes.list.length} notifications` }
-            Meta { visible: Weather.ok; icon: Weather.glyph(Weather.now?.code ?? 0, Weather.now?.day); text: `${Math.round(Weather.now?.temp ?? 0)}° ${Weather.name(Weather.now?.code)}` }
-            Meta { visible: !!root.buds; icon: "\u{F02CB}"; text: `${root.buds?.name ?? ""} · ${Math.round((root.buds?.battery ?? 0) * 100)}%` }
+        Item {
+            opacity: Theme.state.homeHello ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            Text {
+                x: 188
+                y: 560
+                textFormat: Text.StyledText
+                text: `${root.hello},<br><font color="${Theme.grey}">${Theme.state.name || Quickshell.env("USER")}.</font>`
+                font { family: Theme.ui; pixelSize: 54; weight: Font.Light; letterSpacing: -1 }
+                lineHeight: 1.1
+                color: Theme.fg
+            }
+            Row {
+                x: 190
+                y: 700
+                spacing: 28
+                Meta { icon: "\u{F009A}"; text: `${Notes.list.length} notifications` }
+                Meta { visible: Weather.ok; icon: Weather.glyph(Weather.now?.code ?? 0, Weather.now?.day); text: `${Math.round(Weather.now?.temp ?? 0)}° ${Weather.name(Weather.now?.code)}` }
+                Meta { visible: !!root.buds; icon: "\u{F02CB}"; text: `${root.buds?.name ?? ""} · ${Math.round((root.buds?.battery ?? 0) * 100)}%` }
+            }
         }
 
         // бенто: ячейки 220, зазор 20, сетка 3×3. Какие виджеты и в каком порядке — Theme.state.widgets (настройки), ширины —
@@ -107,6 +119,11 @@ PanelWindow {
                 required property var modelData
                 x: modelData.x
                 y: modelData.y
+                // local: hidden (prefs → LOOK → on home) — fades, then unloads
+                opacity: Theme.state.homeBento ? 1 : 0
+                visible: opacity > 0
+                active: visible
+                Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                 sourceComponent: ({ weather: weatherW, calendar: calendarW, cpu: cpuW, ram: ramW, gpu: gpuW, disk: diskW,
                                     battery: batteryW, buds: budsW, player: playerW, system: systemW, cat: catW, cava: cavaW })[modelData.id] ?? null
             }
