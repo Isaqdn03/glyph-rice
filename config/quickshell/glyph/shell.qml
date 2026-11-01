@@ -87,6 +87,7 @@ ShellRoot {
     Connections {
         target: Theme.state
         function onRoundingChanged() { Theme.apply(); }
+        function onToneChanged() { Theme.apply(); } // local:
     }
     // режим ultra включает/снимает blur и тени поверх настроек — окна перекрасить (герцы и движение ставит сам Rules.setMode).
     // Игровой — то же и ещё анимации

@@ -691,6 +691,16 @@ PanelWindow {
                     }
                 }
             }
+
+            // local: grey ramp of the dark theme — bar, panels, desktop, kitty
+            Pick {
+                enabled: !Theme.light
+                opacity: enabled ? 1 : 0.4
+                label: "tone"
+                opts: Theme.tones.map(t => t.name)
+                cur: Theme.state.tone
+                onPicked: i => Theme.state.tone = i
+            }
         }
 
         // ---- WINDOWS: рабочий стол с двумя окнами по живым значениям колец. Анимация окон — только если motion ----

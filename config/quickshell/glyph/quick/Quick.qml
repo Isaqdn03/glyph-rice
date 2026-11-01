@@ -214,7 +214,9 @@ PanelWindow {
                             onMoved: v => modelData.set(v)
                         }
                     }
-                    Slider { icon: Sys.muted ? "\u{F075F}" : "\u{F057E}"; value: Sys.muted ? 0 : Sys.vol; onMoved: v => Sys.setVol(v) }
+                    Slider { icon: Sys.muted ? "\u{F075F}" : "\u{F057E}"; value: Sys.muted ? 0 : Sys.vol; onMoved: v => Sys.setVol(v); picked: root.pick === "out"; onMenu: root.pick = picked ? "" : "out" } // local: right-click — outputs
+
+                    Out { width: parent.width; visible: root.pick === "out"; onTouched: root.pin() } // local:
 
                     // режим питания, как в caelestia: четыре клетки, белая заливка переезжает к выбранной; засечки — сила.
                     // ultra — ещё 60 Гц и без анимаций, blur и теней (Rules.modes)
@@ -490,6 +492,8 @@ PanelWindow {
         property string icon
         property string tag // local: which monitor (Ddc), before the number
         signal moved(real v)
+        property bool picked // local: right-click → menu (volume: outputs), open — number white
+        signal menu
         readonly property real shown: area.pressed ? area.v : value
         width: col.width
         height: 54
@@ -518,8 +522,9 @@ PanelWindow {
             height: val.height + 8
             radius: 10
             color: Theme.s2
-            Lb { id: val; anchors.centerIn: parent; text: (sl.tag ? sl.tag + " · " : "") + Math.round(sl.shown * 100) } // local: tag
+            Lb { id: val; anchors.centerIn: parent; text: (sl.tag ? sl.tag + " · " : "") + Math.round(sl.shown * 100); color: sl.picked ? Theme.fg : Theme.grey } // local: tag, color
         }
+        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.pin(); sl.menu(); } } // local:
         MouseArea {
             id: area
             property real v

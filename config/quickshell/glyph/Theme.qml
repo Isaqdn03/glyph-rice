@@ -13,13 +13,23 @@ Singleton {
     readonly property alias state: st
     readonly property bool light: st.light
 
+    // local: dark greys come in tones (prefs → look): bg s1 s2 s3 mute grey. void is Glyph's own
+    readonly property var tones: [
+        { name: "void", c: ["#000000", "#0E0E0E", "#1A1A1A", "#2A2A2A", "#4A4A4A", "#8C8C8C"] },
+        { name: "coal", c: ["#080808", "#131313", "#1F1F1F", "#303030", "#505050", "#909090"] },
+        { name: "ash", c: ["#111111", "#1B1B1B", "#282828", "#3A3A3A", "#5A5A5A", "#999999"] },
+        { name: "slate", c: ["#0A0B0D", "#13161A", "#1E2228", "#2E333B", "#4C525C", "#8D939C"] },
+        { name: "stone", c: ["#0C0B0A", "#161412", "#23201D", "#34302C", "#55504A", "#969089"] }
+    ]
+    readonly property var tone: (tones[st.tone] ?? tones[0]).c
+
     // светлая тема — та же раскладка, серые наоборот; красный не меняется
-    readonly property color bg: light ? "#E9E9E9" : "#000000"   // фон, обои
-    readonly property color s1: light ? "#FFFFFF" : "#0E0E0E"   // бар, панели
-    readonly property color s2: light ? "#F1F1F1" : "#1A1A1A"   // плитки, выкл.
-    readonly property color s3: light ? "#D9D9D9" : "#2A2A2A"   // линии, погасшие точки
-    readonly property color mute: light ? "#B8B8B8" : "#4A4A4A" // неактивное
-    readonly property color grey: light ? "#6E6E6E" : "#8C8C8C" // метки, вторичное
+    readonly property color bg: light ? "#E9E9E9" : tone[0]   // фон, обои
+    readonly property color s1: light ? "#FFFFFF" : tone[1]   // бар, панели
+    readonly property color s2: light ? "#F1F1F1" : tone[2]   // плитки, выкл.
+    readonly property color s3: light ? "#D9D9D9" : tone[3]   // линии, погасшие точки
+    readonly property color mute: light ? "#B8B8B8" : tone[4] // неактивное
+    readonly property color grey: light ? "#6E6E6E" : tone[5] // метки, вторичное
     readonly property color fg: light ? "#0B0B0B" : "#F2F2F2"   // текст, вкл., фокус
     readonly property color edge: light ? "#3A3A3A" : "#B4B4B4" // local: hypr focus border, light grey instead of fg
     readonly property color ink: light ? "#FFFFFF" : "#000000"  // текст на белой плитке
@@ -68,6 +78,7 @@ Singleton {
         JsonAdapter {
             id: st
             property bool light: false
+            property int tone: 0      // local: index into tones, dark theme only
             property bool dnd: false  // новые не показываются, критические — всегда
             property int unread: 0    // для лока
             // ---- то, что крутят настройки (prefs) ----
@@ -138,7 +149,9 @@ Singleton {
            + `groupbar = { font_family = "${mono}", text_color = ${c(fg)}, col = { active = ${c(s3)}, inactive = ${c(s1)}, locked_active = ${c(s3)}, locked_inactive = ${c(s1)} } } }, `
            + `misc = { background_color = ${c(bg)} } })`);
 
-        const a = light ? [15, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 0].map(i => ansi[i]) : ansi;
+        // local: dark black/bright black follow the tone, so color0 still matches the background
+        const a = light ? [15, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 0].map(i => ansi[i])
+                        : ansi.map((x, i) => i === 0 ? s1 : i === 8 ? mute : x);
         kitty.setText("# glyph: пишет Theme.apply(), руками не править\n" + [
             ["font_family", "Space Mono"], ["window_padding_width", "26 30"], ["cursor_trail", "0"],
             ["foreground", fg], ["background", s1], ["cursor", fg], ["cursor_text_color", s1],
