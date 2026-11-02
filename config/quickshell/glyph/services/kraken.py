@@ -294,9 +294,20 @@ LCD = Lcd()
 logging.getLogger("liquidctl").addHandler(LCD)
 
 
+def fresh(dev):
+    """Drop the cooler's unread reports before an LCD command. set_color never reads its replies, and the LCD's
+    reads look at only 12 messages for theirs: with the fans' colour streaming (screen lights, 10 a second) the queue
+    filled with stale ones and every upload failed with "missing messages" — a reconnect every ~8 s."""
+    try:
+        dev.device.clear_enqueued_reports()
+    except Exception:
+        pass
+
+
 def upload(dev, mode, path):
     """A picture (static) or a GIF onto the LCD; Wedged if liquidctl said the transfer didn't land."""
     LCD.errors.clear()
+    fresh(dev)
     dev.set_screen("lcd", mode, path)
     if LCD.errors:
         raise Wedged("; ".join(LCD.errors))
@@ -417,10 +428,12 @@ def main():
                 have["fans"] = c
                 fans_at = now
             if want["bright"] is not None and have.get("bright") != want["bright"]:
+                fresh(dev)
                 dev.set_screen("lcd", "brightness", int(want["bright"]))
                 have["bright"] = want["bright"]
 
             if screen == "liquid" and have.get("screen") != "liquid":
+                fresh(dev)
                 dev.set_screen("lcd", "liquid", None)
                 have["screen"] = "liquid"
             elif screen == "gif" and have.get("screen") != ("gif", gif, st):

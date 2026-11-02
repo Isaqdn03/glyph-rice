@@ -10,13 +10,15 @@
 # gets the colour from stdout through the shell.
 #
 # stdin, JSON lines: {"monitor": "DP-2", "case": {"on": bool, "level": 0-100, "devs": [openrgb index, ...]}}
-# stdout, JSON lines: {"c": "RRGGBB", "v": 0-1} (≤ 30 Hz, on change) | {"up": monitor} first frame | {"error": text}
+# stdout, JSON lines: {"c": "RRGGBB", "v": drive 0.35-1, a straight LED multiplier} (≤ 30 Hz, on change)
+#                    | {"up": monitor} first frame | {"error": text}
 import ctypes, json, math, os, re, select, signal, socket, struct, subprocess, sys, threading, time
 import numpy as np
 
 W, H = 64, 27
 FPS = 30
-FLOOR = 0.06                 # a black scene still shows a glow of the last colour
+FLOOR, SOFT = 0.35, 0.6      # drive = FLOOR + (1 - FLOOR) * intensity ** SOFT: a dark scene dims the lights to about a
+                             # third, never off; applied once, straight onto the LEDs (no 2.2 on top: that was far too dim)
 TAU_C, TAU_UP, TAU_DOWN = 0.10, 0.05, 0.20   # s: colour, intensity rising, intensity falling
 ORGB = ("127.0.0.1", 6742)
 LOG = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "glyph-ambi.log")  # gpu-screen-recorder's own words
@@ -173,7 +175,7 @@ def main():
     case = Case()
     case.start()
     procs, mon, buf, started, up = None, None, b"", 0.0, False
-    c_s, v_s, last_t, last_out = None, FLOOR, time.monotonic(), None
+    c_s, v_s, last_t, last_out = None, 0.0, time.monotonic(), None
     frame = W * H * 3
     retry_at, backoff = 0.0, 5  # a capture that keeps failing (monitors off) is retried less and less often, up to 2 min
 
@@ -231,20 +233,20 @@ def main():
             now = time.monotonic()
             dt, last_t = min(0.2, now - last_t), now
             c, v = scene(px)
-            v = FLOOR + (1 - FLOOR) * v
             if c is not None:
                 c_s = c if c_s is None else c_s + (c - c_s) * (1 - math.exp(-dt / TAU_C))
             v_s += (v - v_s) * (1 - math.exp(-dt / (TAU_UP if v > v_s else TAU_DOWN)))
             if c_s is None:
                 continue
             hexc = "".join(f"{round(255 * float(x)):02X}" for x in np.clip(c_s, 0, 1))
-            vr = round(v_s, 2)
+            drive = FLOOR + (1 - FLOOR) * max(0.0, v_s) ** SOFT
+            vr = round(drive, 2)
             if (hexc, vr) != last_out:
                 last_out = (hexc, vr)
                 out(c=hexc, v=vr)
             cs = cfg.get("case") or {}
             if cs.get("on") and cs.get("devs"):
-                g = (max(0, min(100, cs.get("level", 100))) / 100 * v_s) ** 2.2  # Rgb.qml's curve, intensity in it
+                g = (max(0, min(100, cs.get("level", 100))) / 100) ** 2.2 * drive  # Rgb.qml's level curve × the scene
                 case.set(sorted(cs["devs"]), tuple(round(255 * float(x) ** 2.2 * g) for x in np.clip(c_s, 0, 1)))
 
 

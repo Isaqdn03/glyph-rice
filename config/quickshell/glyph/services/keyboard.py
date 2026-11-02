@@ -8,7 +8,7 @@
 # curve as the brightness. Dark = the "All Off" effect. On (re)connect it reads what the keyboard shows and writes only
 # what differs, so a reload with nothing changed writes nothing.
 #
-# stdin, JSON lines:  {"on": bool, "level": 0-100, "rgb": "RRGGBB"}
+# stdin, JSON lines:  {"on": bool, "level": 0-100, "rgb": "RRGGBB", "scale": 0-1 (the screen's drive, straight; 1 if absent)}
 # stdout, JSON lines: {"found": true, "via": protocol} | {"lost": true} | {"denied": true}  (no access: run keyboard.sh)
 import glob, json, os, select, sys, time
 
@@ -64,7 +64,7 @@ def hue_sat(hexrgb):
 
 def target(w):
     level = max(0, min(100, int(w.get("level") or 0)))
-    v = round(255 * (level / 100) ** 2.2)
+    v = round(255 * (level / 100) ** 2.2 * max(0.0, min(1.0, float(w.get("scale", 1)))))
     v = max(1, v) if level else 0
     lit = bool(w.get("on")) and v > 0
     return {"effect": SOLID if lit else OFF, "color": list(hue_sat(w.get("rgb") or "FFFFFF")), "bright": v}

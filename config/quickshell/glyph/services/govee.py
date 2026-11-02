@@ -16,9 +16,9 @@
 #   {"status": {"on": bool, "level": n, "rgb": "RRGGBB" | null, "kelvin": n | null}, "external": ["on", "level", "color"]}
 #       external — what changed between two polls that wasn't sent from here: the phone, the button
 #   {"lost": true}  stopped answering; scanning again
-# stdin also takes {"stream": {"rgb": "RRGGBB", "v": 0-1}} — the screen's colour (services/ambi.py), sent at most every
-# STREAM_GAP s, newest wins, intensity folded into the colour; the memo isn't touched — and {"stream": null}: the wanted
-# colour and level go back on.
+# stdin also takes {"stream": {"rgb": "RRGGBB", "v": 0-1, "level": 1-100}} — the screen's colour (services/ambi.py), sent
+# at most every STREAM_GAP s, newest wins, its drive v folded straight into the colour, the lamp's brightness at the
+# stream's own level; the memo isn't touched — and {"stream": null}: the wanted colour and level go back on.
 import json, os, select, socket, sys, time
 
 SCAN = (os.environ.get("GOVEE_SCAN_HOST") or "239.255.255.250", int(os.environ.get("GOVEE_SCAN_PORT") or 4001))
@@ -187,14 +187,16 @@ def main():
                     if "stream" in msg:
                         st = msg["stream"]
                         if st:
-                            c, k = led(st.get("rgb") or "FFFFFF") or [255, 255, 255], max(0.0, min(1.0, float(st.get("v", 1)))) ** 2.2
+                            c, k = led(st.get("rgb") or "FFFFFF") or [255, 255, 255], max(0.0, min(1.0, float(st.get("v", 1))))
                             c = [round(x * k) for x in c]
                             if max(c) < 3:  # all zero would be no colour at all; keep a glow
                                 c = [round(3 * x / max(1, max(c))) if max(c) else 3 for x in c]
-                            started_now = stream is None
                             stream = ["rgb", c]
-                            if started_now and dev and have and want and have["level"] != want["level"]:
-                                send(*command("level", want))  # the lamp's level is the stream's ceiling
+                            lv = max(1, min(100, int(st.get("level") or (want or {}).get("level") or 100)))
+                            if dev and have and have["level"] != lv:
+                                send(*command("level", {"level": lv}))  # the stream's own ceiling
+                                have["level"] = lv
+                                quiet["level"] = time.monotonic() + SETTLE + 0.3
                         elif stream:
                             stream, stream_sent = None, None
                             if dev and have:

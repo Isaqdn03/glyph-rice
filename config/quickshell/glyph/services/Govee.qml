@@ -32,10 +32,10 @@ Singleton {
     readonly property bool white: st.source === "white" || st.source === "case" && Rgb.tone === "white"
     readonly property int kelvin: st.source === "white" ? st.kelvin : Rgb.store.kelvin
     // screen: what a monitor shows (Rgb's ambi.py), streamed — the wanted colour underneath stays the accent, so the
-    // stream doesn't churn the memo; the lamp's level is the stream's ceiling
+    // stream doesn't churn the memo; it has its own level (screenLevel), so a movie isn't stuck at the room's 20 %
     readonly property bool screenWanted: lit && (st.source === "screen" || st.source === "case" && Rgb.tone === "screen")
     readonly property bool streaming: screenWanted && Rgb.liveUp
-    readonly property var stream: streaming ? { rgb: Theme.hex(Rgb.live), v: Rgb.liveV } : null
+    readonly property var stream: streaming ? { rgb: Theme.hex(Rgb.live), v: Rgb.liveV, level: st.screenLevel } : null
     onStreamChanged: if (lamp.running && seen && !adopting) lamp.write(JSON.stringify({ stream: stream }) + "\n")
     readonly property bool onScreen: st.source === "screen" || st.source === "case" && Rgb.tone === "screen"
     readonly property color shade: white ? Rgb.tint(kelvin) : onScreen ? Theme.accent : st.source === "case" ? Rgb.base : pick.color
@@ -112,6 +112,7 @@ Singleton {
             property string source: "case"  // case (the case lights' colour) | palette | white | screen
             property string color: "accent" // a palette name
             property int kelvin: 2700       // 2000-9000
+            property int screenLevel: 100   // %, while it follows the screen
             property bool gameDark: false   // a room lamp: lit in a game unless asked
             property var night: []          // [from, to] hours, dark inside; [] — never
             property string device: ""      // the lamp's id from its scan reply; empty — none seen yet

@@ -70,7 +70,7 @@ Singleton {
         : tone === "palette" ? pick.color : Theme.accent
     // LEDs are linear, a screen isn't: each channel goes through the sRGB curve (≈2.2), level with it. Without it the
     // accent's faint green and blue glow at full LED strength (#D71921 came out pink), and half the ring looks like half
-    readonly property real gain: Math.pow(st.level / 100 * (tone === "screen" && liveUp ? liveV : 1), 2.2)
+    readonly property real gain: Math.pow(st.level / 100, 2.2) * (tone === "screen" && liveUp ? liveV : 1) // liveV: straight
     function led(c) { return Math.pow(c, 2.2) * gain; }
     readonly property string hex: lit ? Theme.hex(Qt.rgba(led(base.r), led(base.g), led(base.b), 1)) : "000000"
 
@@ -166,7 +166,7 @@ Singleton {
 
     // ---- the keyboard: keyboard.py writes what differs from what it shows; wired only ----
     property string kbd: "" // ok | denied (no udev rule yet) | "" — not plugged in, or on the dongle
-    readonly property var keys: ({ on: lit, level: Math.round(st.level * (tone === "screen" && liveUp ? liveV : 1)), rgb: Theme.hex(base) })
+    readonly property var keys: ({ on: lit, level: st.level, rgb: Theme.hex(base), scale: tone === "screen" && liveUp ? liveV : 1 })
     onKeysChanged: sendKeys()
     function sendKeys() { if (keyboard.running) keyboard.write(JSON.stringify(keys) + "\n"); }
     Process {
@@ -211,7 +211,7 @@ Singleton {
     // here. The monitor: the one picked in prefs, or the one with a fullscreen window, or the focused one — settled for
     // 1.5 s first, since a new capture takes ~2.5 s to start
     property color live: Theme.accent
-    property real liveV: 1          // the scene's intensity, 0.06-1
+    property real liveV: 1          // the scene's drive, 0.35-1: a straight LED multiplier
     property bool liveUp: false     // frames are coming
     property string liveErr: ""
     readonly property bool streaming: tone === "screen" && lit && liveUp

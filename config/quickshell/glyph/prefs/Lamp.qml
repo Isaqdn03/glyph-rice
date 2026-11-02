@@ -47,14 +47,18 @@ Row {
 
     Column {
         spacing: 22
+        // on the screen it has a level of its own (the room's stays for after)
         Dial {
             anchors.horizontalCenter: parent.horizontalCenter
             size: 280
             n: 52
             from: 1
-            label: "level"
-            value: root.st.level
-            onMoved: v => root.st.level = Math.round(v)
+            label: Govee.onScreen ? "level · screen" : "level"
+            value: Govee.onScreen ? root.st.screenLevel : root.st.level
+            onMoved: v => {
+                if (Govee.onScreen) root.st.screenLevel = Math.round(v);
+                else root.st.level = Math.round(v);
+            }
         }
         Toggle { anchors.horizontalCenter: parent.horizontalCenter; text: "lamp"; on: root.st.on; onFlip: root.st.on = !root.st.on }
     }
@@ -74,7 +78,7 @@ Row {
         // screen: live, about ten colours a second — the lamp fades between them itself
         Lb {
             visible: root.st.source === "screen"
-            text: Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Govee.streaming ? `the screen, live · ${Rgb.capMon} · up to ${root.st.level} %`
+            text: Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Govee.streaming ? `the screen, live · ${Rgb.capMon} · up to ${root.st.screenLevel} %`
                 : Govee.lit ? "the screen · starting the capture" : "the screen · dark now"
         }
         // a colour or a white picked lights the lamp too

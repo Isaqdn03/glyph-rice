@@ -204,7 +204,7 @@ class Govee(unittest.TestCase):
         self.fake.cmds.clear()
         self.stream(h, "FFFFFF", 0.5)
         self.assertTrue(h.until(lambda: any(c == "colorwc" for c, _ in self.fake.cmds)))
-        self.assertEqual(self.fake.cmds[0][1]["color"], {"r": 55, "g": 55, "b": 55})  # 0.5 ** 2.2 of full
+        self.assertIn(("colorwc", {"color": {"r": 128, "g": 128, "b": 128}, "colorTemInKelvin": 0}), self.fake.cmds)  # half the drive, straight
         self.stream(h, None)
         self.assertTrue(h.until(lambda: self.fake.cmds[-1] == ("colorwc", {"color": {"r": 0, "g": 0, "b": 0}, "colorTemInKelvin": 2700})),
                         self.fake.cmds)
