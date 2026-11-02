@@ -13,7 +13,8 @@ import qs.settings
 // (2000-9000 K, as RGB: the case has no white LEDs) — dimmed by level; the floor lamp (Govee) can follow it. Dark
 // when off, in game mode, or in the night hours, and the LCD goes to 0 with them.
 // Direct mode only: volatile, nothing lands in the RAM's own memory (a cold boot shows its rainbow until the shell is up).
-// Mouse and keyboard are left alone. Settings: riceState/lights.json, prefs → LIGHTS
+// The NuPhy keyboard, wired, follows them too (keyboard.py, VIA); the mouse is left alone. Settings: riceState/lights.json,
+// prefs → LIGHTS
 Singleton {
     id: root
 
@@ -31,6 +32,8 @@ Singleton {
             if (p) p.n++; else out.push({ name: kinds[d.type], n: 1 });
         }
         if (fans > 0) out.push({ name: "kraken", n: fans });
+        if (kbd === "ok") out.push({ name: "keyboard", n: 1 });
+        else if (kbd === "denied") out.push({ name: "keyboard", n: 0, note: "no access · run keyboard.sh" });
         return out;
     }
 
@@ -155,6 +158,31 @@ Singleton {
         onExited: respawn.restart() // crashed or killed: back in a few seconds
     }
     Timer { id: respawn; interval: 5000; onTriggered: kraken.running = true }
+
+    // ---- the keyboard: keyboard.py writes what differs from what it shows; wired only ----
+    property string kbd: "" // ok | denied (no udev rule yet) | "" — not plugged in, or on the dongle
+    readonly property var keys: ({ on: lit, level: st.level, rgb: Theme.hex(base) })
+    onKeysChanged: sendKeys()
+    function sendKeys() { if (keyboard.running) keyboard.write(JSON.stringify(keys) + "\n"); }
+    Process {
+        id: keyboard
+        running: true
+        stdinEnabled: true
+        command: ["/usr/bin/python3", "-I", Qt.resolvedUrl("keyboard.py").toString().replace("file://", "")]
+        stdout: SplitParser {
+            onRead: line => {
+                let m;
+                try { m = JSON.parse(line); } catch (e) { return; }
+                if (m.ready) root.sendKeys();
+                else if (m.found) root.kbd = "ok";
+                else if (m.lost) root.kbd = "";
+                else if (m.denied) root.kbd = "denied";
+            }
+        }
+        stderr: SplitParser { onRead: line => console.warn(line) } // "keyboard: …"
+        onExited: keyRespawn.restart()
+    }
+    Timer { id: keyRespawn; interval: 5000; onTriggered: keyboard.running = true }
 
     // the clock for the night hours; a jump means the machine slept — USB controllers wake up in their own colours
     property real last: Date.now()

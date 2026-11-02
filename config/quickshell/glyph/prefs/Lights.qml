@@ -89,6 +89,7 @@ Column {
                                     }
                                 }
                             }
+                            Lb { visible: !!part.modelData.note; anchors.verticalCenter: parent.verticalCenter; px: 10; text: part.modelData.note ?? "" }
                         }
                     }
                 }
