@@ -16,6 +16,9 @@
 #   {"status": {"on": bool, "level": n, "rgb": "RRGGBB" | null, "kelvin": n | null}, "external": ["on", "level", "color"]}
 #       external — what changed between two polls that wasn't sent from here: the phone, the button
 #   {"lost": true}  stopped answering; scanning again
+# stdin also takes {"stream": {"rgb": "RRGGBB", "v": 0-1}} — the screen's colour (services/ambi.py), sent at most every
+# STREAM_GAP s, newest wins, intensity folded into the colour; the memo isn't touched — and {"stream": null}: the wanted
+# colour and level go back on.
 import json, os, select, socket, sys, time
 
 SCAN = (os.environ.get("GOVEE_SCAN_HOST") or "239.255.255.250", int(os.environ.get("GOVEE_SCAN_PORT") or 4001))
@@ -27,6 +30,7 @@ LOST = 3                    # unanswered polls in a row
 GAPS = [1, 3, 8, 15, 30]    # s between scans while nothing answers; then 30, or 300 after 5 min with no lamp ever seen
 MEMO = os.environ.get("GOVEE_MEMO") or os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "glyph-govee.json")
 KMIN, KMAX = 2000, 9000     # the H6076's whites; it ignores a colorwc outside them
+STREAM_GAP = 0.1            # s between streamed colours: the lamp fades between them itself
 
 
 def out(**m):
@@ -112,6 +116,7 @@ def main():
     started, scans, scan_at = time.monotonic(), 0, 0.0
     poll_at, asked, misses, fresh = 0.0, False, 0, False
     quiet = {}  # field → until when a change in it is our own command landing, not the phone
+    stream, stream_sent, stream_at = None, None, 0.0  # the screen's colour while it streams
     buf = b""
     out(ready=True)
 
@@ -131,8 +136,8 @@ def main():
         if want["on"] != last.get("on") and have["on"] != want["on"]:
             todo.append("on")
         for f in ("color", "level"):
-            if want[f] == last.get(f) and f not in pending:
-                continue
+            if want[f] == last.get(f) and f not in pending or stream:
+                continue  # while the screen streams, its colour wins; restore() puts the wanted one back
             if want["on"]:
                 pending.discard(f)
                 if have[f] != want[f]:
@@ -151,9 +156,23 @@ def main():
                 quiet[f] = now + SETTLE + 0.3
             poll_at = min(poll_at, now + SETTLE)
 
+    def restore():
+        """After a stream: the wanted colour and level, whatever the memo says."""
+        nonlocal poll_at
+        todo = [f for f in ("color", "level") if want and want["on"] and have[f] != want[f]]
+        for i, f in enumerate(todo):
+            if i:
+                time.sleep(0.05)
+            send(*command(f, want))
+            quiet[f] = time.monotonic() + SETTLE + 0.3
+        if todo:
+            poll_at = min(poll_at, time.monotonic() + SETTLE)
+
     while True:
         now = time.monotonic()
         wait = max(0.0, min(1.0, (poll_at if dev else scan_at) - now))
+        if stream and stream != stream_sent:
+            wait = min(wait, max(0.005, stream_at + STREAM_GAP - now))
         r, _, _ = select.select([fd, rx], [], [], wait)
 
         if fd in r:
@@ -165,6 +184,22 @@ def main():
                 line, buf = buf.split(b"\n", 1)
                 try:
                     msg = json.loads(line)
+                    if "stream" in msg:
+                        st = msg["stream"]
+                        if st:
+                            c, k = led(st.get("rgb") or "FFFFFF") or [255, 255, 255], max(0.0, min(1.0, float(st.get("v", 1)))) ** 2.2
+                            c = [round(x * k) for x in c]
+                            if max(c) < 3:  # all zero would be no colour at all; keep a glow
+                                c = [round(3 * x / max(1, max(c))) if max(c) else 3 for x in c]
+                            started_now = stream is None
+                            stream = ["rgb", c]
+                            if started_now and dev and have and want and have["level"] != want["level"]:
+                                send(*command("level", want))  # the lamp's level is the stream's ceiling
+                        elif stream:
+                            stream, stream_sent = None, None
+                            if dev and have:
+                                restore()
+                        continue
                     w = norm(msg["want"])
                 except (ValueError, KeyError, TypeError):
                     continue
@@ -200,6 +235,10 @@ def main():
                         apply()
 
         now = time.monotonic()
+        if stream and dev and have and have["on"] and stream != stream_sent and now - stream_at >= STREAM_GAP:
+            send(*command("color", {"color": stream}))
+            have["color"], stream_sent, stream_at = stream, stream, now
+            quiet["color"] = now + SETTLE + 0.3
         if not dev and now >= scan_at:
             try:
                 tx.sendto(b'{"msg":{"cmd":"scan","data":{"account_topic":"reserve"}}}', SCAN)

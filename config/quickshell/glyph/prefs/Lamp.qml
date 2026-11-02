@@ -11,7 +11,7 @@ Row {
 
     readonly property var st: Govee.store
     readonly property var hours: [[], [22, 7], [23, 7], [0, 8]]
-    readonly property var sources: ["case", "palette", "white"]
+    readonly property var sources: ["case", "palette", "white", "screen"]
     readonly property var s: Govee.status
     readonly property string caption: "lamp · " + (!Govee.found ? (Govee.seen ? "not answering" : "looking for it on the network")
         : !st.on ? "off" : Govee.gaming ? "dark · game mode" : Govee.night ? "dark · night hours"
@@ -68,7 +68,14 @@ Row {
         Lb {
             visible: root.st.source === "case"
             text: "the case lights' " + (Rgb.tone === "white" ? `white · ${Rgb.store.kelvin} k on its white leds`
-                : Rgb.tone === "palette" ? `colour · ${Rgb.pick.name}` : "colour · the style's accent")
+                : Rgb.tone === "palette" ? `colour · ${Rgb.pick.name}` : Rgb.tone === "screen" ? "colour · the screen, live"
+                : "colour · the style's accent")
+        }
+        // screen: live, about ten colours a second — the lamp fades between them itself
+        Lb {
+            visible: root.st.source === "screen"
+            text: Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Govee.streaming ? `the screen, live · ${Rgb.capMon} · up to ${root.st.level} %`
+                : Govee.lit ? "the screen · starting the capture" : "the screen · dark now"
         }
         // a colour or a white picked lights the lamp too
         Hues {

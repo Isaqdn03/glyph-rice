@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Widgets
 import qs
 import qs.components
@@ -13,14 +14,18 @@ Column {
     readonly property var st: Rgb.store
     readonly property var hours: [[], [22, 7], [23, 7], [0, 8]]
     readonly property var screens: ["dial", "gif", "liquid"]
-    readonly property var modes: ["accent", "palette", "white"]
+    readonly property var modes: ["accent", "palette", "white", "screen"]
+    // screen follows: auto (a fullscreen window's monitor, else the focused one) or one monitor, by connector
+    readonly property var mons: [""].concat(Quickshell.screens.map(s => s.name))
     readonly property var gifs: Gifs.list.filter(p => p)
     // case lights or the floor lamp (services/Govee) — the switch shows once a lamp has answered
     property int view: 0
     readonly property bool lamp: view === 1 && Govee.seen
     readonly property string caption: lamp ? lampView.caption : caseCaption
     readonly property string caseCaption: "lights · " + (!Rgb.parts.length ? "openrgb isn't answering"
-        : !st.on ? "off" : Rgb.gaming ? "dark · game mode" : Rgb.night ? "dark · night hours" : `#${Rgb.hex.toLowerCase()} · ${st.level} %`)
+        : !st.on ? "off" : Rgb.gaming ? "dark · game mode" : Rgb.night ? "dark · night hours"
+        : Rgb.tone === "screen" ? (Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Rgb.liveUp ? `screen · ${Rgb.capMon} · live` : "screen · starting the capture")
+        : `#${Rgb.hex.toLowerCase()} · ${st.level} %`)
 
     spacing: 44
 
@@ -48,6 +53,14 @@ Column {
                     items: Rgb.palette
                     cur: Rgb.palette.findIndex(p => p.name === root.st.color)
                     onPicked: i => root.st.color = Rgb.palette[i].name
+                }
+                // screen: one live colour from the monitor, dimmed with the scene; the keyboard and a lamp on "case" go along
+                Pick {
+                    visible: Rgb.tone === "screen"
+                    label: "follow"
+                    opts: ["auto"].concat(Quickshell.screens.map(s => (s.model || s.name).toLowerCase().split(" ")[0]))
+                    cur: root.mons.indexOf(root.st.follow)
+                    onPicked: i => root.st.follow = root.mons[i]
                 }
                 // RGB whites: the case has no white LEDs, these are tints — the lamp, following the case, does them for real
                 Hues {

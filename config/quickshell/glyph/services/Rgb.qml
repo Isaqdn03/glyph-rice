@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import qs
 import qs.settings
 
@@ -62,13 +63,14 @@ Singleton {
         const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
         return Qt.rgba(c(r), c(g), c(b), 1);
     }
-    // accent | palette | white; lights.json from before has only white
+    // accent | palette | white | screen; lights.json from before has only white
     readonly property string tone: st.source || (st.white ? "white" : "accent")
     readonly property var pick: palette.find(p => p.name === st.color) ?? palette[1]
-    readonly property color base: tone === "white" ? tint(st.kelvin) : tone === "palette" ? pick.color : Theme.accent
+    readonly property color base: tone === "screen" ? (liveUp ? live : Theme.accent) : tone === "white" ? tint(st.kelvin)
+        : tone === "palette" ? pick.color : Theme.accent
     // LEDs are linear, a screen isn't: each channel goes through the sRGB curve (≈2.2), level with it. Without it the
     // accent's faint green and blue glow at full LED strength (#D71921 came out pink), and half the ring looks like half
-    readonly property real gain: Math.pow(st.level / 100, 2.2)
+    readonly property real gain: Math.pow(st.level / 100 * (tone === "screen" && liveUp ? liveV : 1), 2.2)
     function led(c) { return Math.pow(c, 2.2) * gain; }
     readonly property string hex: lit ? Theme.hex(Qt.rgba(led(base.r), led(base.g), led(base.b), 1)) : "000000"
 
@@ -78,7 +80,7 @@ Singleton {
     // OpenRGB: one write at a time; a drag that moved on meanwhile sends its newest colour when the last one lands
     property string sent: ""
     function push() {
-        if (set.running || !devs.length || hex === sent) return;
+        if (streaming || set.running || !devs.length || hex === sent) return; // streaming: ambi.py writes them itself
         sent = hex;
         set.command = ["openrgb", "--nodetect"].concat(...devs.map(d => ["-d", String(d.i), "-m", "direct", "-c", sent]));
         set.running = true;
@@ -113,7 +115,10 @@ Singleton {
         }
     }
     Timer { id: retry; interval: 10000; onTriggered: list.running = true }
-    Component.onCompleted: scan()
+    Component.onCompleted: {
+        scan();
+        capMon = monitor;
+    }
 
     // ---- the Kraken: kraken.py gets the whole wanted state on hello and whatever changes after ----
     readonly property int lcd: lit ? st.level : 0 // the LCD's own brightness is already even, no curve
@@ -161,7 +166,7 @@ Singleton {
 
     // ---- the keyboard: keyboard.py writes what differs from what it shows; wired only ----
     property string kbd: "" // ok | denied (no udev rule yet) | "" — not plugged in, or on the dongle
-    readonly property var keys: ({ on: lit, level: st.level, rgb: Theme.hex(base) })
+    readonly property var keys: ({ on: lit, level: Math.round(st.level * (tone === "screen" && liveUp ? liveV : 1)), rgb: Theme.hex(base) })
     onKeysChanged: sendKeys()
     function sendKeys() { if (keyboard.running) keyboard.write(JSON.stringify(keys) + "\n"); }
     Process {
@@ -201,6 +206,58 @@ Singleton {
         }
     }
 
+    // ---- screen: the lights take what a monitor shows (ambi.py: KMS capture on the GPU, ~2.5 % of a core) ----
+    // ambi.py writes the case's OpenRGB devices itself; the keyboard, the Kraken's fans and the lamp get live/liveV from
+    // here. The monitor: the one picked in prefs, or the one with a fullscreen window, or the focused one — settled for
+    // 1.5 s first, since a new capture takes ~2.5 s to start
+    property color live: Theme.accent
+    property real liveV: 1          // the scene's intensity, 0.06-1
+    property bool liveUp: false     // frames are coming
+    property string liveErr: ""
+    readonly property bool streaming: tone === "screen" && lit && liveUp
+    onStreamingChanged: if (!streaming) restoreSoon.restart()
+    Timer { id: restoreSoon; interval: 300; onTriggered: root.again() } // after ambi's last frame landed
+    readonly property string autoMon: (Hyprland.monitors.values.find(m => m.activeWorkspace?.hasFullscreen) ?? Hyprland.focusedMonitor)?.name ?? ""
+    readonly property string monitor: st.follow || autoMon
+    property string capMon: ""
+    onMonitorChanged: monWait.restart()
+    Timer { id: monWait; interval: 1500; onTriggered: root.capMon = root.monitor }
+    readonly property bool ambiNeeded: tone === "screen" && lit || Govee.screenWanted
+    readonly property var ambiCfg: ({ monitor: capMon, case: { on: tone === "screen" && lit, level: st.level, devs: devs.map(d => d.i) } })
+    onAmbiCfgChanged: sendAmbi()
+    function sendAmbi() { if (ambi.running) ambi.write(JSON.stringify(ambiCfg) + "\n"); }
+    Process {
+        id: ambi
+        running: root.ambiNeeded && root.capMon !== ""
+        stdinEnabled: true
+        command: ["/usr/bin/python3", "-I", Qt.resolvedUrl("ambi.py").toString().replace("file://", "")]
+        onRunningChanged: {
+            if (running) {
+                root.liveErr = "";
+                root.sendAmbi();
+            } else {
+                root.liveUp = false;
+            }
+        }
+        stdout: SplitParser {
+            onRead: line => {
+                let m;
+                try { m = JSON.parse(line); } catch (e) { return; }
+                if (m.c) {
+                    root.live = "#" + m.c;
+                    root.liveV = m.v;
+                } else if (m.up) {
+                    root.liveUp = true;
+                    root.liveErr = "";
+                } else if (m.error) {
+                    root.liveErr = m.error;
+                    root.liveUp = false;
+                }
+            }
+        }
+        stderr: SplitParser { onRead: line => console.warn(line) } // "ambi: …"
+    }
+
     FileView {
         id: file
         path: Theme.riceState + "/lights.json"
@@ -218,6 +275,7 @@ Singleton {
             property string source: ""     // accent | palette | white; empty — from white
             property string color: "red"   // a palette name
             property int kelvin: 6500      // the white, 2000-9000
+            property string follow: ""     // the monitor (connector) the screen tone follows; empty — auto
             property bool gameDark: true   // dark while game mode is on (manual or services/Game)
             property var night: []         // [from, to] hours, dark inside; [] — never
             property string screen: "dial" // the Kraken's LCD: dial (CPU and GPU), gif, liquid (NZXT's own)

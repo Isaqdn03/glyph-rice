@@ -31,7 +31,14 @@ Singleton {
     readonly property var pick: Rgb.palette.find(p => p.name === st.color) ?? Rgb.palette[0]
     readonly property bool white: st.source === "white" || st.source === "case" && Rgb.tone === "white"
     readonly property int kelvin: st.source === "white" ? st.kelvin : Rgb.store.kelvin
-    readonly property color shade: white ? Rgb.tint(kelvin) : st.source === "case" ? Rgb.base : pick.color
+    // screen: what a monitor shows (Rgb's ambi.py), streamed — the wanted colour underneath stays the accent, so the
+    // stream doesn't churn the memo; the lamp's level is the stream's ceiling
+    readonly property bool screenWanted: lit && (st.source === "screen" || st.source === "case" && Rgb.tone === "screen")
+    readonly property bool streaming: screenWanted && Rgb.liveUp
+    readonly property var stream: streaming ? { rgb: Theme.hex(Rgb.live), v: Rgb.liveV } : null
+    onStreamChanged: if (lamp.running && seen && !adopting) lamp.write(JSON.stringify({ stream: stream }) + "\n")
+    readonly property bool onScreen: st.source === "screen" || st.source === "case" && Rgb.tone === "screen"
+    readonly property color shade: white ? Rgb.tint(kelvin) : onScreen ? Theme.accent : st.source === "case" ? Rgb.base : pick.color
     readonly property var want: ({ on: lit, level: st.level, rgb: white ? null : Theme.hex(shade), kelvin: white ? kelvin : null })
     onWantChanged: send()
     function send() { if (lamp.running && seen && !adopting) lamp.write(JSON.stringify({ want: want, device: st.device }) + "\n"); }
@@ -102,7 +109,7 @@ Singleton {
             id: st
             property bool on: true
             property int level: 50          // %, the lamp's own scale (already even)
-            property string source: "case"  // case (the case lights' colour) | palette | white
+            property string source: "case"  // case (the case lights' colour) | palette | white | screen
             property string color: "accent" // a palette name
             property int kelvin: 2700       // 2000-9000
             property bool gameDark: false   // a room lamp: lit in a game unless asked

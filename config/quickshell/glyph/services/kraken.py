@@ -23,6 +23,7 @@ import ctypes, glob, json, logging, math, os, select, subprocess, sys, time
 from PIL import Image, ImageDraw, ImageFont, ImageSequence
 
 TICK = 3                # s between dial frames
+FANS_GAP = 0.1          # s: the fans' colour at most 10 times a second (prefs → LIGHTS → screen streams it)
 RETRY, RESCAN = 5, 30   # s: after a USB error / when no Kraken turned up
 MAX_GIF = 20_000_000    # bytes: liquidctl refuses 24.3 MB and up (the LCD's memory), so there's room for its re-encode
 SIZE, SS = 320, 4       # panel px; drawn 4x and scaled down so the dots come out round
@@ -354,6 +355,7 @@ def main():
     fails = {}  # GIF upload → failures in a row; outlives reconnects too
     told = None # the bad GIF stdout last reported
     dev, fans, retry, frame_at, frames = None, 0, 0, 0, 0
+    fans_at = 0.0
     screen = None
     sensors = Sensors()
     buf = b""
@@ -363,6 +365,8 @@ def main():
         # wake for the dial's next frame only while there's a cooler to put it on and something to draw it with
         dial = dev and screen == "dial" and want["colors"] and (want["bright"] or 0) > 0
         wait = min(1.0, max(0.05, frame_at - time.monotonic())) if dial else 1.0
+        if dev and fans and want["fans"] and have.get("fans") != want["fans"]:
+            wait = min(wait, max(0.01, fans_at + FANS_GAP - time.monotonic()))  # a newer colour waiting its turn
         r, _, _ = select.select([fd], [], [], wait)
         if r:
             chunk = os.read(fd, 65536)
@@ -407,10 +411,11 @@ def main():
                     continue
                 print(json.dumps({"hello": True, "fans": fans}), flush=True)
 
-            if fans and want["fans"] and have.get("fans") != want["fans"]:
+            if fans and want["fans"] and have.get("fans") != want["fans"] and now - fans_at >= FANS_GAP:
                 c = want["fans"]
                 dev.set_color("external", "off" if c == "000000" else "fixed", [] if c == "000000" else [rgb(c)])
                 have["fans"] = c
+                fans_at = now
             if want["bright"] is not None and have.get("bright") != want["bright"]:
                 dev.set_screen("lcd", "brightness", int(want["bright"]))
                 have["bright"] = want["bright"]

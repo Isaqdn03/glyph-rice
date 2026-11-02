@@ -177,6 +177,38 @@ class Govee(unittest.TestCase):
         self.assertEqual(self.fake.cmds[:2], [("turn", {"value": 1}),
                                               ("colorwc", {"color": {"r": 0, "g": 0, "b": 0}, "colorTemInKelvin": 6500})])
 
+    def stream(self, h, rgb, v=1.0):
+        h.p.stdin.write(json.dumps({"stream": {"rgb": rgb, "v": v} if rgb else None}) + "\n")
+        h.p.stdin.flush()
+
+    def test_screen_stream_is_throttled_and_the_newest_wins(self):
+        h = self.start()
+        h.want()
+        self.settle(h)
+        memo = open(self.memo).read()
+        self.fake.cmds.clear()
+        for i in range(30):  # 30 frames in 0.3 s
+            self.stream(h, f"{i * 8:02X}0000")
+            time.sleep(0.01)
+        time.sleep(0.4)
+        sent = [d for c, d in self.fake.cmds if c == "colorwc"]
+        self.assertLessEqual(len(sent), 6, sent)
+        self.assertEqual(sent[-1]["color"], {"r": 255, "g": 0, "b": 0})  # the last frame, through the curve
+        self.assertEqual(open(self.memo).read(), memo, "the stream doesn't touch the memo")
+        self.assertFalse(any(m.get("external") for m in h.out), "our own stream isn't the phone")
+
+    def test_stream_dims_with_the_scene_and_ends_on_the_wanted_white(self):
+        h = self.start()
+        h.want()
+        self.settle(h)
+        self.fake.cmds.clear()
+        self.stream(h, "FFFFFF", 0.5)
+        self.assertTrue(h.until(lambda: any(c == "colorwc" for c, _ in self.fake.cmds)))
+        self.assertEqual(self.fake.cmds[0][1]["color"], {"r": 55, "g": 55, "b": 55})  # 0.5 ** 2.2 of full
+        self.stream(h, None)
+        self.assertTrue(h.until(lambda: self.fake.cmds[-1] == ("colorwc", {"color": {"r": 0, "g": 0, "b": 0}, "colorTemInKelvin": 2700})),
+                        self.fake.cmds)
+
     def test_whites_outside_the_lamp_are_clamped(self):
         h = self.start()
         h.want(kelvin=12000)
