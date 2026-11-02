@@ -9,7 +9,8 @@ import qs.settings
 // local: the case lights. RAM, the Thermaltake fan box and the board's Aura headers go through OpenRGB's server (root,
 // 127.0.0.1:6742 — ~/dev/glyph-desktop-install/rgb.sh); the Kraken Z (OpenRGB doesn't know it) through kraken.py, which
 // owns the cooler: its Aer fans, its LCD's brightness and what the LCD shows — Glyph's dial of CPU and GPU, a GIF from
-// the gif folder, or NZXT's own liquid screen. One steady colour — the Style's accent or white — dimmed by level; dark
+// the gif folder, or NZXT's own liquid screen. One steady colour — the Style's accent, one from the palette, or a white
+// (2000-9000 K, as RGB: the case has no white LEDs) — dimmed by level; the floor lamp (Govee) can follow it. Dark
 // when off, in game mode, or in the night hours, and the LCD goes to 0 with them.
 // Direct mode only: volatile, nothing lands in the RAM's own memory (a cold boot shows its rainbow until the shell is up).
 // Mouse and keyboard are left alone. Settings: riceState/lights.json, prefs → LIGHTS
@@ -41,7 +42,27 @@ Singleton {
     }
     readonly property bool gaming: st.gameDark && Rules.store.game
     readonly property bool lit: st.on && !gaming && !night
-    readonly property color base: st.white ? "#FFFFFF" : Theme.accent
+    // the palette (case and lamp): screen colours, they go out through the curve. accent and red follow the Style
+    readonly property var palette: [
+        { name: "accent", color: Theme.accent }, { name: "red", color: Theme.red }, { name: "ember", color: "#FF4A1C" },
+        { name: "amber", color: "#FF9F1C" }, { name: "gold", color: "#FFD43B" }, { name: "lime", color: "#A6F23A" },
+        { name: "green", color: "#22E06B" }, { name: "teal", color: "#19D9B5" }, { name: "cyan", color: "#22C3FF" },
+        { name: "blue", color: "#2563FF" }, { name: "indigo", color: "#5B3CFF" }, { name: "violet", color: "#A23CFF" },
+        { name: "magenta", color: "#F032D0" }, { name: "pink", color: "#FF6FA5" }
+    ]
+    readonly property var whites: [2000, 2700, 3000, 4000, 5000, 6500, 9000]
+    // a white of k kelvin as a screen shows it (Tanner Helland's fit); 6500 is sRGB's own white
+    function tint(k) {
+        const t = k / 100, c = x => Math.max(0, Math.min(255, x)) / 255;
+        const r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
+        const g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+        const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+        return Qt.rgba(c(r), c(g), c(b), 1);
+    }
+    // accent | palette | white; lights.json from before has only white
+    readonly property string tone: st.source || (st.white ? "white" : "accent")
+    readonly property var pick: palette.find(p => p.name === st.color) ?? palette[1]
+    readonly property color base: tone === "white" ? tint(st.kelvin) : tone === "palette" ? pick.color : Theme.accent
     // LEDs are linear, a screen isn't: each channel goes through the sRGB curve (≈2.2), level with it. Without it the
     // accent's faint green and blue glow at full LED strength (#D71921 came out pink), and half the ring looks like half
     readonly property real gain: Math.pow(st.level / 100, 2.2)
@@ -165,7 +186,10 @@ Singleton {
             id: st
             property bool on: true
             property int level: 100        // %
-            property bool white: false     // false — the Style's accent
+            property bool white: false     // before source: true — white
+            property string source: ""     // accent | palette | white; empty — from white
+            property string color: "red"   // a palette name
+            property int kelvin: 6500      // the white, 2000-9000
             property bool gameDark: true   // dark while game mode is on (manual or services/Game)
             property var night: []         // [from, to] hours, dark inside; [] — never
             property string screen: "dial" // the Kraken's LCD: dial (CPU and GPU), gif, liquid (NZXT's own)

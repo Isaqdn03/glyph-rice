@@ -7,8 +7,8 @@ import qs
 import qs.settings
 
 // local: the floor lamp — a Govee light on the LAN (an H6076 corner lamp here) through govee.py, Govee's LAN API, no cloud.
-// Its own switch and level; its colour the case lights' (services/Rgb: the accent, or white — daylight on the lamp's white
-// LEDs), one from the palette, or a white 2000-9000 K; dark at night or in a game if asked. govee.py sends a field only when
+// Its own switch and level; its colour the case lights' (services/Rgb — their white on the lamp's own white LEDs), one
+// from the palette, or a white 2000-9000 K; dark at night or in a game if asked. govee.py sends a field only when
 // it changes here, so the phone and the lamp's button keep working: what they change comes back on the next poll, and
 // a switch or level changed there is taken into prefs. Settings: riceState/lamp.json, prefs → LIGHTS → lamp
 Singleton {
@@ -20,24 +20,6 @@ Singleton {
     property var status: null    // { on, level, rgb, kelvin } — the lamp as it reported itself last
     readonly property bool seen: st.device !== "" // a lamp answered once: prefs shows the lamp
 
-    // the palette: screen colours, they go out through the curve. accent and red follow the Style
-    readonly property var palette: [
-        { name: "accent", color: Theme.accent }, { name: "red", color: Theme.red }, { name: "ember", color: "#FF4A1C" },
-        { name: "amber", color: "#FF9F1C" }, { name: "gold", color: "#FFD43B" }, { name: "lime", color: "#A6F23A" },
-        { name: "green", color: "#22E06B" }, { name: "teal", color: "#19D9B5" }, { name: "cyan", color: "#22C3FF" },
-        { name: "blue", color: "#2563FF" }, { name: "indigo", color: "#5B3CFF" }, { name: "violet", color: "#A23CFF" },
-        { name: "magenta", color: "#F032D0" }, { name: "pink", color: "#FF6FA5" }
-    ]
-    readonly property var whites: [2000, 2700, 3000, 4000, 5000, 6500, 9000]
-    // a white of k kelvin as a screen shows it (Tanner Helland's fit; close enough for a dot)
-    function tint(k) {
-        const t = k / 100, c = x => Math.max(0, Math.min(255, x)) / 255;
-        const r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
-        const g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
-        const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
-        return Qt.rgba(c(r), c(g), c(b), 1);
-    }
-
     readonly property bool night: {
         const n = st.night, h = Rgb.hour; // Rgb keeps the clock
         if (!n || n.length !== 2 || n[0] === n[1]) return false;
@@ -46,10 +28,10 @@ Singleton {
     readonly property bool gaming: st.gameDark && Rules.store.game
     readonly property bool lit: st.on && !gaming && !night
 
-    readonly property var pick: palette.find(p => p.name === st.color) ?? palette[0]
-    readonly property bool white: st.source === "white" || st.source === "case" && Rgb.store.white
-    readonly property int kelvin: st.source === "white" ? st.kelvin : 6500 // the case's white = sRGB's, D65
-    readonly property color shade: white ? tint(kelvin) : st.source === "case" ? Rgb.base : pick.color
+    readonly property var pick: Rgb.palette.find(p => p.name === st.color) ?? Rgb.palette[0]
+    readonly property bool white: st.source === "white" || st.source === "case" && Rgb.tone === "white"
+    readonly property int kelvin: st.source === "white" ? st.kelvin : Rgb.store.kelvin
+    readonly property color shade: white ? Rgb.tint(kelvin) : st.source === "case" ? Rgb.base : pick.color
     readonly property var want: ({ on: lit, level: st.level, rgb: white ? null : Theme.hex(shade), kelvin: white ? kelvin : null })
     onWantChanged: send()
     function send() { if (lamp.running && seen && !adopting) lamp.write(JSON.stringify({ want: want, device: st.device }) + "\n"); }
@@ -64,14 +46,14 @@ Singleton {
         } else if (s.rgb) {
             const c = Qt.color("#" + s.rgb), d = p => (p.color.r - c.r) ** 2 + (p.color.g - c.g) ** 2 + (p.color.b - c.b) ** 2;
             st.source = "palette";
-            st.color = palette.reduce((a, p) => d(p) < d(a) ? p : a).name;
+            st.color = Rgb.palette.reduce((a, p) => d(p) < d(a) ? p : a).name;
         }
         adopting = false;
         send();
     }
 
     // what the lamp shows now, for prefs: its own report when there is one
-    readonly property color now: !status ? shade : status.kelvin ? tint(status.kelvin) : "#" + (status.rgb ?? "FFFFFF")
+    readonly property color now: !status ? shade : status.kelvin ? Rgb.tint(status.kelvin) : "#" + (status.rgb ?? "FFFFFF")
 
     Process {
         id: lamp

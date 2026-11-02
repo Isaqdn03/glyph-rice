@@ -5,7 +5,7 @@ import qs.services
 
 // local: LIGHTS → lamp (services/Govee). Left, the lamp as it is now — a tall column of dots in the colour it reports,
 // as bright as it is, whoever set it (the phone too). Then its level and switch; right, what colour it takes — the case
-// lights', one from the palette, a white — and when it goes dark
+// lights', one from the palette, a white (prefs/Hues) — and when it goes dark
 Row {
     id: root
 
@@ -64,38 +64,29 @@ Row {
         spacing: 22
         Pick { label: "colour"; opts: root.sources; cur: root.sources.indexOf(root.st.source); onPicked: i => root.st.source = root.sources[i] }
 
-        // case: whatever the case lights are on — the accent, or white (daylight on the lamp's white LEDs)
+        // case: whatever the case lights show — their white on the lamp's own white LEDs
         Lb {
             visible: root.st.source === "case"
-            text: Rgb.store.white ? "the case lights' white · 6500 k on its white leds" : "the case lights' colour · the style's accent"
+            text: "the case lights' " + (Rgb.tone === "white" ? `white · ${Rgb.store.kelvin} k on its white leds`
+                : Rgb.tone === "palette" ? `colour · ${Rgb.pick.name}` : "colour · the style's accent")
         }
-        // a colour picked lights the lamp too. Click, ↵ or space; ←→ the next one
-        Grid {
+        // a colour or a white picked lights the lamp too
+        Hues {
             visible: root.st.source === "palette"
-            columns: 7
-            rowSpacing: 4
-            Repeater {
-                model: Govee.palette
-                Swatch {
-                    required property var modelData
-                    width: 88
-                    size: 40
-                    item: ({ name: modelData.name, fill: modelData.color, now: root.st.color === modelData.name,
-                             run: () => { root.st.color = modelData.name; root.st.on = true; } })
-                }
+            items: Rgb.palette
+            cur: Rgb.palette.findIndex(p => p.name === root.st.color)
+            onPicked: i => {
+                root.st.color = Rgb.palette[i].name;
+                root.st.on = true;
             }
         }
-        Row {
+        Hues {
             visible: root.st.source === "white"
-            Repeater {
-                model: Govee.whites
-                Swatch {
-                    required property int modelData
-                    width: 88
-                    size: 40
-                    item: ({ name: modelData + " k", fill: Govee.tint(modelData), now: root.st.kelvin === modelData,
-                             run: () => { root.st.kelvin = modelData; root.st.on = true; } })
-                }
+            items: Rgb.whites.map(k => ({ name: k + " k", color: Rgb.tint(k) }))
+            cur: Rgb.whites.indexOf(root.st.kelvin)
+            onPicked: i => {
+                root.st.kelvin = Rgb.whites[i];
+                root.st.on = true;
             }
         }
 

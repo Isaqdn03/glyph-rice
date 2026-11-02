@@ -13,6 +13,7 @@ Column {
     readonly property var st: Rgb.store
     readonly property var hours: [[], [22, 7], [23, 7], [0, 8]]
     readonly property var screens: ["dial", "gif", "liquid"]
+    readonly property var modes: ["accent", "palette", "white"]
     readonly property var gifs: Gifs.list.filter(p => p)
     // case lights or the floor lamp (services/Govee) — the switch shows once a lamp has answered
     property int view: 0
@@ -41,7 +42,20 @@ Column {
             Column {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 22
-                Pick { label: "colour"; opts: ["accent", "white"]; cur: root.st.white ? 1 : 0; onPicked: i => root.st.white = i === 1 }
+                Pick { label: "colour"; opts: root.modes; cur: root.modes.indexOf(Rgb.tone); onPicked: i => root.st.source = root.modes[i] }
+                Hues {
+                    visible: Rgb.tone === "palette"
+                    items: Rgb.palette
+                    cur: Rgb.palette.findIndex(p => p.name === root.st.color)
+                    onPicked: i => root.st.color = Rgb.palette[i].name
+                }
+                // RGB whites: the case has no white LEDs, these are tints — the lamp, following the case, does them for real
+                Hues {
+                    visible: Rgb.tone === "white"
+                    items: Rgb.whites.map(k => ({ name: k + " k", color: Rgb.tint(k) }))
+                    cur: Rgb.whites.indexOf(root.st.kelvin)
+                    onPicked: i => root.st.kelvin = Rgb.whites[i]
+                }
                 Pick {
                     label: "dark at night"
                     opts: ["never", "22 → 7", "23 → 7", "0 → 8"]
