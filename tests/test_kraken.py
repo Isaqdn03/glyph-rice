@@ -42,14 +42,41 @@ def child(plan):
                 Sensors.n += 1
             return {"cpu": Sensors.n, "cpuLoad": 5, "gpu": 50, "gpuLoad": 10, "liquid": 28}
 
+    class Bulk:  # the LCD's bulk interface, like usbfs: one handle at a time holds the claim, the first upload takes it
+        owner = None
+
+        def __init__(self):
+            self.usbdev = self
+
+        def claim(self):
+            if Bulk.owner not in (None, self):
+                raise OSError(16, "Resource busy")
+            Bulk.owner = self
+
+        def close(self):
+            ev("release")
+            if Bulk.owner is self:
+                Bulk.owner = None
+
+    usb = types.ModuleType("usb")
+    usb.util = types.ModuleType("usb.util")
+    usb.util.dispose_resources = lambda dev: ev("dispose")
+    sys.modules["usb"], sys.modules["usb.util"] = usb, usb.util
+
     class Kraken:
         description = "NZXT Kraken Z (Z53)"
+
+        def __init__(self):
+            self.bulk_device = Bulk()  # liquidctl opens it when the driver object is made, not in connect()
 
         def connect(self):
             ev("connect")
 
         def initialize(self):
             ev("init")
+            if plan.get("init_fails", 0) > 0:
+                plan["init_fails"] -= 1
+                raise OSError("no answer")
             if plan.get("warn"):
                 logging.getLogger("liquidctl.driver.kraken3").warning("forcing re-initialization despite nzxt_kraken3")
             return [("LED accessory 1", 1, ""), ("LED accessory 2", 1, "")]
@@ -61,6 +88,14 @@ def child(plan):
             ev("color", mode=mode)
 
         def set_screen(self, ch, mode, value):
+            if mode in ("static", "gif"):
+                self.bulk_device.claim()
+            if mode == "static" and plan.get("hiccup_after") == 0:  # a HID read that timed out mid-transfer
+                plan["hiccup_after"] = None
+                ev("upload", mode=mode, ok=False)
+                raise AssertionError("missing messages (attempts=12, missing=1)")
+            if mode == "static" and plan.get("hiccup_after"):
+                plan["hiccup_after"] -= 1
             if mode == "gif" and plan.get("gif_fails", 0) > 0:
                 plan["gif_fails"] -= 1
                 ev("upload", mode=mode, ok=False)
@@ -295,6 +330,23 @@ class Wedge(Base):
         self.assertTrue(any("Wedged" in l and "Failed to setup bucket" in l for l in r.log), r.log)
         frames = [m for m in r.out if "frame" in m]
         self.assertEqual(frames[0]["frame"], 1, "the wedged upload wasn't counted as a frame")
+
+    def test_reconnect_after_a_hiccup_lets_go_of_the_lcd(self):
+        # 2026-11-01: liquidctl's disconnect() left the bulk handle claimed, every reconnect got EBUSY for two hours
+        r = self.run_kraken(climb=True, hiccup_after=1)
+        r.want()
+        self.assertTrue(r.until(lambda: sum("frame" in m for m in r.out) >= 3), r.log)
+        self.assertEqual(r.count("upload", mode="static", ok=False), 1)
+        self.assertEqual(r.count("connect"), 2)
+        self.assertFalse(any("Resource busy" in l for l in r.log), r.log)
+        self.assertEqual((r.count("release"), r.count("dispose")), (1, 1))
+
+    def test_init_that_fails_closes_the_handle_it_opened(self):
+        r = self.run_kraken(init_fails=1)
+        r.want()
+        self.assertTrue(r.until(lambda: any("frame" in m for m in r.out)), r.log)
+        self.assertEqual(r.count("connect"), 2)
+        self.assertEqual((r.count("release"), r.count("dispose")), (1, 1))
 
     def test_liquidctl_warnings_still_reach_the_log(self):
         r = self.run_kraken(warn=True)

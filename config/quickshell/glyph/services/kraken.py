@@ -310,12 +310,39 @@ def stamp(path):
         return None
 
 
+def close(dev):
+    """Let go of the cooler for good. liquidctl's disconnect() closes only the HID side; the LCD's bulk interface was
+    opened when the driver object was made, and the claim the first upload takes on it lives until that handle is
+    disposed — a new object's upload then gets EBUSY (Resource busy) forever, one more open handle per retry."""
+    if not dev:
+        return
+    try:
+        dev.disconnect()
+    except Exception:
+        pass
+    bulk = getattr(dev, "bulk_device", None)
+    if bulk is not None:
+        try:
+            bulk.close()  # releases the interface (and gives a detached kernel driver back)
+        except Exception:
+            pass
+        try:
+            import usb.util
+            usb.util.dispose_resources(bulk.usbdev)  # closes the handle itself
+        except Exception:
+            pass
+
+
 def connect():
     from liquidctl import find_liquidctl_devices
     for dev in find_liquidctl_devices():
         if "Kraken Z" in dev.description:
-            dev.connect()
-            status = dev.initialize()
+            try:
+                dev.connect()
+                status = dev.initialize()
+            except BaseException:
+                close(dev)  # the object already holds the bulk handle
+                raise
             return dev, sum(1 for k, *_ in status if str(k).startswith("LED accessory"))
     return None, 0
 
@@ -349,10 +376,7 @@ def main():
                 except ValueError:
                     continue
                 if msg.get("init") and dev:
-                    try:
-                        dev.disconnect()
-                    except Exception:
-                        pass
+                    close(dev)
                     dev, retry = None, 0
                 for k in want:
                     if k in msg:
@@ -426,11 +450,7 @@ def main():
                 if fails[key] >= 2:
                     del fails[key]
                     bad[gif] = st
-            try:
-                if dev:
-                    dev.disconnect()
-            except Exception:
-                pass
+            close(dev)
             dev, retry = None, time.monotonic() + RETRY
 
 
