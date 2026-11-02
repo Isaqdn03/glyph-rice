@@ -192,7 +192,7 @@ class Govee(unittest.TestCase):
             time.sleep(0.01)
         time.sleep(0.4)
         sent = [d for c, d in self.fake.cmds if c == "colorwc"]
-        self.assertLessEqual(len(sent), 6, sent)
+        self.assertLessEqual(len(sent), 12, sent)  # 20 a second at most, not all 30
         self.assertEqual(sent[-1]["color"], {"r": 255, "g": 0, "b": 0})  # the last frame, through the curve
         self.assertEqual(open(self.memo).read(), memo, "the stream doesn't touch the memo")
         self.assertFalse(any(m.get("external") for m in h.out), "our own stream isn't the phone")
@@ -209,7 +209,7 @@ class Govee(unittest.TestCase):
         self.assertTrue(h.until(lambda: self.fake.cmds[-1] == ("colorwc", {"color": {"r": 0, "g": 0, "b": 0}, "colorTemInKelvin": 2700})),
                         self.fake.cmds)
 
-    def test_zones_go_out_as_segments_and_the_colour_comes_back_whole(self):
+    def test_zones_go_out_in_stream_mode_and_the_colour_comes_back_whole(self):
         import base64
         h = self.start()
         h.want()
@@ -218,20 +218,24 @@ class Govee(unittest.TestCase):
         z = [["FF0000", 1.0]] * 4 + [["0000FF", 0.5]] * 4  # bottom half red, top half dim blue
         h.p.stdin.write(json.dumps({"stream": {"rgb": "FF0000", "v": 1.0, "z": z}}) + "\n")
         h.p.stdin.flush()
-        self.assertTrue(h.until(lambda: any(c == "ptReal" for c, _ in self.fake.cmds)), self.fake.cmds)
-        pkts = [base64.b64decode(p) for c, d in self.fake.cmds if c == "ptReal" for p in d["command"]]
-        got = {(p[4], p[5], p[6]): p[12] | p[13] << 8 for p in pkts}
-        self.assertEqual(got, {(255, 0, 0): 0x0F, (0, 0, 128): 0xF0})
-        for p in pkts:
-            self.assertEqual(len(p), 20)
-            self.assertEqual(p[:4], bytes([0x33, 0x05, 0x15, 0x01]))
-            x = 0
-            for b in p[:19]:
-                x ^= b
-            self.assertEqual(p[19], x)
+        self.assertTrue(h.until(lambda: sum(c == "razer" for c, _ in self.fake.cmds) >= 2), self.fake.cmds)
+        rz = [base64.b64decode(d["pt"]) for c, d in self.fake.cmds if c == "razer"]
+        self.assertEqual(rz[0], bytes([0xBB, 0x00, 0x01, 0xB1, 0x01, 0x0A]), "stream mode on first")
+        f = rz[1]
+        self.assertEqual(f[:6], bytes([0xBB, 0x00, 2 + 3 * 8, 0xB0, 0x00, 8]))
+        self.assertEqual(list(f[6:30]), [255, 0, 0] * 4 + [0, 0, 128] * 4)
+        x = 0
+        for b in f[:-1]:
+            x ^= b
+        self.assertEqual(f[-1], x)
         self.assertFalse(any(c == "colorwc" for c, _ in self.fake.cmds), "zones only, no whole-lamp colour")
+        n = sum(c == "razer" for c, _ in self.fake.cmds)
+        time.sleep(1.3)  # a still picture: the frame goes again so stream mode doesn't lapse
+        self.assertGreater(sum(c == "razer" for c, _ in self.fake.cmds), n)
         self.stream(h, None)
         self.assertTrue(h.until(lambda: self.fake.cmds[-1][0] == "colorwc"), self.fake.cmds)
+        off = [base64.b64decode(d["pt"]) for c, d in self.fake.cmds if c == "razer"][-1]
+        self.assertEqual(off, bytes([0xBB, 0x00, 0x01, 0xB1, 0x00, 0x0B]), "stream mode off before the colour")
 
     def test_whites_outside_the_lamp_are_clamped(self):
         h = self.start()

@@ -35,7 +35,7 @@ Singleton {
     // stream doesn't churn the memo; it has its own level (screenLevel), so a movie isn't stuck at the room's 20 %
     readonly property bool screenWanted: lit && (st.source === "screen" || st.source === "case" && Rgb.tone === "screen")
     readonly property bool streaming: screenWanted && Rgb.liveUp
-    // lamps whose zones up their height take ptReal segments: the screen top to bottom (seen on the H6076: 8, bottom first)
+    // lamps with zones up their height stream them in Govee's stream mode, no fade: the screen top to bottom (H6076: 8, bottom first)
     readonly property int zones: ({ H6076: 8 })[st.sku] ?? 0
     readonly property var stream: streaming ? { rgb: Theme.hex(Rgb.live), v: Rgb.liveV, level: st.screenLevel,
                                                 z: zones ? Rgb.liveZones.slice(0, zones) : undefined } : null

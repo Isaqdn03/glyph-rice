@@ -17,7 +17,7 @@
 #       external — what changed between two polls that wasn't sent from here: the phone, the button
 #   {"lost": true}  stopped answering; scanning again
 # stdin also takes {"stream": {"rgb": "RRGGBB", "v": 0-1, "level": 1-100, "z": [["RRGGBB", drive], ...] bottom first}} —
-# the screen's colour (services/ambi.py; with z the lamp's zones get a band each, through ptReal segments), sent
+# the screen's colour (services/ambi.py; with z the lamp's zones get a band each, in the lamp's stream mode), sent
 # at most every STREAM_GAP s, newest wins, its drive v folded straight into the colour, the lamp's brightness at the
 # stream's own level; the memo isn't touched — and {"stream": null}: the wanted colour and level go back on.
 import base64, json, os, select, socket, sys, time
@@ -31,7 +31,10 @@ LOST = 3                    # unanswered polls in a row
 GAPS = [1, 3, 8, 15, 30]    # s between scans while nothing answers; then 30, or 300 after 5 min with no lamp ever seen
 MEMO = os.environ.get("GOVEE_MEMO") or os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "glyph-govee.json")
 KMIN, KMAX = 2000, 9000     # the H6076's whites; it ignores a colorwc outside them
-STREAM_GAP = 0.05           # s between streamed colours (20 a second); the lamp still fades a little itself
+STREAM_GAP = 0.05           # s between streamed whole-lamp colours (20 a second); the lamp fades between those itself
+ZONE_GAP = 1 / 30           # s between stream-mode frames (zones): they don't fade
+KEEP = 1.0                  # s: a still picture's frame goes again, so stream mode never lapses
+REARM = 10.0                # s: stream mode switched on again (the phone or a power blip may have ended it)
 
 
 def out(**m):
@@ -73,21 +76,18 @@ def shown(s):
     return {"on": s["on"], "level": s["level"], "rgb": screen(v) if kind == "rgb" else None, "kelvin": v if kind == "k" else None}
 
 
-def segments(zones):
-    """[[rgb, ...] per zone, bottom first] → ptReal: Govee's BLE "colour these segments" packets (33 05 15 01, RGB, five
-    zeros, the segment mask little-endian, XOR last), one per colour with every zone of that colour in its mask. Not in
-    Govee's LAN documentation; seen working on this H6076 2026-11-01 — bit 0 is the bottom, bits 0-7 light it."""
-    masks = {}
-    for i, c in enumerate(zones):
-        masks[tuple(c)] = masks.get(tuple(c), 0) | 1 << i
-    cmds = []
-    for c, m in masks.items():
-        b = [0x33, 0x05, 0x15, 0x01, *c, 0, 0, 0, 0, 0, m & 0xFF, m >> 8 & 0xFF, 0, 0, 0, 0, 0]
-        x = 0
-        for v in b:
-            x ^= v
-        cmds.append(base64.b64encode(bytes(b + [x])).decode())
-    return "ptReal", {"command": cmds}
+RAZER_ON, RAZER_OFF = "uwABsQEK", "uwABsQAL"  # BB 00 01 B1 01|00 XOR — the lamp's stream mode on / off
+
+
+def razer(zones):
+    """[[r, g, b] per zone, bottom first] → one stream-mode frame: BB 00 len B0 00 N (R G B)*N XOR, len = 2 + 3N.
+    Govee's DreamView/"razer" channel (LedFx, GoveeDreamView): frames land at once, no fade. Not in Govee's LAN docs;
+    an H6076 report says it doesn't work — on this one it does (2026-11-01: 8 zones, halves swapping red/blue snapped)."""
+    b = [0xBB, 0x00, 2 + 3 * len(zones), 0xB0, 0x00, len(zones)] + [c for z in zones for c in z]
+    x = 0
+    for v in b:
+        x ^= v
+    return "razer", {"pt": base64.b64encode(bytes(b + [x])).decode()}
 
 
 def command(f, w):
@@ -135,6 +135,7 @@ def main():
     poll_at, asked, misses, fresh = 0.0, False, 0, False
     quiet = {}  # field → until when a change in it is our own command landing, not the phone
     stream, stream_sent, stream_at = None, None, 0.0  # the screen's colour while it streams
+    armed = 0.0                                       # when stream mode was last switched on; 0 — it's off
     buf = b""
     out(ready=True)
 
@@ -190,8 +191,10 @@ def main():
     while True:
         now = time.monotonic()
         wait = max(0.0, min(1.0, (poll_at if dev else scan_at) - now))
-        if stream and stream != stream_sent:
-            wait = min(wait, max(0.005, stream_at + STREAM_GAP - now))
+        if stream:
+            gap = ZONE_GAP if stream[0] == "zones" else STREAM_GAP
+            due = stream_at + (gap if stream != stream_sent else KEEP if stream[0] == "zones" else 1e9)
+            wait = min(wait, max(0.005, due - now))
         r, _, _ = select.select([fd, rx], [], [], wait)
 
         if fd in r:
@@ -225,6 +228,10 @@ def main():
                                 quiet["level"] = time.monotonic() + SETTLE + 0.3
                         elif stream:
                             stream, stream_sent = None, None
+                            if armed and dev:
+                                send("razer", {"pt": RAZER_OFF})
+                                time.sleep(0.05)
+                            armed = 0.0
                             if dev and have:
                                 restore()
                         continue
@@ -263,9 +270,18 @@ def main():
                         apply()
 
         now = time.monotonic()
-        if stream and dev and have and have["on"] and stream != stream_sent and now - stream_at >= STREAM_GAP:
-            send(*(segments(stream[1]) if stream[0] == "zones" else command("color", {"color": stream})))
-            have["color"], stream_sent, stream_at = stream, stream, now
+        if stream and dev and have and have["on"]:
+            zones = stream[0] == "zones"
+            new = stream != stream_sent and now - stream_at >= (ZONE_GAP if zones else STREAM_GAP)
+            if zones and (new or now - stream_at >= KEEP):
+                if not armed or now - armed >= REARM:
+                    send("razer", {"pt": RAZER_ON})
+                    armed = now
+                send(*razer(stream[1]))
+                have["color"], stream_sent, stream_at = stream, stream, now
+            elif not zones and new:
+                send(*command("color", {"color": stream}))
+                have["color"], stream_sent, stream_at = stream, stream, now
             quiet["color"] = now + SETTLE + 0.3
         if not dev and now >= scan_at:
             try:
@@ -283,7 +299,7 @@ def main():
             if misses >= LOST:
                 log("lost", dev["ip"])
                 out(lost=True)
-                dev, have, scans, scan_at = None, None, 0, now
+                dev, have, scans, scan_at, armed = None, None, 0, now, 0.0  # found again: stream mode on again
                 continue
             send("devStatus", {})
             asked, poll_at = True, now + POLL
