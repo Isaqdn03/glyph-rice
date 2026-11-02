@@ -34,7 +34,9 @@ KMIN, KMAX = 2000, 9000     # the H6076's whites; it ignores a colorwc outside t
 STREAM_GAP = 0.05           # s between streamed whole-lamp colours (20 a second); the lamp fades between those itself
 ZONE_GAP = 1 / 30           # s between stream-mode frames (zones): they don't fade
 KEEP = 1.0                  # s: a still picture's frame goes again, so stream mode never lapses
-REARM = 10.0                # s: stream mode switched on again (the phone or a power blip may have ended it)
+STREAM_POLL = 30.0          # s between status polls while it streams zones (LedFx doesn't poll at all)
+# stream mode is switched on once: at the start, when the lamp turns up again, or when the phone changed it. Re-arming
+# it every 10 s blanked the lamp for a moment each time — the flicker "now and then"
 
 
 def out(**m):
@@ -263,6 +265,8 @@ def main():
                 ext = [f for f in s if have and s[f] != have[f] and now > quiet.get(f, 0)]
                 if s != have:
                     out(status=shown(s), external=ext)
+                if ext and stream:
+                    armed = 0.0  # the phone touched it: stream mode may be off — on again with the next frame
                 have, asked, misses = s, False, 0
                 if fresh:
                     fresh = False
@@ -274,7 +278,7 @@ def main():
             zones = stream[0] == "zones"
             new = stream != stream_sent and now - stream_at >= (ZONE_GAP if zones else STREAM_GAP)
             if zones and (new or now - stream_at >= KEEP):
-                if not armed or now - armed >= REARM:
+                if not armed:
                     send("razer", {"pt": RAZER_ON})
                     armed = now
                 send(*razer(stream[1]))
@@ -302,7 +306,7 @@ def main():
                 dev, have, scans, scan_at, armed = None, None, 0, now, 0.0  # found again: stream mode on again
                 continue
             send("devStatus", {})
-            asked, poll_at = True, now + POLL
+            asked, poll_at = True, now + (STREAM_POLL if stream and stream[0] == "zones" else POLL)
 
 
 if __name__ == "__main__":

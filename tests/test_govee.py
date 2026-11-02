@@ -232,6 +232,8 @@ class Govee(unittest.TestCase):
         n = sum(c == "razer" for c, _ in self.fake.cmds)
         time.sleep(1.3)  # a still picture: the frame goes again so stream mode doesn't lapse
         self.assertGreater(sum(c == "razer" for c, _ in self.fake.cmds), n)
+        ons = [d for c, d in self.fake.cmds if c == "razer" and d["pt"] == "uwABsQEK"]
+        self.assertEqual(len(ons), 1, "stream mode switched on once — re-arming blanked the lamp (flicker)")
         self.stream(h, None)
         self.assertTrue(h.until(lambda: self.fake.cmds[-1][0] == "colorwc"), self.fake.cmds)
         off = [base64.b64decode(d["pt"]) for c, d in self.fake.cmds if c == "razer"][-1]

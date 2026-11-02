@@ -20,8 +20,11 @@ W, H = 64, 27
 FPS = 30
 FLOOR, SOFT = 0.35, 0.6      # drive = FLOOR + (1 - FLOOR) * intensity ** SOFT: a dark scene dims the lights to about a
                              # third, never off; applied once, straight onto the LEDs (no 2.2 on top: that was far too dim)
-TAU_C, TAU_UP, TAU_DOWN = 0.03, 0.02, 0.06   # s: colour, intensity rising, falling — ~2 frames to land, enough
-                                             # to stop one-frame flicker (0.1/0.2 read as sluggish next to the picture)
+# adaptive smoothing (One Euro filter, Casiez et al. 2012): heavy while the picture holds — compression noise and two
+# similar areas trading places flickered with a plain fast filter — and out of the way when it moves (cuts, flashes).
+# Fixed time constants were either sluggish (0.1/0.2 s) or flickery (0.03/0.06 s)
+CUT_C, BETA_C = 1.2, 1.5     # colour: Hz at rest, how fast the cut-off rises with the speed of change
+CUT_V, BETA_V = 1.5, 2.0     # intensity
 ORGB = ("127.0.0.1", 6742)
 BANDS = 8                    # horizontal bands, bottom to top, for lights with zones up their height (the H6076 lamp)
 LOG = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "glyph-ambi.log")  # gpu-screen-recorder's own words
@@ -54,6 +57,27 @@ def scene(px):
     c = full(full(vivid) * colourful + full(a.mean((0, 1))) * (1 - colourful))
     v = float(np.percentile(mx, 75))  # the brighter part of the frame: bars and shadows don't drag it down
     return c, min(1.0, v * 1.25)
+
+
+class Euro:
+    """One Euro filter over a numpy array, element by element."""
+
+    def __init__(self, cut, beta, dcut=1.0):
+        self.cut, self.beta, self.dcut = cut, beta, dcut
+        self.x, self.dx = None, None
+
+    @staticmethod
+    def alpha(dt, cut):
+        return 1 / (1 + 1 / (2 * math.pi * cut * dt))
+
+    def __call__(self, x, dt):
+        x = np.asarray(x, np.float64)
+        if self.x is None:
+            self.x, self.dx = x.copy(), np.zeros_like(x)
+            return self.x
+        self.dx += self.alpha(dt, self.dcut) * ((x - self.x) / dt - self.dx)
+        self.x += self.alpha(dt, self.cut + self.beta * np.abs(self.dx)) * (x - self.x)
+        return self.x
 
 
 def die_with_parent():
@@ -186,6 +210,8 @@ def main():
     procs, mon, buf, started, up = None, None, b"", 0.0, False
     c_s, v_s, last_t, last_out = None, 0.0, time.monotonic(), None
     zc, zv = [None] * BANDS, [0.0] * BANDS  # each band smoothed like the whole
+    fc, fv = Euro(CUT_C, BETA_C), Euro(CUT_V, BETA_V)
+    fzc, fzv = [Euro(CUT_C, BETA_C) for _ in range(BANDS)], [Euro(CUT_V, BETA_V) for _ in range(BANDS)]
     rows = np.array_split(np.arange(H)[::-1], BANDS)  # bottom rows first
     frame = W * H * 3
     retry_at, backoff = 0.0, 5  # a capture that keeps failing (monitors off) is retried less and less often, up to 2 min
@@ -242,11 +268,11 @@ def main():
                 log("up", mon, f"after {time.monotonic() - started:.1f} s")
 
             now = time.monotonic()
-            dt, last_t = min(0.2, now - last_t), now
+            dt, last_t = max(0.005, min(0.2, now - last_t)), now
             c, v = scene(px)
             if c is not None:
-                c_s = c if c_s is None else c_s + (c - c_s) * (1 - math.exp(-dt / TAU_C))
-            v_s += (v - v_s) * (1 - math.exp(-dt / (TAU_UP if v > v_s else TAU_DOWN)))
+                c_s = fc(c, dt)
+            v_s = float(fv([v], dt)[0])
             if c_s is None:
                 continue
             hexc = "".join(f"{round(255 * float(x)):02X}" for x in np.clip(c_s, 0, 1))
@@ -256,8 +282,8 @@ def main():
             for i, rs in enumerate(rows):
                 bc, bv = scene(px[rs])
                 if bc is not None:
-                    zc[i] = bc if zc[i] is None else zc[i] + (bc - zc[i]) * (1 - math.exp(-dt / TAU_C))
-                zv[i] += (bv - zv[i]) * (1 - math.exp(-dt / (TAU_UP if bv > zv[i] else TAU_DOWN)))
+                    zc[i] = fzc[i](bc, dt)
+                zv[i] = float(fzv[i]([bv], dt)[0])
                 col = zc[i] if zc[i] is not None else c_s
                 z.append(["".join(f"{round(255 * float(x)):02X}" for x in np.clip(col, 0, 1)),
                           round(FLOOR + (1 - FLOOR) * max(0.0, zv[i]) ** SOFT, 2)])

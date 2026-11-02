@@ -52,6 +52,22 @@ class Scene(unittest.TestCase):
         self.assertEqual(ambi.scene(frame((0, 0, 0)))[0], None)
 
 
+class Smoothing(unittest.TestCase):
+    # 2026-11-01: fixed 0.03 s smoothing let compression noise through (flicker), 0.1/0.2 s lagged the picture
+    def test_a_cut_lands_within_three_frames(self):
+        f = ambi.Euro(ambi.CUT_C, ambi.BETA_C)
+        for _ in range(30):
+            f([0.2], 1 / 30)
+        got = [float(f([0.9], 1 / 30)[0]) for _ in range(3)]
+        self.assertGreater((got[-1] - 0.2) / 0.7, 0.9, got)
+
+    def test_jitter_on_a_still_picture_is_cut_down(self):
+        f = ambi.Euro(ambi.CUT_C, ambi.BETA_C)
+        noisy = 0.5 + np.random.default_rng(7).normal(0, 0.03, 300)
+        out = np.array([float(f([x], 1 / 30)[0]) for x in noisy])
+        self.assertLess(out[60:].std(), noisy[60:].std() / 2.5)
+
+
 class FakeOpenRGB:
     """The SDK server, slow on purpose: 60 ms per frame, like SMBus RAM. Records every UPDATELEDS."""
 
