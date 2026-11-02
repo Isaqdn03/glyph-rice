@@ -275,5 +275,24 @@ for f in gtk-3.0/gtk.css gtk-4.0/gtk.css qtengine.colors; do
     if [ $# -gt 0 ]; then mkdir -p "$(dirname "$o/$f")" && sed "$@" "$t/$f" > "$o/$f" && ln -sfn "$o/$f" "$l"; else ln -sfn "$t/$f" "$l"; fi
 done`,
             "bash", Quickshell.shellPath("term"), riceState + "/glyph"].concat(sed));
+        fox(); // local: Firefox follows the palette too
+    }
+
+    // local: Firefox through Pywalfox (AUR python-pywalfox + its AMO add-on), which themes the browser live from pywal's
+    // colors.json. Its default template reads a few slots: dark — frame 0, toolbar and field are 0 lightened, text 15,
+    // icons and highlight pills 10, attention 13; light — frame 7, toolbar white, text 0, icons 3, attention 5. Frame is s1
+    // like the bar (black can't be lightened into the palette's tint), icons and pills fg, the accent only what wants
+    // attention. Firefox closed — pywalfox can't connect, quietly; the add-on reads the file when Firefox starts.
+    // The AUR package registers the native host in /usr/lib/mozilla. Never `pywalfox install` as the user: it makes
+    // ~/.mozilla, and an existing ~/.mozilla sends Firefox back to the legacy layout — a fresh, empty profile
+    function fox() {
+        const h = c => "#" + hex(c), a = pal.ansi.map(h);
+        Object.assign(a, light ? { 0: h(fg), 3: h(fg), 5: h(accent), 7: h(bg) } : { 0: h(s1), 10: h(fg), 13: h(accent), 15: h(fg) });
+        const colors = {};
+        a.forEach((c, i) => colors["color" + i] = c);
+        const json = JSON.stringify({ wallpaper: st.wall, alpha: "100", special: { background: h(bg), foreground: h(fg), cursor: h(fg) }, colors }, null, 2);
+        Quickshell.execDetached(["sh", "-c", `mkdir -p "$1" && printf '%s\\n' "$2" > "$1/colors.json.tmp" && mv -f "$1/colors.json.tmp" "$1/colors.json" || exit
+command -v pywalfox >/dev/null && { pywalfox "$3"; pywalfox update; } >/dev/null 2>&1; true`,
+            "sh", (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/wal", json, light ? "light" : "dark"]);
     }
 }
