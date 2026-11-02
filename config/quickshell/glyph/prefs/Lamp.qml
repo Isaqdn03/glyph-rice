@@ -78,7 +78,7 @@ Row {
         // screen: live, about ten colours a second — the lamp fades between them itself
         Lb {
             visible: root.st.source === "screen"
-            text: Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Govee.streaming ? `the screen, live · ${Rgb.capMon} · up to ${root.st.screenLevel} %`
+            text: Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Govee.streaming ? `the screen, live · ${Rgb.capMon}${Govee.zones ? ` · ${Govee.zones} zones, its top the screen's top` : ""} · up to ${root.st.screenLevel} %`
                 : Govee.lit ? "the screen · starting the capture" : "the screen · dark now"
         }
         // a colour or a white picked lights the lamp too

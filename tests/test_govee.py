@@ -209,6 +209,30 @@ class Govee(unittest.TestCase):
         self.assertTrue(h.until(lambda: self.fake.cmds[-1] == ("colorwc", {"color": {"r": 0, "g": 0, "b": 0}, "colorTemInKelvin": 2700})),
                         self.fake.cmds)
 
+    def test_zones_go_out_as_segments_and_the_colour_comes_back_whole(self):
+        import base64
+        h = self.start()
+        h.want()
+        self.settle(h)
+        self.fake.cmds.clear()
+        z = [["FF0000", 1.0]] * 4 + [["0000FF", 0.5]] * 4  # bottom half red, top half dim blue
+        h.p.stdin.write(json.dumps({"stream": {"rgb": "FF0000", "v": 1.0, "z": z}}) + "\n")
+        h.p.stdin.flush()
+        self.assertTrue(h.until(lambda: any(c == "ptReal" for c, _ in self.fake.cmds)), self.fake.cmds)
+        pkts = [base64.b64decode(p) for c, d in self.fake.cmds if c == "ptReal" for p in d["command"]]
+        got = {(p[4], p[5], p[6]): p[12] | p[13] << 8 for p in pkts}
+        self.assertEqual(got, {(255, 0, 0): 0x0F, (0, 0, 128): 0xF0})
+        for p in pkts:
+            self.assertEqual(len(p), 20)
+            self.assertEqual(p[:4], bytes([0x33, 0x05, 0x15, 0x01]))
+            x = 0
+            for b in p[:19]:
+                x ^= b
+            self.assertEqual(p[19], x)
+        self.assertFalse(any(c == "colorwc" for c, _ in self.fake.cmds), "zones only, no whole-lamp colour")
+        self.stream(h, None)
+        self.assertTrue(h.until(lambda: self.fake.cmds[-1][0] == "colorwc"), self.fake.cmds)
+
     def test_whites_outside_the_lamp_are_clamped(self):
         h = self.start()
         h.want(kelvin=12000)

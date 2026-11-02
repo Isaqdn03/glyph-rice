@@ -40,6 +40,14 @@ class Scene(unittest.TestCase):
         self.assertGreater(c[0], 0.95)
         self.assertLess(c[2], c[1])  # orange-ish, not white
 
+    def test_bands_go_bottom_first(self):
+        f = frame((220, 30, 20))
+        f[:ambi.H // 2] = (20, 40, 230)  # the top half blue
+        rows = np.array_split(np.arange(ambi.H)[::-1], ambi.BANDS)
+        bottom, top = ambi.scene(f[rows[0]])[0], ambi.scene(f[rows[-1]])[0]
+        self.assertGreater(bottom[0], 0.99)  # red at the bottom
+        self.assertGreater(top[2], 0.99)  # blue at the top
+
     def test_black_is_no_colour(self):
         self.assertEqual(ambi.scene(frame((0, 0, 0)))[0], None)
 

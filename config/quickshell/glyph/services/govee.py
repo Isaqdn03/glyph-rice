@@ -16,10 +16,11 @@
 #   {"status": {"on": bool, "level": n, "rgb": "RRGGBB" | null, "kelvin": n | null}, "external": ["on", "level", "color"]}
 #       external — what changed between two polls that wasn't sent from here: the phone, the button
 #   {"lost": true}  stopped answering; scanning again
-# stdin also takes {"stream": {"rgb": "RRGGBB", "v": 0-1, "level": 1-100}} — the screen's colour (services/ambi.py), sent
+# stdin also takes {"stream": {"rgb": "RRGGBB", "v": 0-1, "level": 1-100, "z": [["RRGGBB", drive], ...] bottom first}} —
+# the screen's colour (services/ambi.py; with z the lamp's zones get a band each, through ptReal segments), sent
 # at most every STREAM_GAP s, newest wins, its drive v folded straight into the colour, the lamp's brightness at the
 # stream's own level; the memo isn't touched — and {"stream": null}: the wanted colour and level go back on.
-import json, os, select, socket, sys, time
+import base64, json, os, select, socket, sys, time
 
 SCAN = (os.environ.get("GOVEE_SCAN_HOST") or "239.255.255.250", int(os.environ.get("GOVEE_SCAN_PORT") or 4001))
 LISTEN = int(os.environ.get("GOVEE_LISTEN_PORT") or 4002)
@@ -70,6 +71,23 @@ def parse(d):
 def shown(s):
     kind, v = s["color"]
     return {"on": s["on"], "level": s["level"], "rgb": screen(v) if kind == "rgb" else None, "kelvin": v if kind == "k" else None}
+
+
+def segments(zones):
+    """[[rgb, ...] per zone, bottom first] → ptReal: Govee's BLE "colour these segments" packets (33 05 15 01, RGB, five
+    zeros, the segment mask little-endian, XOR last), one per colour with every zone of that colour in its mask. Not in
+    Govee's LAN documentation; seen working on this H6076 2026-11-01 — bit 0 is the bottom, bits 0-7 light it."""
+    masks = {}
+    for i, c in enumerate(zones):
+        masks[tuple(c)] = masks.get(tuple(c), 0) | 1 << i
+    cmds = []
+    for c, m in masks.items():
+        b = [0x33, 0x05, 0x15, 0x01, *c, 0, 0, 0, 0, 0, m & 0xFF, m >> 8 & 0xFF, 0, 0, 0, 0, 0]
+        x = 0
+        for v in b:
+            x ^= v
+        cmds.append(base64.b64encode(bytes(b + [x])).decode())
+    return "ptReal", {"command": cmds}
 
 
 def command(f, w):
@@ -159,7 +177,8 @@ def main():
     def restore():
         """After a stream: the wanted colour and level, whatever the memo says."""
         nonlocal poll_at
-        todo = [f for f in ("color", "level") if want and want["on"] and have[f] != want[f]]
+        # the colour always: after zones its one reported colour says nothing about the segments
+        todo = [f for f in ("color", "level") if want and want["on"] and (f == "color" or have[f] != want[f])]
         for i, f in enumerate(todo):
             if i:
                 time.sleep(0.05)
@@ -192,6 +211,13 @@ def main():
                             if max(c) < 3:  # all zero would be no colour at all; keep a glow
                                 c = [round(3 * x / max(1, max(c))) if max(c) else 3 for x in c]
                             stream = ["rgb", c]
+                            if st.get("z"):  # a lamp with zones: the screen top to bottom up its height
+                                zs = []
+                                for zh, zd in st["z"]:
+                                    zc = led(zh) or [255, 255, 255]
+                                    zk = max(0.0, min(1.0, float(zd)))
+                                    zs.append([max(1, round(x * zk)) if x else 0 for x in zc])
+                                stream = ["zones", zs]
                             lv = max(1, min(100, int(st.get("level") or (want or {}).get("level") or 100)))
                             if dev and have and have["level"] != lv:
                                 send(*command("level", {"level": lv}))  # the stream's own ceiling
@@ -238,7 +264,7 @@ def main():
 
         now = time.monotonic()
         if stream and dev and have and have["on"] and stream != stream_sent and now - stream_at >= STREAM_GAP:
-            send(*command("color", {"color": stream}))
+            send(*(segments(stream[1]) if stream[0] == "zones" else command("color", {"color": stream})))
             have["color"], stream_sent, stream_at = stream, stream, now
             quiet["color"] = now + SETTLE + 0.3
         if not dev and now >= scan_at:

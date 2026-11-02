@@ -212,6 +212,7 @@ Singleton {
     // 1.5 s first, since a new capture takes ~2.5 s to start
     property color live: Theme.accent
     property real liveV: 1          // the scene's drive, 0.35-1: a straight LED multiplier
+    property var liveZones: []      // [[hex, drive], ...] — 8 bands of the frame, bottom first (the lamp's zones)
     property bool liveUp: false     // frames are coming
     property string liveErr: ""
     readonly property bool streaming: tone === "screen" && lit && liveUp
@@ -246,6 +247,7 @@ Singleton {
                 if (m.c) {
                     root.live = "#" + m.c;
                     root.liveV = m.v;
+                    root.liveZones = m.z ?? [];
                 } else if (m.up) {
                     root.liveUp = true;
                     root.liveErr = "";
