@@ -20,7 +20,8 @@ W, H = 64, 27
 FPS = 30
 FLOOR, SOFT = 0.35, 0.6      # drive = FLOOR + (1 - FLOOR) * intensity ** SOFT: a dark scene dims the lights to about a
                              # third, never off; applied once, straight onto the LEDs (no 2.2 on top: that was far too dim)
-TAU_C, TAU_UP, TAU_DOWN = 0.10, 0.05, 0.20   # s: colour, intensity rising, intensity falling
+TAU_C, TAU_UP, TAU_DOWN = 0.03, 0.02, 0.06   # s: colour, intensity rising, falling — ~2 frames to land, enough
+                                             # to stop one-frame flicker (0.1/0.2 read as sluggish next to the picture)
 ORGB = ("127.0.0.1", 6742)
 BANDS = 8                    # horizontal bands, bottom to top, for lights with zones up their height (the H6076 lamp)
 LOG = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "glyph-ambi.log")  # gpu-screen-recorder's own words
@@ -117,6 +118,7 @@ class Case(threading.Thread):
 
     def run(self):
         sock, counts, devs = None, {}, None
+        trips = []
         while True:
             with self.cv:
                 while self.want is None or (self.want == self.sent and self.devs == devs):
@@ -137,8 +139,13 @@ class Case(threading.Thread):
                         body = struct.pack("<IH", 4 + 2 + 4 * n, n) + bytes((*want, 0)) * n
                         pkt += struct.pack("<4sIII", b"ORGB", d, 1050, len(body)) + body  # UPDATELEDS
                 pkt += struct.pack("<4sIII", b"ORGB", 0, 0, 0)  # REQUEST_CONTROLLER_COUNT: answered after the above
+                t0 = time.monotonic()
                 sock.sendall(pkt)
                 self.reply(sock)
+                trips.append(time.monotonic() - t0)
+                if len(trips) == 150:  # once per run: how fast the case really takes frames
+                    tr = sorted(trips)
+                    log(f"case: {len(devs)} devices, round trip p50 {tr[75] * 1000:.0f} ms p90 {tr[135] * 1000:.0f} ms")
                 with self.cv:
                     self.sent = want
             except (OSError, struct.error) as e:

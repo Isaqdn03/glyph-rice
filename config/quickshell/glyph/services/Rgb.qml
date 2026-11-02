@@ -229,7 +229,7 @@ Singleton {
     function sendAmbi() { if (ambi.running) ambi.write(JSON.stringify(ambiCfg) + "\n"); }
     Process {
         id: ambi
-        running: root.ambiNeeded && root.capMon !== ""
+        running: root.ambiNeeded && root.capMon !== "" && root.ambiOk
         stdinEnabled: true
         command: ["/usr/bin/python3", "-I", Qt.resolvedUrl("ambi.py").toString().replace("file://", "")]
         onRunningChanged: {
@@ -258,7 +258,10 @@ Singleton {
             }
         }
         stderr: SplitParser { onRead: line => console.warn(line) } // "ambi: …"
+        onExited: if (root.ambiNeeded) { root.ambiOk = false; ambiRespawn.restart(); } // crashed or killed: back in 3 s
     }
+    property bool ambiOk: true
+    Timer { id: ambiRespawn; interval: 3000; onTriggered: root.ambiOk = true }
 
     FileView {
         id: file

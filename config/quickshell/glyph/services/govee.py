@@ -31,7 +31,7 @@ LOST = 3                    # unanswered polls in a row
 GAPS = [1, 3, 8, 15, 30]    # s between scans while nothing answers; then 30, or 300 after 5 min with no lamp ever seen
 MEMO = os.environ.get("GOVEE_MEMO") or os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", "glyph-govee.json")
 KMIN, KMAX = 2000, 9000     # the H6076's whites; it ignores a colorwc outside them
-STREAM_GAP = 0.1            # s between streamed colours: the lamp fades between them itself
+STREAM_GAP = 0.05           # s between streamed colours (20 a second); the lamp still fades a little itself
 
 
 def out(**m):

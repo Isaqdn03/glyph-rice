@@ -23,7 +23,7 @@ import ctypes, glob, json, logging, math, os, select, subprocess, sys, time
 from PIL import Image, ImageDraw, ImageFont, ImageSequence
 
 TICK = 3                # s between dial frames
-FANS_GAP = 0.1          # s: the fans' colour at most 10 times a second (prefs → LIGHTS → screen streams it)
+FANS_GAP = 0.05         # s: the fans' colour at most 20 times a second (prefs → LIGHTS → screen streams it)
 RETRY, RESCAN = 5, 30   # s: after a USB error / when no Kraken turned up
 MAX_GIF = 20_000_000    # bytes: liquidctl refuses 24.3 MB and up (the LCD's memory), so there's room for its re-encode
 SIZE, SS = 320, 4       # panel px; drawn 4x and scaled down so the dots come out round
