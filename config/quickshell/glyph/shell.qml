@@ -116,6 +116,7 @@ ShellRoot {
     }
     readonly property bool autoGame: Game.on // local: starts services/Game (a fullscreen game turns on game mode and dnd)
     readonly property bool rgbLit: Rgb.lit // local: starts services/Rgb (the case lights follow the accent)
+    readonly property bool lampLit: Govee.lit // local: starts services/Govee (the floor lamp)
 
     // тап Super — лаунчер на отпускании; любой Super+<key> по пути шлёт interrupt, и лаунчер не открывается
     property bool interrupted: false
