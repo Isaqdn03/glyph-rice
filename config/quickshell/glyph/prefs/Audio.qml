@@ -159,6 +159,7 @@ Row {
                         anchors { left: parent.left; leftMargin: 50; right: card.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
                         elide: Text.ElideRight
                         text: dv.modelData.port
+                        textFormat: Text.PlainText
                         font { family: Theme.ui; pixelSize: 19 }
                         color: dv.on ? Theme.ink : Theme.grey
                         Behavior on color { ColorAnimation { duration: Theme.t } }
