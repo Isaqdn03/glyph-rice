@@ -31,6 +31,7 @@ PACMAN=(
 AUR=(
     qtengine darkly-bin bibata-cursor-theme-bin
     zen-browser-bin
+    localsend-bin # local: LocalSend — Super+Ctrl+S, Nautilus right-click (с nautilus-python)
 )
 
 # на выбор, как optional components у caelestia. Что открывают бинды спец-воркспейсов — apps в hypr/variables.lua
@@ -59,6 +60,7 @@ LINKS=(
     "config/fish/config.fish                    .config/fish/config.fish"
     "config/fish/functions/fish_greeting.fish   .config/fish/functions/fish_greeting.fish"
     "config/fonts                               .local/share/fonts/glyph"
+    "config/nautilus-python/localsend.py        .local/share/nautilus-python/extensions/localsend.py"
 )
 
 say() { printf '\e[38;2;215;25;33m●\e[0m %s\n' "$*"; }
@@ -130,6 +132,9 @@ links() {
     echo glyph > "${XDG_STATE_HOME:-$HOME/.local/state}/rice/shell"
     mkdir -p "$HOME/Pictures/Wallpapers" # пикер обоев (Super+Shift+W) смотрит сюда
     fc-cache -f >/dev/null
+    # local: LocalSend starts dark on OLED black (accent follows the GTK one); only before its first run, after that its settings are the user's
+    local ls="$HOME/.local/share/org.localsend.localsend_app/shared_preferences.json"
+    [ -e "$ls" ] || { mkdir -p "${ls%/*}"; echo '{"flutter.ls_theme":"dark","flutter.ls_color":"oled"}' >"$ls"; }
     command -v gsettings >/dev/null || return 0 # --links на системе без GNOME-схем
     # тёмный режим для Zen, Electron и libadwaita (через портал) и тёмная gtk3-база под наш gtk.css
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark
