@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Super+Ctrl+S: send what's on the clipboard with LocalSend.
+#   files copied in a file manager → those files
+#   an image (a shot, a picture from the browser) → a png in $XDG_RUNTIME_DIR/share
+#   text → a LocalSend message (a file once it's too long for one argument)
+#   nothing → just LocalSend, open to receive
+# LocalSend hands its arguments over to a window that's already open.
+set -u
+
+command -v localsend >/dev/null || { notify-send -a LocalSend "LocalSend isn't installed" "yay -S localsend-bin"; exit 1; }
+
+dir="${XDG_RUNTIME_DIR:-/tmp}/share"
+stamp=$(date '+%F %H.%M.%S')
+types=$(wl-paste --list-types 2>/dev/null || true)
+
+if grep -qx 'text/uri-list' <<<"$types"; then
+    mapfile -t files < <(wl-paste -n -t text/uri-list | python3 -c '
+import sys, urllib.parse
+for l in sys.stdin:
+    u = urllib.parse.urlparse(l.strip())
+    if u.scheme == "file": print(urllib.parse.unquote(u.path))')
+    ((${#files[@]})) && exec localsend "${files[@]}"
+fi
+
+if img=$(grep -m1 -x 'image/png' <<<"$types" || grep -m1 -E '^image/(jpeg|webp|gif|bmp)$' <<<"$types"); then
+    mkdir -p "$dir"
+    f="$dir/clipboard $stamp.${img#image/}"
+    wl-paste -t "$img" >"$f" && exec localsend "$f"
+fi
+
+if grep -qE '^(text/plain|UTF8_STRING|STRING|TEXT)' <<<"$types"; then
+    text=$(wl-paste -n -t text 2>/dev/null)
+    if ((${#text} > 100000)); then # one argv string tops out at 128 KiB
+        mkdir -p "$dir"
+        printf '%s' "$text" >"$dir/clipboard $stamp.txt" && exec localsend "$dir/clipboard $stamp.txt"
+    fi
+    [ -n "${text//[[:space:]]/}" ] && exec localsend --text "$text"
+fi
+
+exec localsend

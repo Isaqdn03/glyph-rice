@@ -49,6 +49,8 @@ hl.window_rule({ match = { class = "kitty", title = "nmtui" }, tag = "+float_60_
 hl.window_rule({ match = { class = "org.pulseaudio.pavucontrol|yad-icon-browser" }, tag = "+float_60_70" })
 hl.window_rule({ match = { class = "org.gnome.Settings" }, tag = "+float_70_80" })
 hl.window_rule({ match = { class = "nwg-look" }, tag = "+float_50_60" })
+-- local: LocalSend (Super+Ctrl+S). Fixed size like Omarchy's: 60% of an ultrawide is 2458 px of empty black
+hl.window_rule({ match = { class = "(org\\.localsend\\.)?localsend(_app)?" }, float = true, size = "1100 700", center = true })
 
 hl.window_rule({
     match  = { tag = "float_60_70" },
