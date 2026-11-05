@@ -10,6 +10,7 @@ PanelWindow {
     id: root
 
     signal triggered
+    readonly property bool hovered: hov.hovered // local: Quick stays open while the cursor is on the strip
 
     // local: gone while this monitor shows a fullscreen window. An overlay layer above a fullscreen game blocks
     // Hyprland's direct scanout (CANDIDATE in `hyprctl monitors`), so the game would always go through the compositor
@@ -23,5 +24,5 @@ PanelWindow {
     WlrLayershell.namespace: "glyph-hot"
 
     HoverHandler { id: hov; onHoveredChanged: hovered ? dwell.restart() : dwell.stop() }
-    Timer { id: dwell; interval: 150; onTriggered: if (hov.hovered) root.triggered() }
+    Timer { id: dwell; interval: 100; onTriggered: if (hov.hovered) root.triggered() } // local: was 150
 }

@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Bluetooth
+import Quickshell.Hyprland
 import Quickshell.Networking
 import Quickshell.Services.Notifications
 import Quickshell.Wayland
@@ -32,20 +33,43 @@ PanelWindow {
     // открытый список: "wifi" | "bt" — под пилюлями (Picker), "rec" — под плитками (Rec), "" — ничего
     property string pick: ""
     onOpenChanged: if (open) { Sys.earRun([]); Ddc.refresh(); } else pick = "" // local: Ddc
-    // курсор 500мс вне панели и полосы Hot — закрываем. seen: Hyprland не отдаёт курсор свежей поверхности, пока мышь не сдвинется —
-    // до первого движения неизвестно, где он, и панель ждёт (иначе у неподвижного курсора открывалась и тут же закрывалась)
-    Timer { interval: 500; running: root.open && root.peeked && seen.hovered && !keep.hovered && !edge.hovered; onTriggered: root.close() }
+    // local: cursor 500 ms off the panel and off the Hot strip (hot — set from shell.qml) — close. The strip is its own surface now,
+    // the panel no longer covers the screen
+    property bool hot
+    Timer { interval: 500; running: root.open && root.peeked && !keep.hovered && !root.hot; onTriggered: root.close() }
+    // local: clear all — cards leave one after another (the list applies its removals on the next frame)
+    property bool sweep
+    Timer { id: sweepT; interval: 100; onTriggered: root.sweep = false }
 
     property real t: open ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
-    visible: t > 0
-    anchors { left: true; right: true; top: true; bottom: true }
+    // local: a strip as wide as the panel, mapped ahead of time — opening only animates, with no new surface to wait for
+    // (that ate the first frames of the slide), and each frame redraws this strip, not the whole screen. The dim is its own
+    // surface (below). Gone over a fullscreen window, like Hot: an overlay there blocks direct scanout
+    readonly property bool full: Hyprland.focusedMonitor?.activeWorkspace?.hasFullscreen ?? false
+    visible: !full || open || t > 0
+    anchors { right: true; top: true; bottom: true }
+    implicitWidth: Math.ceil((470 + 14) * Theme.s)
+    mask: Region { item: root.open ? zone : null }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: open && !peeked ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.namespace: "glyph-quick"
+
+    // local: windows behind dim by 35%, a click there closes. Top layer, so it's always under the panel; the fade is just the
+    // window's clear colour, no fullscreen quad to blend
+    PanelWindow {
+        screen: root.screen
+        visible: root.t > 0
+        anchors { left: true; right: true; top: true; bottom: true }
+        exclusionMode: ExclusionMode.Ignore
+        color: Qt.rgba(0, 0, 0, 0.35 * root.t)
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "glyph-quick"
+        MouseArea { anchors.fill: parent; onClicked: root.close() }
+    }
 
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
     readonly property var net: wifi?.networks.values.find(n => n.connected) ?? null
@@ -53,27 +77,21 @@ PanelWindow {
     readonly property var btDev: Bluetooth.devices.values.find(d => d.connected) ?? null
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
-    Rectangle {
-        anchors.fill: parent
-        color: "#000000"
-        opacity: 0.35 * root.t
-        MouseArea { anchors.fill: parent; onClicked: root.close() }
-    }
-
     Stage {
         id: stage
-        HoverHandler { id: seen }
         // зона наведения: панель и полоса до края экрана — курсор у самого края не считается «ушёл», иначе она закрылась бы
         // и тут же открылась. Панель внутри зоны, а не соседом: HoverHandler кнопки (клетки режимов, строки Picker) гасит
         // наведение соседа под собой, а предка — нет
         Item {
+            id: zone
             anchors { right: parent.right; bottom: parent.bottom }
-            width: panel.width + panel.anchors.rightMargin
+            width: panel.width + 14 // local: fixed — it's the input mask, the slide doesn't move it
             height: panel.height + 14
             HoverHandler { id: keep }
             Rectangle {
                 id: panel
-                anchors { right: parent.right; rightMargin: 14 - 24 * (1 - root.t); bottom: parent.bottom; bottomMargin: 14 }
+                // local: slides in from past the screen edge, like the deck from under its edge (was 24 px)
+                anchors { right: parent.right; rightMargin: 14 - (panel.width + 14) * (1 - root.t); bottom: parent.bottom; bottomMargin: 14 }
                 width: 470
                 height: col.height + 44
                 opacity: root.t
@@ -109,6 +127,8 @@ PanelWindow {
                         }
                     }
 
+                    Column { // local: pills + their list, folding open under them
+                    width: parent.width
                     Row {
                         width: parent.width
                         spacing: 12
@@ -132,7 +152,8 @@ PanelWindow {
                         }
                     }
 
-                    Picker { width: parent.width; kind: root.pick; onTouched: root.pin() }
+                    Fold { id: pf; value: root.pick === "wifi" || root.pick === "bt" ? root.pick : ""; Picker { width: parent.width; kind: pf.held; onTouched: root.pin() } } // local:
+                    }
 
                     // наушники Nothing / CMF (Sys.ear): имя и заряд, под ними шумодав — клетки как у режимов питания
                     Column {
@@ -185,6 +206,8 @@ PanelWindow {
                         }
                     }
 
+                    Column { // local: tiles + the record settings folding open under them
+                    width: parent.width
                     Grid {
                         width: parent.width
                         columns: 4
@@ -199,7 +222,8 @@ PanelWindow {
                         Tile { icon: "\u{F050E}"; name: "dark"; on: !Theme.light; onClicked: Theme.setLight(!Theme.light) }
                     }
 
-                    Rec { width: parent.width; visible: root.pick === "rec"; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } }
+                    Fold { value: root.pick === "rec" ? "rec" : ""; Rec { width: parent.width; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } } } // local:
+                    }
 
                     Slider { icon: "\u{F00E0}"; visible: Sys.hasBri; value: Sys.bri; onMoved: v => Sys.setBri(v) }
                     // local: external monitors over DDC (services/Ddc), one slider each, its name in the value chip
@@ -214,9 +238,12 @@ PanelWindow {
                             onMoved: v => modelData.set(v)
                         }
                     }
+                    Column { // local: volume + its outputs folding open under it
+                    width: parent.width
                     Slider { icon: Sys.muted ? "\u{F075F}" : "\u{F057E}"; value: Sys.muted ? 0 : Sys.vol; onMoved: v => Sys.setVol(v); picked: root.pick === "out"; onMenu: root.pick = picked ? "" : "out" } // local: right-click — outputs
 
-                    Out { width: parent.width; visible: root.pick === "out"; onTouched: root.pin() } // local:
+                    Fold { value: root.pick === "out" ? "out" : ""; Out { width: parent.width; onTouched: root.pin() } } // local:
+                    }
 
                     // режим питания, как в caelestia: четыре клетки, белая заливка переезжает к выбранной; засечки — сила.
                     // ultra — ещё 60 Гц и без анимаций, blur и теней (Rules.modes)
@@ -313,23 +340,49 @@ PanelWindow {
                             visible: Notes.list.length > 0
                             text: "clear all"
                             color: Theme.fg
-                            TapHandler { onTapped: { root.pin(); Notes.clear(); } }
+                            TapHandler { onTapped: { root.pin(); root.sweep = true; sweepT.restart(); Notes.clear(); } } // local: sweep
                         }
                     }
 
                     // карточки уведомлений, свежие сверху; не влезли — листаются
+                    // local: ScriptModel diffs the list, so cards are kept (not rebuilt on every change) and can animate:
+                    // a new one slides in, a dismissed one slides out right, the rest close the gap; clear all sweeps top-down.
+                    // The height follows smoothly, so the panel grows and shrinks instead of jumping
                     ListView {
                         id: notes
                         width: parent.width
                         height: Math.min(contentHeight, stage.height - 28 - 44 - y)
+                        Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         clip: true
                         spacing: 10
-                        model: Notes.list.slice().reverse()
+                        model: ScriptModel { values: Notes.list.slice().reverse() }
                         boundsBehavior: Flickable.StopAtBounds
+
+                        add: Transition {
+                            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                            NumberAnimation { property: "x"; from: 48; to: 0; duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                        }
+                        remove: Transition {
+                            SequentialAnimation {
+                                PauseAnimation { duration: root.sweep ? Math.max(0, Math.min(ViewTransition.index, 6)) * 30 : 0 }
+                                ParallelAnimation {
+                                    NumberAnimation { property: "opacity"; to: 0; duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                                    NumberAnimation { property: "x"; to: 96; duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                                }
+                            }
+                        }
+                        // also settles a card whose add was cut short
+                        displaced: Transition {
+                            NumberAnimation { property: "y"; duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                            NumberAnimation { properties: "opacity"; to: 1; duration: Theme.t }
+                            NumberAnimation { properties: "x"; to: 0; duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+                        }
 
                         delegate: Rectangle {
                             required property var modelData
                             readonly property var n: modelData
+                            // local: a dismissed notification is destroyed at once; held until its card has slid out
+                            RetainableLock { object: n; locked: true }
                             width: notes.width
                             height: body.height + 32
                             radius: Theme.corner(26)
@@ -391,13 +444,6 @@ PanelWindow {
                 }
             }
         }
-    }
-    // полоса Hot: панель ложится поверх неё, курсор на ней держит панель, как и сама панель
-    Item {
-        anchors { right: parent.right; bottom: parent.bottom }
-        width: 2
-        height: Math.round(parent.height * 0.8)
-        HoverHandler { id: edge }
     }
 
     // круглая кнопка в шапке

@@ -47,7 +47,7 @@ ShellRoot {
             required property var modelData
             Back { screen: s.modelData }
             Home { screen: s.modelData }
-            Hot { screen: s.modelData; onTriggered: quick.peek() }
+            Hot { screen: s.modelData; onTriggered: quick.peek(); onHoveredChanged: quick.hot = hovered } // local: hovered
             Bar {
                 screen: s.modelData
                 onMarkClicked: launcher.toggle()

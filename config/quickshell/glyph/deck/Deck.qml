@@ -44,7 +44,8 @@ Scope {
             required property var modelData
             readonly property bool open: root.on === modelData
             property real t: open ? 1 : 0
-            Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            // local: closes quicker than it opens — out of the way as soon as the cursor leaves
+            Behavior on t { NumberAnimation { duration: win.open ? Theme.t : 260; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
             screen: modelData
             visible: Theme.state.deckHover && root.ids.length > 0 || t > 0
@@ -59,7 +60,7 @@ Scope {
             // закрыта — мышь ловит только полоса у края (углы экрана свободны), открыта — всё окно вместе со щелью под панелью
             mask: Region { y: win.open ? 0 : win.height - 2; width: win.width; height: win.open ? win.height : 2 }
 
-            Timer { id: dwell; interval: 150; onTriggered: root.on = win.modelData }
+            Timer { id: dwell; interval: 100; onTriggered: root.on = win.modelData } // local: was 150
             Timer { id: leave; interval: 300; onTriggered: if (win.open) root.on = null }
 
             Stage {
@@ -296,7 +297,8 @@ Scope {
                             width: 84
                             height: 84
                             property real turn: 0
-                            Timer { running: win.open && Media.playing; interval: 33; repeat: true; onTriggered: art.turn = (art.turn + 360 / 14 / 30) % 360 }
+                            // local: an animation, not a 30 fps timer — turns at the screen's rate, same 14 s a turn
+                            NumberAnimation on turn { from: 0; to: 360; duration: 14000; loops: Animation.Infinite; paused: !(win.open && Media.playing) }
                             Art { anchors.fill: parent; rotation: art.turn; url: Media.player?.trackArtUrl ?? ""; step: 5 }
                         }
                         Column {
