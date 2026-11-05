@@ -51,9 +51,23 @@ Singleton {
     }
     Connections {
         target: Hyprland
-        function onRawEvent(e) { if (e.name === "activelayout") root.kbd = e.data.slice(e.data.lastIndexOf(",") + 1); }
+        function onRawEvent(e) {
+            if (e.name === "activelayout") root.kbd = e.data.slice(e.data.lastIndexOf(",") + 1);
+            else if (e.name === "configreloaded") scrollQ.running = true; // local
+        }
     }
     readonly property string layout: kbd.slice(0, 2).toLowerCase() // "English (US)" → en
+
+    // local: hypr's input:scroll_factor (user.lua sets 3) multiplies every mouse wheel delta the shell gets, so a notch
+    // is 120·factor, not 120 — wheel() takes it back out, or one notch stepped three desks. A touchpad has its own factor
+    property real scrollFactor: 1
+    Process {
+        id: scrollQ
+        running: true
+        command: ["hyprctl", "getoption", "input:scroll_factor", "-j"]
+        stdout: StdioCollector { onStreamFinished: { try { root.scrollFactor = JSON.parse(this.text).float || 1; } catch (_) {} } }
+    }
+    function wheel(e) { return (e.angleDelta.y || e.angleDelta.x) / (e.phase === Qt.NoScrollPhase ? root.scrollFactor : 1); }
 
     // ---- запись и авиарежим: их же включают бинды hypr, поэтому опрос. Ночник — общий с demonshot, в его rules.json
     // ponytail: pgrep раз в 3 с; станет заметно — следить за процессами через systemd-run --scope ----

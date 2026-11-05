@@ -189,7 +189,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             property real acc: 0
             onClicked: stage.forceActiveFocus()
             onWheel: w => {
-                acc += w.angleDelta.y || w.angleDelta.x;
+                acc += Sys.wheel(w); // local: hypr's scroll_factor taken out (Sys)
                 while (Math.abs(acc) >= 120) {
                     root.go(acc > 0 ? -1 : 1);
                     acc -= Math.sign(acc) * 120;

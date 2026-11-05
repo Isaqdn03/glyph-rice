@@ -591,7 +591,8 @@ PanelWindow {
             // Без pin: прокрутка — не клик, панель с края закрывается сама и клавиатуру не берёт. Направление — пальцев,
             // как у Slider в Qt: natural scroll (inverted) не разворачивает, вправо и от себя — больше
             onWheel: e => {
-                wacc += (e.inverted ? -1 : 1) * (e.angleDelta.y || -e.angleDelta.x) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
+                // local: Sys.wheel takes hypr's scroll_factor out
+                wacc += (e.inverted ? -1 : 1) * (e.angleDelta.y ? Sys.wheel(e) : -Sys.wheel(e)) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
                 if (Math.abs(wacc) < 0.02)
                     return;
                 sl.moved(Math.max(0, Math.min(1, sl.shown + wacc)));
