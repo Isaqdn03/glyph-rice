@@ -1,4 +1,5 @@
 import QtQuick
+import qs
 
 // колесо по засечкам: notch(±1) на каждые 120 угла. Высокоточное колесо шлёт по 15 за щелчок — копим, иначе 8 шагов за засечку.
 // MouseArea, не WheelHandler: тот на пилюле бара колесо не получал (сверяет точку ещё и с геометрией окна), MouseArea получает.
@@ -10,7 +11,7 @@ MouseArea {
     acceptedButtons: Qt.NoButton
     scrollGestureEnabled: false
     onWheel: e => {
-        acc += e.angleDelta.y || e.angleDelta.x;
+        acc += Sys.wheel(e); // local: hypr's scroll_factor taken out (Sys)
         while (Math.abs(acc) >= 120) {
             notch(Math.sign(acc));
             acc -= Math.sign(acc) * 120;

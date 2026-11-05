@@ -82,7 +82,7 @@ Column {
             }
             // тачпад шлёт мелкие дельты — копим до щелчка колеса
             onWheel: w => {
-                acc += w.angleDelta.y;
+                acc += Sys.wheel(w); // local: hypr's scroll_factor taken out (Sys)
                 while (Math.abs(acc) >= 120) {
                     root.put(root.v + Math.sign(acc) * root.step);
                     acc -= Math.sign(acc) * 120;

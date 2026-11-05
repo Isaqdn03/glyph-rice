@@ -588,7 +588,8 @@ PanelWindow {
             // Копим до 2 %: мелкие шаги тачпада съедает округление подсветки, и каждый пускал бы brightnessctl.
             // Без pin: прокрутка — не клик, панель с края закрывается сама и клавиатуру не берёт
             onWheel: e => {
-                wacc += (e.angleDelta.y || e.angleDelta.x) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
+                // local: Sys.wheel takes hypr's scroll_factor out
+                wacc += Sys.wheel(e) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
                 if (Math.abs(wacc) < 0.02)
                     return;
                 sl.moved(Math.max(0, Math.min(1, sl.shown + wacc)));
