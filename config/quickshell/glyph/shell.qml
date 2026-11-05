@@ -54,7 +54,7 @@ ShellRoot {
             // бар и дом можно снять с экрана (настройки → display), обои остаются. Здесь, а не в окне: visible от своего
             // screen — петля (окно пересоздаётся, screen меняется)
             Home { screen: s.modelData; visible: Theme.scr(s.modelData.name, "home") }
-            Hot { screen: s.modelData; onTriggered: quick.peek() }
+            Hot { screen: s.modelData; onTriggered: quick.peek(); onHoveredChanged: quick.hot = hovered } // local: hovered
             Bar {
                 screen: s.modelData
                 visible: Theme.scr(s.modelData.name, "bar")

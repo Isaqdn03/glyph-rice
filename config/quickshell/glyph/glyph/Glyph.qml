@@ -131,7 +131,11 @@ Scope {
     // схлопывается — нижние подтягиваются. Своя жизнь у каждой 4 с, наведение на стопку держит все.
     // Окно постоянного размера (под most плашек), мышь ловит только сама стопка
     PanelWindow {
-        visible: stack.count > 0
+        id: island
+        // local: mapped ahead of time — the first notification no longer waits for a new surface (that ate the start of the
+        // drop). Empty, it's click-through (the mask is the stack). Gone over a fullscreen window unless it has something
+        // to show: an idle overlay there blocks direct scanout
+        visible: stack.count > 0 || !(Hyprland.focusedMonitor?.activeWorkspace?.hasFullscreen ?? false)
         anchors.top: true
         margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
         implicitWidth: Math.ceil(600 * Theme.s)
@@ -164,14 +168,19 @@ Scope {
                         required property bool crit
                         required property bool leaving
 
-                        // p 0…1 линейно, у каждой фазы своё ease-out-quart (как glide)
+                        // p 0…1 линейно, у каждой фазы своя кривая
+                        // local: 520 ms in, 380 out (was 700 / 450); the text is in by ~60% instead of ~90%. The pill grows
+                        // ease-in-out: it starts and lands softly, so there's no kick where the drop hands over to the grow.
+                        // Leaving, the slot closes ease-in-out too, so the cards below glide up instead of snapping
                         property real p: 0
                         Component.onCompleted: p = Qt.binding(() => leaving ? 0 : 1)
-                        Behavior on p { NumberAnimation { duration: c.leaving ? 450 : 700 } }
+                        Behavior on p { NumberAnimation { duration: c.leaving ? 380 : 520 } }
                         onPChanged: if (leaving && p <= 0) Qt.callLater(root.forget, key)
-                        function ph(a, b) { const x = Math.max(0, Math.min(1, (p - a) / (b - a))); return 1 - Math.pow(1 - x, 4); }
-                        readonly property real drop: ph(0, 0.3)   // пилюля падает
-                        readonly property real grow: ph(0.25, 0.8) // и расплывается в плашку
+                        function x01(a, b) { return Math.max(0, Math.min(1, (p - a) / (b - a))); }
+                        function ph(a, b) { return 1 - Math.pow(1 - x01(a, b), 4); }
+                        function io(a, b) { const x = x01(a, b); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(2 - 2 * x, 3) / 2; }
+                        readonly property real drop: leaving ? io(0, 0.3) : ph(0, 0.3) // пилюля падает
+                        readonly property real grow: io(0.18, 0.8)                      // и расплывается в плашку
                         readonly property real full: Math.max(86, txt.height + 32)
 
                         width: 600
@@ -194,7 +203,7 @@ Scope {
                                 anchors.centerIn: parent
                                 width: 600
                                 height: c.full
-                                opacity: c.ph(0.7, 1)
+                                opacity: c.ph(0.5, 0.9) // local: was 0.7…1
 
                                 Rectangle {
                                     id: ic
