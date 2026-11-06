@@ -1036,7 +1036,7 @@ PanelWindow {
                                 required property var modelData
                                 readonly property bool on: modelData.name === root.mon
                                 readonly property var p: map.held === modelData.name && map.at ? map.at : modelData
-                                x: (map.width - map.bw * map.k) / 2 + (p.x - map.x0) * map.k + 5
+                                x: (p.x - map.x0) * map.k // local: flush left with the column, not centred in the map
                                 y: (map.height - map.bh * map.k) / 2 + (p.y - map.y0) * map.k + 5
                                 z: map.held === modelData.name ? 1 : 0
                                 width: modelData.lw * map.k - 10
