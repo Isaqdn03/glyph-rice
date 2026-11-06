@@ -1,3 +1,5 @@
+//@ pragma IconTheme Rice
+// тема значков своя, а не из qtengine: не загрузился он — Qt ищет только в hicolor, и у kcalc и т.п. пустые круги (#11)
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -47,10 +49,13 @@ ShellRoot {
             id: s
             required property var modelData
             Back { screen: s.modelData }
-            Home { screen: s.modelData }
+            // бар и дом можно снять с экрана (настройки → display), обои остаются. Здесь, а не в окне: visible от своего
+            // screen — петля (окно пересоздаётся, screen меняется)
+            Home { screen: s.modelData; visible: Theme.scr(s.modelData.name, "home") }
             Hot { screen: s.modelData; onTriggered: quick.peek() }
             Bar {
                 screen: s.modelData
+                visible: Theme.scr(s.modelData.name, "bar")
                 onMarkClicked: launcher.toggle()
                 onTrayClicked: quick.toggle()
                 onPowerClicked: power.visible ? power.close() : power.open()
@@ -82,6 +87,11 @@ ShellRoot {
         target: Hyprland
         function onRawEvent(e) { if (e.name === "configreloaded") shell.hypr(); }
     }
+    // подключили экран — его масштаб и герцы из prefs → display (Rules.store.outs)
+    Connections {
+        target: Quickshell
+        function onScreensChanged() { Rules.monitor(true); }
+    }
     Connections {
         target: Theme
         function onGreysChanged() { paint.restart(); }
@@ -92,7 +102,7 @@ ShellRoot {
     // тона обоев (Theme.pick) — здесь, не в Theme: его грузит и лок, ему хватает готовых из glyph.json. Пусто — копия обоев не
     // загрузилась (серые дают 16 цветов): старые тона остаются. Новые обои — с первого тона
     ColorQuantizer {
-        source: Theme.url(Theme.wallSrc(Theme.state.wall))
+        source: Theme.url(Theme.wallSrc(Theme.wall))
         depth: 4
         rescaleSize: 64
         onColorsChanged: {

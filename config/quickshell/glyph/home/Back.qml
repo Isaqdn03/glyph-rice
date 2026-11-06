@@ -19,7 +19,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Background
     WlrLayershell.namespace: "glyph-back"
 
-    readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
+    readonly property bool home: (Hyprland.monitorFor(screen)?.activeWorkspace?.toplevels.values.length ?? 0) === 0 // пуст свой экран
     property real phase: 0
     Timer { running: root.home && orb.visible; interval: 100; repeat: true; onTriggered: root.phase += 0.1 }
 
@@ -35,7 +35,7 @@ PanelWindow {
         Wall {
             id: wall
             anchors.fill: parent
-            path: Theme.wallSrc(Theme.state.wall)
+            path: Theme.wallSrc(Theme.scr(root.screen?.name, "wall"))
             animate: !Sys.wallOpen
             // local: the music's bass, only on this monitor's empty workspace — under windows a full-screen pass for nothing
             beat: Theme.state.wallPulse && (Hyprland.monitorFor(root.screen)?.activeWorkspace?.toplevels.values.length ?? 1) === 0 ? Cava.bass : 0

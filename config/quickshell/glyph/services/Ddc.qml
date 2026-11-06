@@ -50,7 +50,7 @@ Singleton {
                 root.found = root.ddc.map(d => {
                     const m = hy.find(m => m.model === d.model || m.description.includes(d.model));
                     if (!m) return null;
-                    return { bus: d.bus, model: d.model, x: m.x, name: m.model.startsWith("AW") ? "alienware" : m.make.split(" ")[0].toLowerCase() };
+                    return { bus: d.bus, model: d.model, x: m.x, out: m.name, name: m.model.startsWith("AW") ? "alienware" : m.make.split(" ")[0].toLowerCase() };
                 }).filter(Boolean).sort((a, b) => a.x - b.x);
             }
         }
@@ -70,6 +70,7 @@ Singleton {
             id: s
             required property var modelData
             readonly property string name: modelData.name
+            readonly property string out: modelData.out // hypr connector, for prefs → DISPLAY
             readonly property int bus: modelData.bus
             property real value: 0      // 0…1
             property int max: 100

@@ -19,10 +19,15 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.namespace: "glyph-home"
 
-    readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
-    Binding { target: SysStats; property: "detailed"; value: root.home || Sys.deckOpen }
-    // не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно
-    Binding { target: Cava; property: "active"; value: root.home && Theme.state.homeBento && bento.model.some(w => w.id === "cava") } // local: homeBento
+    // дом виден, когда пуст воркспейс своего экрана, а не того, где фокус: работаешь на втором — дом первого живой
+    function idle(s) { return (Hyprland.monitorFor(s)?.activeWorkspace?.toplevels.values.length ?? 0) === 0; }
+    readonly property bool home: visible && idle(screen)
+    // значения — общие для всех домов (по экранам, где дом есть и виден): иначе Binding'и соседних домов перетирали бы друг
+    // друга. Не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно.
+    // ponytail: cava — если стоит в списке, даже не влезшей в 3 × 3
+    readonly property var homes: Quickshell.screens.filter(s => Theme.scr(s.name, "home") && idle(s))
+    Binding { target: SysStats; property: "detailed"; value: root.homes.length > 0 || Sys.deckOpen }
+    Binding { target: Cava; property: "active"; value: Theme.state.homeBento && root.homes.some(s => Theme.scr(s.name, "widgets").includes("cava")) } // local: homeBento
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var en: Qt.locale("en_US")
@@ -48,7 +53,8 @@ PanelWindow {
 
     Stage {
         id: stage
-        x: Theme.state.barAt === "top" ? -39 * Theme.s : 0 // раскладка под бар слева; бар сверху — на его полширины влево, по центру
+        // раскладка под бар слева; бар сверху или снят с экрана — на его полширины влево, по центру
+        x: Theme.state.barAt === "top" || !Theme.scr(root.screen?.name, "bar") ? -39 * Theme.s : 0
 
         // local: clock + date and greeting + meta line can each be hidden (prefs → LOOK → on home); they fade
         Item {
@@ -97,27 +103,28 @@ PanelWindow {
             }
         }
 
-        // бенто: ячейки 220, зазор 20, сетка 3×3. Какие виджеты и в каком порядке — Theme.state.widgets (настройки), ширины —
-        // Theme.kinds. Кладём слева направо: не влез в ряд — со следующего, в три ряда не влез — не показывается.
+        // бенто: ячейки 220, зазор 20, сетка 3×3, правый край — в 80 от края экрана (на 1920 — с 1140, на широком — правее).
+        // Какие виджеты и в каком порядке — Theme.state.widgets (настройки; у экрана могут быть свои), ширины — Theme.kinds.
+        // Кладём слева направо: не влез в ряд — со следующего, в три ряда не влез — не показывается.
         // Квадрат со скруглением 40 или круг — других форм нет
         Repeater {
             id: bento
             model: {
                 const out = [];
                 let r = 0, c = 0;
-                for (const id of Theme.state.widgets ?? []) {
+                for (const id of Theme.scr(root.screen?.name, "widgets") ?? []) {
                     const w = Theme.kinds[id];
                     if (!w) continue;
                     if (c + w > 3) { r++; c = 0; }
                     if (r > 2) break;
-                    out.push({ id, x: 1140 + c * 240, y: 150 + r * 240 });
+                    out.push({ id, x: c * 240, y: 150 + r * 240 });
                     c += w;
                 }
                 return out;
             }
             Loader {
                 required property var modelData
-                x: modelData.x
+                x: stage.width - 780 + modelData.x
                 y: modelData.y
                 // local: hidden (prefs → LOOK → on home) — fades, then unloads
                 opacity: Theme.state.homeBento ? 1 : 0
@@ -240,6 +247,7 @@ PanelWindow {
                         topPadding: 10
                         elide: Text.ElideRight
                         text: root.player?.trackTitle || "Nothing on"
+                        textFormat: Text.PlainText
                         font { family: Theme.ui; pixelSize: 26; weight: Font.DemiBold }
                         color: Theme.fg
                     }
@@ -247,6 +255,7 @@ PanelWindow {
                         width: parent.width
                         elide: Text.ElideRight
                         text: root.player?.trackArtist ?? ""
+                        textFormat: Text.PlainText
                         font { family: Theme.ui; pixelSize: 15 }
                         color: Theme.grey
                     }
@@ -263,6 +272,7 @@ PanelWindow {
             id: budsW
             W {
                 round: true
+                Notch { onNotch: d => Sys.setVol(Sys.vol + d * 0.05) } // колесо — громкость, и при наушниках: их заряд колесом не крутят
                 Ring { anchors { fill: parent; margins: 12 } f: root.buds ? root.buds.battery : Sys.vol }
                 Column {
                     anchors.centerIn: parent
