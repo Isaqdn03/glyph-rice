@@ -87,7 +87,7 @@ Singleton {
                 if (!put.running && !get.running) send();
             }
             function send() {
-                put.command = ["ddcutil", "--bus", String(bus), "--noverify", "setvcp", "10", String(want)];
+                put.command = ["ddcutil", "--bus", String(bus), "--skip-ddc-checks", "--noverify", "setvcp", "10", String(want)];
                 want = -1;
                 put.running = true;
             }
@@ -95,10 +95,11 @@ Singleton {
 
             Component.onCompleted: read()
 
-            // --brief: "VCP 10 C 50 100" — current, max
+            // --brief: "VCP 10 C 50 100" — current, max. --skip-ddc-checks: `detect` already checked these buses, and the
+            // startup checks were half of every call (read ~340 → ~150 ms, write ~370 → ~145 ms on the 3090 Ti)
             Process {
                 id: get
-                command: ["ddcutil", "--bus", String(s.bus), "--brief", "getvcp", "10"]
+                command: ["ddcutil", "--bus", String(s.bus), "--skip-ddc-checks", "--brief", "getvcp", "10"]
                 stdout: StdioCollector {
                     onStreamFinished: {
                         const m = text.match(/VCP 10 C (\d+) (\d+)/);
