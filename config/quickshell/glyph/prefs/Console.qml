@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
@@ -13,6 +14,8 @@ import qs.settings
 // sections at once, fixed modules on a lettered 5 × 3 grid, each a tiny instrument and its live numbers — nothing on it
 // is made up. State by brightness: lit dots and white type are on, hollow and grey are off; the one accent is the
 // selected module's dot. ←↑↓→ move, ↵ / tab / click open, esc closes.
+// Open, a module fills a frame — header, the object it sets on the left, its keys on the right — with the other modules
+// in a dock under it: tab walks the keys, [ ] the modules, esc goes back to the wall.
 // Same API as Prefs.qml (open, close, toggle, wallRequested), shell.qml swaps it in. A module that isn't built here yet
 // opens that page of the old Prefs (pageRequested)
 PanelWindow {
@@ -52,12 +55,31 @@ PanelWindow {
             sel = at(cx, m.r + dr);
         }
     }
-    function enter(i) {
+    // open module i (-1 — the wall); keys: straight to its first key. Not built here yet — the old page
+    readonly property var built: [5, 6] // windows, display
+    property int cur: -1
+    function enter(i, keys) {
         sel = i;
         cx = mods[i].c;
-        close();
-        pageRequested(mods[i].k);
+        if (!built.includes(i)) {
+            close();
+            pageRequested(mods[i].k);
+            return;
+        }
+        cur = i;
+        stage.forceActiveFocus();
+        if (keys) Qt.callLater(firstKey);
     }
+    function back() {
+        cur = -1;
+        stage.forceActiveFocus();
+    }
+    // [ ] — the next module that's built, round the dock
+    function cycle(d) {
+        const n = built.length, j = built.indexOf(cur);
+        enter(built[(j + d + n) % n]);
+    }
+    function firstKey() { stage.nextItemInFocusChain(true)?.forceActiveFocus(); }
 
     // ---- open and close: animates itself (glyph's layers are no_anim in hypr) ----
     property bool shown: false
@@ -71,6 +93,7 @@ PanelWindow {
             pageRequested(-1);
             return;
         }
+        cur = -1;
         shown = true;
         stage.forceActiveFocus();
         Ddc.refresh(); // the monitors' own buttons may have moved it
@@ -83,6 +106,7 @@ PanelWindow {
     readonly property var names: Quickshell.screens.map(s => s.name)
     readonly property string mon: names.includes(pickMon) ? pickMon : names[0] ?? ""
     readonly property bool multi: names.length > 1
+    readonly property var sorted: names.slice().sort() // DP-1 before DP-2
     readonly property string monModel: Quickshell.screens.find(s => s.name === mon)?.model || mon
 
     // ---- what the modules read ----
@@ -106,6 +130,8 @@ PanelWindow {
 
     readonly property var disp: Rules.mons.find(x => x.name === mon) ?? Rules.mon
     readonly property var ddc: Ddc.screens.find(x => x.ready && x.out === disp.name) ?? null
+    readonly property var want: Rules.want(disp) // its scale (0 — auto) and refresh as set
+    readonly property bool ownBri: Sys.hasBri && disp.name === Rules.mon.name // a built-in panel's backlight
     readonly property string bri: ddc ? Math.round(ddc.value * 100) : Sys.hasBri && disp.name === Rules.mon.name ? Math.round(Sys.bri * 100) : "—"
 
     // a device as card + port, like the AUDIO page: "SSL 2+" + "Line Outputs 1/L + 2/R"
@@ -128,6 +154,34 @@ PanelWindow {
     readonly property string styleName: Theme.state.paint === "scheme" || Theme.state.paint === "wall" && Theme.tones.length ? Theme.pal.name : "nothing"
     readonly property string styleFrom: Theme.state.paint === "scheme" ? `palette · ${Theme.pal.group}` : Theme.state.paint === "wall" && Theme.tones.length ? "from the wallpaper" : "black · white dots · one red"
     readonly property var swatches: [Theme.fg, Theme.grey, Theme.mute, Theme.s3, Theme.s2, Theme.s1, Theme.bg, Theme.accent].concat(Qt.colorEqual(Theme.accent, Theme.red) ? [] : [Theme.red])
+
+    // the screen's shape, by the nearest usual one: 2752 × 1152 → 21 : 9
+    function aspect(w, h) {
+        const all = [[32, 9], [21, 9], [16, 9], [16, 10], [3, 2], [4, 3]];
+        return all.reduce((a, b) => Math.abs(b[0] / b[1] - w / h) < Math.abs(a[0] / a[1] - w / h) ? b : a).join(" : ");
+    }
+
+    // the dock: each module's key value and what it is
+    readonly property string clockText: Theme.hh(clock.date) + ":" + Qt.formatTime(clock.date, "mm")
+    readonly property var dockVals: [
+        [`${used}/9`, "cells"],
+        [`${Theme.state.deck.length}/${Theme.decks.length}`, "sections"],
+        [`${Theme.state.bar.filter(b => Theme.bars.includes(b)).length}/${Theme.bars.length}`, "tray"],
+        [clockText, "clock"],
+        [({ wall: "WALL", scheme: "PAL" })[Theme.state.paint] ?? "NONE", styleName],
+        [`${Rules.store.gapsIn}/${Rules.store.gapsOut}`, "gaps"],
+        [disp.hz, "hz · " + disp.name],
+        [Math.round(Sys.vol * 100), Sys.muted ? "out · muted" : "out %"],
+        [Rules.modes[Rules.mode].short, "mode"],
+        [Rules.store.repeatDelay, "delay ms"],
+        [Rules.store.dpmsAfter || "—", Rules.store.dpmsAfter ? "min to dark" : "never dark"],
+        [!Rgb.parts.length ? "—" : !Rgb.store.on ? "OFF" : Rgb.lit ? Rgb.store.level + "%" : "DARK", "level"],
+        [meta.name ?? "GLYPH", "running"]
+    ]
+    // under the open module's name
+    readonly property var heads: ["desktop · home", "desktop · deck", "desktop · bar", "desktop · look", "system · colour",
+        "desktop · hyprland", `system · ${disp.name} ${disp.model ?? ""}`, "system · pipewire", "system · power", "system · input",
+        "system · hypridle", "case · openrgb", "quickshell"]
 
     SystemClock { id: clock; enabled: root.visible; precision: SystemClock.Minutes }
     readonly property string hello: { const h = clock.date.getHours(); return h < 5 ? "good night" : h < 12 ? "good morning" : h < 18 ? "good afternoon" : "good evening"; }
@@ -157,14 +211,22 @@ PanelWindow {
         id: stage
         opacity: root.t
         focus: true
+        // keys a focused key, knob or bank doesn't take end up here
         Keys.onPressed: e => {
-            const k = e.key;
-            if (k === Qt.Key_Left || k === Qt.Key_H) root.step(-1, 0);
-            else if (k === Qt.Key_Right || k === Qt.Key_L) root.step(1, 0);
-            else if (k === Qt.Key_Up || k === Qt.Key_K) root.step(0, -1);
-            else if (k === Qt.Key_Down || k === Qt.Key_J) root.step(0, 1);
-            else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space || k === Qt.Key_Tab) root.enter(root.sel);
-            else if (k === Qt.Key_Escape) root.close();
+            const k = e.key, go = k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space;
+            if (k === Qt.Key_Escape) root.cur < 0 ? root.close() : root.back();
+            else if (root.cur < 0) {
+                if (k === Qt.Key_Left || k === Qt.Key_H) root.step(-1, 0);
+                else if (k === Qt.Key_Right || k === Qt.Key_L) root.step(1, 0);
+                else if (k === Qt.Key_Up || k === Qt.Key_K) root.step(0, -1);
+                else if (k === Qt.Key_Down || k === Qt.Key_J) root.step(0, 1);
+                else if (go || k === Qt.Key_Tab) root.enter(root.sel, k === Qt.Key_Tab);
+                else return;
+            } else if (k === Qt.Key_BracketLeft || k === Qt.Key_BracketRight) root.cycle(k === Qt.Key_BracketLeft ? -1 : 1);
+            else if (stage.activeFocus && (go || k === Qt.Key_Tab || k === Qt.Key_Down || k === Qt.Key_Right)) root.firstKey();
+            // arrows off a plain key: the key before or after it
+            else if (k === Qt.Key_Up || k === Qt.Key_Down || k === Qt.Key_Left || k === Qt.Key_Right)
+                (stage.Window.activeFocusItem ?? stage).nextItemInFocusChain(k === Qt.Key_Down || k === Qt.Key_Right)?.forceActiveFocus();
             else return;
             e.accepted = true;
         }
@@ -182,455 +244,825 @@ PanelWindow {
             y: 36
             spacing: 18
             Lb { anchors.baseline: hc.baseline; text: Qt.locale("en_US").toString(clock.date, "ddd · d MMM"); px: 13 }
-            D { id: hc; text: Theme.hh(clock.date) + ":" + Qt.formatTime(clock.date, "mm"); font.pixelSize: 34 }
+            D { id: hc; text: root.clockText; font.pixelSize: 34 }
         }
 
-        // the grid's letters and numbers: modules are addressed by them
-        Repeater {
-            model: ["a", "b", "c", "d", "e"]
-            Lb { required property string modelData; required property int index; x: 349 + index * 482 - width / 2; y: 96; text: modelData; px: 13; color: Theme.mute }
-        }
-        Repeater {
-            model: 3
-            Lb { required property int index; x: 78; y: 263 + index * 291 - height / 2; text: index + 1; px: 13; color: Theme.mute }
-        }
+        // ---- the wall ----
+        Item {
+            id: wall
+            anchors.fill: parent
+            visible: root.cur < 0
+            opacity: visible ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
-        // ---- a1 HOME: the bento as it packs on this screen ----
-        Slot {
-            i: 0
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 30
-                Item {
+            // the grid's letters and numbers: modules are addressed by them
+            Repeater {
+                model: ["a", "b", "c", "d", "e"]
+                Lb { required property string modelData; required property int index; x: 349 + index * 482 - width / 2; y: 96; text: modelData; px: 13; color: Theme.mute }
+            }
+            Repeater {
+                model: 3
+                Lb { required property int index; x: 78; y: 263 + index * 291 - height / 2; text: index + 1; px: 13; color: Theme.mute }
+            }
+
+            // ---- a1 HOME: the bento as it packs on this screen ----
+            Slot {
+                i: 0
+                Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 96
-                    height: 96
-                    opacity: Theme.state.homeBento && Theme.scr(root.mon, "home") ? 1 : 0.4
-                    Repeater {
-                        model: root.cells.filter(c => c.fits)
-                        Rectangle {
-                            required property var modelData
-                            x: modelData.col * 34
-                            y: modelData.row * 34
-                            width: modelData.span * 34 - 6
-                            height: 28
-                            radius: modelData.span === 1 && root.rounds.includes(modelData.id) ? 14 : Theme.corner(7)
-                            color: Theme.s2
-                            border { width: 1; color: Theme.s3 }
+                    spacing: 30
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 96
+                        height: 96
+                        opacity: Theme.state.homeBento && Theme.scr(root.mon, "home") ? 1 : 0.4
+                        Repeater {
+                            model: root.cells.filter(c => c.fits)
+                            Rectangle {
+                                required property var modelData
+                                x: modelData.col * 34
+                                y: modelData.row * 34
+                                width: modelData.span * 34 - 6
+                                height: 28
+                                radius: modelData.span === 1 && root.rounds.includes(modelData.id) ? 14 : Theme.corner(7)
+                                color: Theme.s2
+                                border { width: 1; color: Theme.s3 }
+                            }
+                        }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        D { text: `${root.used}/9`; font.pixelSize: 64 }
+                        Lb { topPadding: 12; px: 11; text: "cells" + (root.multi ? " · " + root.mon : "") }
+                        Lb {
+                            topPadding: 6
+                            px: 10
+                            color: Theme.mute
+                            text: `${root.cells.length} widgets · ` + (!Theme.scr(root.mon, "home") ? "no home here" : !Theme.state.homeBento ? "hidden"
+                                : root.offGrid ? `${root.offGrid} off grid` : "everything fits")
                         }
                     }
                 }
-                Column {
+            }
+
+            // ---- b1 DECK: its sections in the strip ----
+            Slot {
+                i: 1
+                Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    D { text: `${root.used}/9`; font.pixelSize: 64 }
-                    Lb { topPadding: 12; px: 11; text: "cells" + (root.multi ? " · " + root.mon : "") }
+                    spacing: 30
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(1, Theme.state.deck.length) * 30 + 12
+                        height: 42
+                        radius: Theme.corner(21)
+                        color: Theme.s1
+                        border { width: 1; color: Theme.s2 }
+                        Row {
+                            x: 10
+                            y: 10
+                            spacing: 8
+                            Repeater {
+                                model: Theme.state.deck.length
+                                Rectangle { width: 22; height: 22; radius: 11; color: Theme.s3 }
+                            }
+                        }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        D { text: `${Theme.state.deck.length}/${Theme.decks.length}`; font.pixelSize: 64 }
+                        Lb { topPadding: 12; px: 11; text: "sections · bottom" }
+                        Row {
+                            topPadding: 14
+                            spacing: 18
+                            Lamp { lit: Theme.state.deckHover; text: "hover" }
+                            Lamp { lit: Theme.state.quickHover; text: "quick" }
+                        }
+                    }
+                }
+            }
+
+            // ---- c1 BAR: a lamp per tray part, lit in the bar's order, then the ones it leaves out; lies along its edge ----
+            Slot {
+                i: 2
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 30
+                    Rectangle {
+                        id: pill
+                        readonly property var tray: Theme.state.bar.filter(b => Theme.bars.includes(b))
+                        readonly property bool across: Theme.state.barAt === "top"
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: across ? lamps.width + 24 : 30
+                        height: across ? 30 : lamps.height + 24
+                        radius: Theme.corner(15)
+                        color: Theme.s1
+                        border { width: 1; color: Theme.s2 }
+                        Grid {
+                            id: lamps
+                            anchors.centerIn: parent
+                            columns: pill.across ? Theme.bars.length : 1
+                            spacing: 7
+                            Repeater {
+                                model: pill.tray.concat(Theme.bars.filter(b => !pill.tray.includes(b)))
+                                Dot { required property string modelData; lit: pill.tray.includes(modelData) }
+                            }
+                        }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        D { text: `${pill.tray.length}/${Theme.bars.length}`; font.pixelSize: 64 }
+                        Lb { topPadding: 12; px: 11; text: `tray · ${Theme.state.barAt} edge` }
+                        Row {
+                            topPadding: 14
+                            spacing: 18
+                            Lamp { lit: Theme.state.barTitle; text: "title" }
+                            Lamp { lit: Theme.state.barHide.includes(root.monModel); text: "auto-hide" }
+                        }
+                    }
+                }
+            }
+
+            // ---- d1 LOOK: the home clock as home shows it, and its switches ----
+            Slot {
+                i: 3
+                Column {
+                    y: 22
+                    Row {
+                        D { id: lookH; text: Theme.hh(clock.date); font.pixelSize: 76 }
+                        D { text: ":"; font.pixelSize: 76; opacity: root.dim ? 0.2 : 1 }
+                        D { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 76 }
+                        Lb { visible: !Theme.state.clock24; anchors.baseline: lookH.baseline; leftPadding: 12; text: clock.date.getHours() < 12 ? "am" : "pm"; px: 11 }
+                    }
+                    Lb { topPadding: 12; px: 11; text: Qt.locale("en_US").toString(clock.date, "ddd · d MMMM") + " · " + root.hello }
+                    Row {
+                        topPadding: 14
+                        spacing: 18
+                        Lamp { lit: Theme.state.grid; text: "grid" }
+                        Lamp { lit: Theme.state.orb; text: "orb" }
+                        Lamp { lit: Theme.state.edges; text: "edges" }
+                        Lamp { lit: Theme.state.blink; text: "blink" }
+                    }
+                }
+            }
+
+            // ---- e1 STYLE: the palette the shell wears now, grey by grey, then its accent (and red, if it isn't the accent) ----
+            Slot {
+                i: 4
+                Column {
+                    y: 18
+                    width: parent.width
+                    Row {
+                        spacing: 10
+                        Repeater {
+                            model: root.swatches
+                            Rectangle {
+                                required property color modelData
+                                required property int index
+                                width: 28
+                                height: 28
+                                radius: 14
+                                color: modelData
+                                border { width: index === 5 || index === 6 ? 1 : 0; color: Theme.s3 } // s1 and bg vanish on bg
+                            }
+                        }
+                    }
+                    D { topPadding: lead + 26; width: parent.width; elide: Text.ElideRight; text: root.styleName.toUpperCase(); font.pixelSize: 40 }
+                    Lb { topPadding: 12; px: 11; text: `${root.styleFrom} · ${Theme.light ? "light" : "dark"}` }
+                }
+            }
+
+            // ---- a2 WINDOWS: a desk with two windows in the gaps, border and rounding as set — drawn bigger than life (at 1:9
+            // a 3 px gap would be a third of a pixel), so it moves when they do ----
+            Slot {
+                i: 5
+                extra: "· hyprland"
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 40
+                    Rectangle {
+                        id: desk
+                        readonly property bool across: Theme.state.barAt === "top"
+                        readonly property real o: 2 + Rules.store.gapsOut * 0.4
+                        readonly property real g: Rules.store.gapsIn * 0.8
+                        readonly property real l: across ? o : 2 + 9 + o
+                        readonly property real tp: across ? 2 + 9 + o : o
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 300
+                        height: 126
+                        color: "transparent"
+                        border { width: 1; color: Theme.s3 }
+                        Rectangle {
+                            x: 2
+                            y: 2
+                            width: desk.across ? desk.width - 4 : 9
+                            height: desk.across ? 9 : desk.height - 4
+                            radius: Theme.corner(4.5)
+                            color: Theme.s2
+                        }
+                        Repeater {
+                            model: 2
+                            Rectangle {
+                                required property int index
+                                readonly property real w: (desk.width - desk.l - desk.o - desk.g) / 2
+                                x: desk.l + index * (w + desk.g)
+                                y: desk.tp
+                                width: w
+                                height: desk.height - desk.tp - desk.o
+                                radius: Theme.state.rounding * 0.4
+                                color: Theme.s1
+                                border { width: Rules.store.border ? 1 : 0; color: index ? Theme.s3 : Theme.fg }
+                            }
+                        }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        Row {
+                            spacing: 28
+                            Stat { v: Rules.store.gapsIn; label: "gaps in" }
+                            Stat { v: Rules.store.gapsOut; label: "gaps out" }
+                            Stat { v: Rules.store.border; label: "border" }
+                            Stat { v: Theme.state.rounding; label: "round" }
+                            Stat { v: Theme.state.corners; label: "panels" }
+                        }
+                        Row {
+                            topPadding: 22
+                            spacing: 18
+                            Lamp { lit: Rules.store.motion; text: "motion" }
+                            Lamp { lit: Rules.store.blur; text: "blur" }
+                            Lamp { lit: Rules.store.shadow; text: "shadow" }
+                            Lamp { lit: Rules.store.gameDnd; text: "dnd in a game" }
+                        }
+                    }
+                }
+            }
+
+            // ---- c2 DISPLAY: the screens as hypr placed them, this one lit; its rate, scale and brightness ----
+            Slot {
+                i: 6
+                extra: `· ${Rules.mons.length} screen${Rules.mons.length === 1 ? "" : "s"}`
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 50
+                    Item {
+                        id: map
+                        readonly property var ms: Rules.mons
+                        readonly property real x0: Math.min(...ms.map(m => m.x))
+                        readonly property real y0: Math.min(...ms.map(m => m.y))
+                        readonly property real bw: Math.max(...ms.map(m => m.x + m.lw)) - x0
+                        readonly property real bh: Math.max(...ms.map(m => m.y + m.lh)) - y0
+                        readonly property real k: Math.min(width / bw, height / bh)
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 240
+                        height: 184
+                        Repeater {
+                            model: map.ms
+                            Rectangle {
+                                required property var modelData
+                                readonly property bool on: modelData.name === root.disp.name
+                                x: (modelData.x - map.x0) * map.k + 2
+                                y: (map.height - map.bh * map.k) / 2 + (modelData.y - map.y0) * map.k + 2
+                                width: modelData.lw * map.k - 4
+                                height: modelData.lh * map.k - 4
+                                color: "transparent"
+                                border { width: on ? 1.5 : 1; color: on ? Theme.fg : Theme.mute }
+                                Lb { anchors.centerIn: parent; text: parent.modelData.name; px: 13; color: parent.on ? Theme.fg : Theme.grey }
+                            }
+                        }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        Row {
+                            spacing: 46
+                            Stat { v: root.disp.hz; label: "hz · " + root.disp.name }
+                            Stat { v: root.disp.scale; label: "scale" }
+                            Stat { v: root.bri; label: "brightness" }
+                            Stat { v: Rules.store.warmth; label: "warmth k" }
+                        }
+                        Row {
+                            topPadding: 22
+                            spacing: 18
+                            Lamp { lit: Theme.scr(root.mon, "bar"); text: "bar" }
+                            Lamp { lit: Theme.scr(root.mon, "home"); text: "home" }
+                            Lamp { lit: Sys.night; text: "night light" }
+                        }
+                    }
+                }
+            }
+
+            // ---- e2 AUDIO: both defaults' volume as rings, and which devices they are ----
+            Slot {
+                i: 7
+                Column {
+                    y: 4
+                    width: parent.width
+                    Row {
+                        spacing: 34
+                        Vol { node: Sys.sink; label: "out" }
+                        Vol { node: Sys.mic; label: "in" }
+                    }
+                    Lb { topPadding: 20; width: parent.width; elide: Text.ElideRight; px: 11; text: root.split(Sys.sink).port }
                     Lb {
+                        readonly property var d: root.split(Sys.mic)
                         topPadding: 6
+                        width: parent.width
+                        elide: Text.ElideRight
                         px: 10
                         color: Theme.mute
-                        text: `${root.cells.length} widgets · ` + (!Theme.scr(root.mon, "home") ? "no home here" : !Theme.state.homeBento ? "hidden"
-                            : root.offGrid ? `${root.offGrid} off grid` : "everything fits")
+                        text: d.card ? `${d.port} · ${d.card}` : d.port
                     }
                 }
             }
-        }
 
-        // ---- b1 DECK: its sections in the strip ----
-        Slot {
-            i: 1
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 30
-                Rectangle {
+            // ---- a3 POWER: the mode, and the four it could be ----
+            Slot {
+                i: 8
+                Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(1, Theme.state.deck.length) * 30 + 12
-                    height: 42
-                    radius: Theme.corner(21)
-                    color: Theme.s1
-                    border { width: 1; color: Theme.s2 }
+                    spacing: 30
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        D { text: Rules.modes[Rules.mode].short; font.pixelSize: 76 }
+                        Lb { topPadding: 12; px: 11; text: Rules.modes[Rules.mode].name + (Rules.store.ultra ? ` · ${Rules.rates[0]} hz · still` : " · cpu only") }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 10
+                        Repeater {
+                            model: Rules.modes.slice(0, Rules.modeCount)
+                            Lamp { required property var modelData; required property int index; lit: index === Rules.mode; text: modelData.name }
+                        }
+                    }
+                }
+            }
+
+            // ---- b3 INPUT: key repeat and scroll ----
+            Slot {
+                i: 9
+                Column {
+                    y: 10
                     Row {
-                        x: 10
-                        y: 10
+                        spacing: 40
+                        Stat { v: Rules.store.repeatDelay; label: "delay ms" }
+                        Stat { v: Rules.store.repeatRate; label: "rate /s" }
+                        Stat { v: Rules.store.scroll; label: "scroll" }
+                    }
+                    Row {
+                        topPadding: 22
+                        spacing: 18
+                        Lamp { lit: Rules.store.natural; text: "natural" }
+                        Lamp { lit: Rules.store.tap; text: "tap" }
+                        Lamp { lit: Rules.store.flat; text: "flat" }
+                    }
+                }
+            }
+
+            // ---- c3 IDLE: what happens first, and the hour as dots that dim at every step (2 min a dot) ----
+            Slot {
+                i: 10
+                Column {
+                    y: 6
+                    Row {
+                        spacing: 14
+                        D { id: idleN; text: root.nextIdle ? root.nextIdle[1] : "—"; font.pixelSize: 64 }
+                        Lb { anchors.baseline: idleN.baseline; px: 13; text: root.nextIdle ? "min · " + root.nextIdle[0] : "nothing sleeps" }
+                    }
+                    Row {
+                        topPadding: 22
+                        spacing: 6
+                        Repeater {
+                            model: 31
+                            Rectangle {
+                                required property int index
+                                readonly property int lvl: root.idles.filter(x => x[1] && x[1] <= index * 2).length
+                                width: 7
+                                height: 7
+                                radius: 3.5
+                                color: [Theme.fg, Theme.grey, Theme.mute, Theme.s3][lvl]
+                            }
+                        }
+                    }
+                    Lb {
+                        topPadding: 14
+                        px: 10
+                        color: Theme.mute
+                        text: root.idles.filter(x => x !== root.nextIdle).map(x => `${x[0]} ${x[1] ? x[1] + " min" : "never"}`).join(" · ")
+                            + (Sys.caffeine ? " · caffeine" : "")
+                    }
+                }
+            }
+
+            // ---- d3 LIGHTS: the case at its level, a dot per lit part in the colour it shows ----
+            Slot {
+                i: 11
+                Column {
+                    y: 6
+                    Row {
+                        spacing: 14
+                        D { id: litN; text: !Rgb.parts.length ? "—" : !Rgb.store.on ? "OFF" : Rgb.lit ? Rgb.store.level + "%" : "DARK"; font.pixelSize: 64 }
+                        Lb {
+                            anchors.baseline: litN.baseline
+                            px: 13
+                            text: !Rgb.parts.length ? "openrgb isn't answering" : Rgb.gaming ? "game mode · case" : Rgb.night ? "night hours · case" : root.tone + " · case"
+                        }
+                    }
+                    Row {
+                        topPadding: 22
                         spacing: 8
                         Repeater {
-                            model: Theme.state.deck.length
-                            Rectangle { width: 22; height: 22; radius: 11; color: Theme.s3 }
+                            model: Math.min(root.leds, 24)
+                            Rectangle { width: 12; height: 12; radius: 6; color: Rgb.lit ? Rgb.base : Theme.s3 }
                         }
                     }
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    D { text: `${Theme.state.deck.length}/${Theme.decks.length}`; font.pixelSize: 64 }
-                    Lb { topPadding: 12; px: 11; text: "sections · bottom" }
-                    Row {
-                        topPadding: 14
-                        spacing: 18
-                        Lamp { lit: Theme.state.deckHover; text: "hover" }
-                        Lamp { lit: Theme.state.quickHover; text: "quick" }
-                    }
-                }
-            }
-        }
-
-        // ---- c1 BAR: a lamp per tray part, lit in the bar's order, then the ones it leaves out; lies along its edge ----
-        Slot {
-            i: 2
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 30
-                Rectangle {
-                    id: pill
-                    readonly property var tray: Theme.state.bar.filter(b => Theme.bars.includes(b))
-                    readonly property bool across: Theme.state.barAt === "top"
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: across ? lamps.width + 24 : 30
-                    height: across ? 30 : lamps.height + 24
-                    radius: Theme.corner(15)
-                    color: Theme.s1
-                    border { width: 1; color: Theme.s2 }
-                    Grid {
-                        id: lamps
-                        anchors.centerIn: parent
-                        columns: pill.across ? Theme.bars.length : 1
-                        spacing: 7
-                        Repeater {
-                            model: pill.tray.concat(Theme.bars.filter(b => !pill.tray.includes(b)))
-                            Dot { required property string modelData; lit: pill.tray.includes(modelData) }
-                        }
-                    }
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    D { text: `${pill.tray.length}/${Theme.bars.length}`; font.pixelSize: 64 }
-                    Lb { topPadding: 12; px: 11; text: `tray · ${Theme.state.barAt} edge` }
-                    Row {
-                        topPadding: 14
-                        spacing: 18
-                        Lamp { lit: Theme.state.barTitle; text: "title" }
-                        Lamp { lit: Theme.state.barHide.includes(root.monModel); text: "auto-hide" }
-                    }
-                }
-            }
-        }
-
-        // ---- d1 LOOK: the home clock as home shows it, and its switches ----
-        Slot {
-            i: 3
-            Column {
-                y: 22
-                Row {
-                    D { id: lookH; text: Theme.hh(clock.date); font.pixelSize: 76 }
-                    D { text: ":"; font.pixelSize: 76; opacity: root.dim ? 0.2 : 1 }
-                    D { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 76 }
-                    Lb { visible: !Theme.state.clock24; anchors.baseline: lookH.baseline; leftPadding: 12; text: clock.date.getHours() < 12 ? "am" : "pm"; px: 11 }
-                }
-                Lb { topPadding: 12; px: 11; text: Qt.locale("en_US").toString(clock.date, "ddd · d MMMM") + " · " + root.hello }
-                Row {
-                    topPadding: 14
-                    spacing: 18
-                    Lamp { lit: Theme.state.grid; text: "grid" }
-                    Lamp { lit: Theme.state.orb; text: "orb" }
-                    Lamp { lit: Theme.state.edges; text: "edges" }
-                    Lamp { lit: Theme.state.blink; text: "blink" }
-                }
-            }
-        }
-
-        // ---- e1 STYLE: the palette the shell wears now, grey by grey, then its accent (and red, if it isn't the accent) ----
-        Slot {
-            i: 4
-            Column {
-                y: 18
-                width: parent.width
-                Row {
-                    spacing: 10
-                    Repeater {
-                        model: root.swatches
-                        Rectangle {
-                            required property color modelData
-                            required property int index
-                            width: 28
-                            height: 28
-                            radius: 14
-                            color: modelData
-                            border { width: index === 5 || index === 6 ? 1 : 0; color: Theme.s3 } // s1 and bg vanish on bg
-                        }
-                    }
-                }
-                D { topPadding: lead + 26; width: parent.width; elide: Text.ElideRight; text: root.styleName.toUpperCase(); font.pixelSize: 40 }
-                Lb { topPadding: 12; px: 11; text: `${root.styleFrom} · ${Theme.light ? "light" : "dark"}` }
-            }
-        }
-
-        // ---- a2 WINDOWS: a desk with two windows in the gaps, border and rounding as set — drawn bigger than life (at 1:9
-        // a 3 px gap would be a third of a pixel), so it moves when they do ----
-        Slot {
-            i: 5
-            extra: "· hyprland"
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 40
-                Rectangle {
-                    id: desk
-                    readonly property bool across: Theme.state.barAt === "top"
-                    readonly property real o: 2 + Rules.store.gapsOut * 0.4
-                    readonly property real g: Rules.store.gapsIn * 0.8
-                    readonly property real l: across ? o : 2 + 9 + o
-                    readonly property real tp: across ? 2 + 9 + o : o
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 300
-                    height: 126
-                    color: "transparent"
-                    border { width: 1; color: Theme.s3 }
-                    Rectangle {
-                        x: 2
-                        y: 2
-                        width: desk.across ? desk.width - 4 : 9
-                        height: desk.across ? 9 : desk.height - 4
-                        radius: Theme.corner(4.5)
-                        color: Theme.s2
-                    }
-                    Repeater {
-                        model: 2
-                        Rectangle {
-                            required property int index
-                            readonly property real w: (desk.width - desk.l - desk.o - desk.g) / 2
-                            x: desk.l + index * (w + desk.g)
-                            y: desk.tp
-                            width: w
-                            height: desk.height - desk.tp - desk.o
-                            radius: Theme.state.rounding * 0.4
-                            color: Theme.s1
-                            border { width: Rules.store.border ? 1 : 0; color: index ? Theme.s3 : Theme.fg }
-                        }
-                    }
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    Row {
-                        spacing: 28
-                        Stat { v: Rules.store.gapsIn; label: "gaps in" }
-                        Stat { v: Rules.store.gapsOut; label: "gaps out" }
-                        Stat { v: Rules.store.border; label: "border" }
-                        Stat { v: Theme.state.rounding; label: "round" }
-                        Stat { v: Theme.state.corners; label: "panels" }
-                    }
-                    Row {
-                        topPadding: 22
-                        spacing: 18
-                        Lamp { lit: Rules.store.motion; text: "motion" }
-                        Lamp { lit: Rules.store.blur; text: "blur" }
-                        Lamp { lit: Rules.store.shadow; text: "shadow" }
-                        Lamp { lit: Rules.store.gameDnd; text: "dnd in a game" }
-                    }
-                }
-            }
-        }
-
-        // ---- c2 DISPLAY: the screens as hypr placed them, this one lit; its rate, scale and brightness ----
-        Slot {
-            i: 6
-            extra: `· ${Rules.mons.length} screen${Rules.mons.length === 1 ? "" : "s"}`
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 50
-                Item {
-                    id: map
-                    readonly property var ms: Rules.mons
-                    readonly property real x0: Math.min(...ms.map(m => m.x))
-                    readonly property real y0: Math.min(...ms.map(m => m.y))
-                    readonly property real bw: Math.max(...ms.map(m => m.x + m.lw)) - x0
-                    readonly property real bh: Math.max(...ms.map(m => m.y + m.lh)) - y0
-                    readonly property real k: Math.min(width / bw, height / bh)
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 240
-                    height: 184
-                    Repeater {
-                        model: map.ms
-                        Rectangle {
-                            required property var modelData
-                            readonly property bool on: modelData.name === root.disp.name
-                            x: (modelData.x - map.x0) * map.k + 2
-                            y: (map.height - map.bh * map.k) / 2 + (modelData.y - map.y0) * map.k + 2
-                            width: modelData.lw * map.k - 4
-                            height: modelData.lh * map.k - 4
-                            color: "transparent"
-                            border { width: on ? 1.5 : 1; color: on ? Theme.fg : Theme.mute }
-                            Lb { anchors.centerIn: parent; text: parent.modelData.name; px: 13; color: parent.on ? Theme.fg : Theme.grey }
-                        }
-                    }
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    Row {
-                        spacing: 46
-                        Stat { v: root.disp.hz; label: "hz · " + root.disp.name }
-                        Stat { v: root.disp.scale; label: "scale" }
-                        Stat { v: root.bri; label: "brightness" }
-                        Stat { v: Rules.store.warmth; label: "warmth k" }
-                    }
-                    Row {
-                        topPadding: 22
-                        spacing: 18
-                        Lamp { lit: Theme.scr(root.mon, "bar"); text: "bar" }
-                        Lamp { lit: Theme.scr(root.mon, "home"); text: "home" }
-                        Lamp { lit: Sys.night; text: "night light" }
-                    }
-                }
-            }
-        }
-
-        // ---- e2 AUDIO: both defaults' volume as rings, and which devices they are ----
-        Slot {
-            i: 7
-            Column {
-                y: 4
-                width: parent.width
-                Row {
-                    spacing: 34
-                    Vol { node: Sys.sink; label: "out" }
-                    Vol { node: Sys.mic; label: "in" }
-                }
-                Lb { topPadding: 20; width: parent.width; elide: Text.ElideRight; px: 11; text: root.split(Sys.sink).port }
-                Lb {
-                    readonly property var d: root.split(Sys.mic)
-                    topPadding: 6
-                    width: parent.width
-                    elide: Text.ElideRight
-                    px: 10
-                    color: Theme.mute
-                    text: d.card ? `${d.port} · ${d.card}` : d.port
-                }
-            }
-        }
-
-        // ---- a3 POWER: the mode, and the four it could be ----
-        Slot {
-            i: 8
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 30
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    D { text: Rules.modes[Rules.mode].short; font.pixelSize: 76 }
-                    Lb { topPadding: 12; px: 11; text: Rules.modes[Rules.mode].name + (Rules.store.ultra ? ` · ${Rules.rates[0]} hz · still` : " · cpu only") }
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 10
-                    Repeater {
-                        model: Rules.modes.slice(0, Rules.modeCount)
-                        Lamp { required property var modelData; required property int index; lit: index === Rules.mode; text: modelData.name }
-                    }
-                }
-            }
-        }
-
-        // ---- b3 INPUT: key repeat and scroll ----
-        Slot {
-            i: 9
-            Column {
-                y: 10
-                Row {
-                    spacing: 40
-                    Stat { v: Rules.store.repeatDelay; label: "delay ms" }
-                    Stat { v: Rules.store.repeatRate; label: "rate /s" }
-                    Stat { v: Rules.store.scroll; label: "scroll" }
-                }
-                Row {
-                    topPadding: 22
-                    spacing: 18
-                    Lamp { lit: Rules.store.natural; text: "natural" }
-                    Lamp { lit: Rules.store.tap; text: "tap" }
-                    Lamp { lit: Rules.store.flat; text: "flat" }
-                }
-            }
-        }
-
-        // ---- c3 IDLE: what happens first, and the hour as dots that dim at every step (2 min a dot) ----
-        Slot {
-            i: 10
-            Column {
-                y: 6
-                Row {
-                    spacing: 14
-                    D { id: idleN; text: root.nextIdle ? root.nextIdle[1] : "—"; font.pixelSize: 64 }
-                    Lb { anchors.baseline: idleN.baseline; px: 13; text: root.nextIdle ? "min · " + root.nextIdle[0] : "nothing sleeps" }
-                }
-                Row {
-                    topPadding: 22
-                    spacing: 6
-                    Repeater {
-                        model: 31
-                        Rectangle {
-                            required property int index
-                            readonly property int lvl: root.idles.filter(x => x[1] && x[1] <= index * 2).length
-                            width: 7
-                            height: 7
-                            radius: 3.5
-                            color: [Theme.fg, Theme.grey, Theme.mute, Theme.s3][lvl]
-                        }
-                    }
-                }
-                Lb {
-                    topPadding: 14
-                    px: 10
-                    color: Theme.mute
-                    text: root.idles.filter(x => x !== root.nextIdle).map(x => `${x[0]} ${x[1] ? x[1] + " min" : "never"}`).join(" · ")
-                        + (Sys.caffeine ? " · caffeine" : "")
-                }
-            }
-        }
-
-        // ---- d3 LIGHTS: the case at its level, a dot per lit part in the colour it shows ----
-        Slot {
-            i: 11
-            Column {
-                y: 6
-                Row {
-                    spacing: 14
-                    D { id: litN; text: !Rgb.parts.length ? "—" : !Rgb.store.on ? "OFF" : Rgb.lit ? Rgb.store.level + "%" : "DARK"; font.pixelSize: 64 }
                     Lb {
-                        anchors.baseline: litN.baseline
-                        px: 13
-                        text: !Rgb.parts.length ? "openrgb isn't answering" : Rgb.gaming ? "game mode · case" : Rgb.night ? "night hours · case" : root.tone + " · case"
+                        topPadding: 14
+                        px: 10
+                        color: Theme.mute
+                        text: [Rgb.screen ? `kraken ${Rgb.shown}` + (Rgb.shown === "dial" && Rgb.stats.cpu != null ? ` · ${Rgb.stats.cpu}° / ${Rgb.stats.gpu}°` : "") : "",
+                               `${Rgb.parts.length} parts`, Govee.seen ? `lamp ${Govee.lit ? Govee.store.level + "%" : "off"}` : ""].filter(s => s).join(" · ")
                     }
-                }
-                Row {
-                    topPadding: 22
-                    spacing: 8
-                    Repeater {
-                        model: Math.min(root.leds, 24)
-                        Rectangle { width: 12; height: 12; radius: 6; color: Rgb.lit ? Rgb.base : Theme.s3 }
-                    }
-                }
-                Lb {
-                    topPadding: 14
-                    px: 10
-                    color: Theme.mute
-                    text: [Rgb.screen ? `kraken ${Rgb.shown}` + (Rgb.shown === "dial" && Rgb.stats.cpu != null ? ` · ${Rgb.stats.cpu}° / ${Rgb.stats.gpu}°` : "") : "",
-                           `${Rgb.parts.length} parts`, Govee.seen ? `lamp ${Govee.lit ? Govee.store.level + "%" : "off"}` : ""].filter(s => s).join(" · ")
                 }
             }
+
+            // ---- e3 SHELL: the rice's mark and name ----
+            Slot {
+                i: 12
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 30
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 92
+                        height: 92
+                        Ring { anchors { fill: parent; margins: 6 } n: 12; dot: 8; f: 1 }
+                        Rectangle { anchors.centerIn: parent; width: 24; height: 24; radius: 12; color: Theme.fg }
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        D { text: root.meta.name ?? "GLYPH"; font.pixelSize: 52 }
+                        Lb { topPadding: 12; px: 11; text: `quickshell · dnd ${Theme.state.dnd ? "on" : "off"}` }
+                    }
+                }
+            }
+
         }
 
-        // ---- e3 SHELL: the rice's mark and name ----
-        Slot {
-            i: 12
-            Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 30
-                Item {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 92
-                    height: 92
-                    Ring { anchors { fill: parent; margins: 6 } n: 12; dot: 8; f: 1 }
-                    Rectangle { anchors.centerIn: parent; width: 24; height: 24; radius: 12; color: Theme.fg }
+        // ---- a module, open: the frame and, under it, the dock ----
+        Item {
+            anchors.fill: parent
+            visible: root.cur >= 0
+            opacity: visible ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+
+            Item {
+                id: frame
+                readonly property var m: root.mods[Math.max(0, root.cur)]
+                x: 72
+                y: 110
+                width: 2436
+                height: 712
+
+                Rectangle { anchors.fill: parent; color: "transparent"; border { width: 1.5; color: Theme.fg } }
+                Brackets { anchors.fill: parent; size: 30; w: 3; color: Theme.fg }
+                Row {
+                    x: 40
+                    y: 30
+                    spacing: 24
+                    Lb { anchors.baseline: title.baseline; text: frame.m.tag; px: 13; color: Theme.mute }
+                    D { id: title; text: frame.m.name.toUpperCase(); font.pixelSize: 88 }
+                    Lb { anchors.baseline: title.baseline; text: root.heads[Math.max(0, root.cur)]; px: 13 }
                 }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    D { text: root.meta.name ?? "GLYPH"; font.pixelSize: 52 }
-                    Lb { topPadding: 12; px: 11; text: `quickshell · dnd ${Theme.state.dnd ? "on" : "off"}` }
+                Lb {
+                    anchors { right: parent.right; rightMargin: 40 }
+                    y: 44
+                    text: "‹ back to the wall · esc"
+                    px: 13
+                    color: Theme.fg
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: root.back() }
+                }
+
+                // ---- a2 WINDOWS: the desk to scale — the bar where it sits, two windows in the gaps, border and rounding
+                // as set; they slide when motion is on ----
+                Page {
+                    i: 5
+                    Item {
+                        x: 40
+                        y: 150
+                        width: 1180
+                        height: 540
+                        Rectangle {
+                            id: wdesk
+                            readonly property real k: width / (root.disp.lw || 2752) // a logical px here
+                            readonly property real u: Theme.s * k                     // a design px of the shell here
+                            readonly property bool across: Theme.state.barAt === "top"
+                            readonly property bool hasBar: Theme.scr(root.mon, "bar")
+                            readonly property bool hides: !across && Theme.state.barHide.includes(root.monModel) // out of the way
+                            readonly property real o: Rules.store.gapsOut * k
+                            readonly property real g: Rules.store.gapsIn * k
+                            // windows start past the bar's zone (pill 64 at the gap, Bar.qml) and hypr's own gap
+                            readonly property real l: hasBar && !hides ? (64 + Rules.store.gapsOut) * u + o : o
+                            width: 1140
+                            height: width * (root.disp.lh || 1152) / (root.disp.lw || 2752)
+                            color: "transparent"
+                            border { width: 1; color: Theme.s3 }
+                            clip: true
+                            Image {
+                                anchors { fill: parent; margins: 1 }
+                                fillMode: Image.Tile
+                                source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1.2" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
+                            }
+                            // an auto-hidden bar slides in over the windows: an unlit outline on top of them
+                            Rectangle {
+                                visible: wdesk.hasBar
+                                z: wdesk.hides ? 1 : 0
+                                x: Rules.store.gapsOut * wdesk.u
+                                y: x
+                                width: wdesk.across ? wdesk.width - 2 * x : 64 * wdesk.u
+                                height: wdesk.across ? 64 * wdesk.u : wdesk.height - 2 * y
+                                radius: Theme.corner(Math.min(width, height) / 2)
+                                color: wdesk.hides ? "transparent" : Theme.s1
+                                border { width: 1; color: wdesk.hides ? Theme.mute : Theme.s2 }
+                            }
+                            Repeater {
+                                model: 2
+                                Item {
+                                    id: wnd
+                                    required property int index
+                                    readonly property real w: (wdesk.width - (wdesk.across ? wdesk.o : wdesk.l) - wdesk.o - 2 * wdesk.g) / 2
+                                    x: (wdesk.across ? wdesk.o : wdesk.l) + index * (w + 2 * wdesk.g)
+                                    y: wdesk.across ? wdesk.l : wdesk.o
+                                    width: w
+                                    height: wdesk.height - y - wdesk.o
+                                    Behavior on x { enabled: Rules.store.motion; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                                    Behavior on y { enabled: Rules.store.motion; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                                    Behavior on width { enabled: Rules.store.motion; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                                    Behavior on height { enabled: Rules.store.motion; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                                    RectangularShadow {
+                                        visible: Rules.store.shadow
+                                        anchors.fill: parent
+                                        offset.y: 8
+                                        blur: 24
+                                        radius: win.radius
+                                        color: Qt.rgba(0, 0, 0, 0.9)
+                                    }
+                                    Rectangle {
+                                        id: win
+                                        anchors.fill: parent
+                                        radius: Theme.state.rounding * wdesk.k
+                                        color: Theme.s1
+                                        border { width: Rules.store.border ? Math.max(1, Rules.store.border * wdesk.k) : 0; color: wnd.index ? Theme.s3 : Theme.edge }
+                                        Column {
+                                            x: 24
+                                            y: 22
+                                            width: parent.width - 48
+                                            spacing: 10
+                                            Lb { text: wnd.index ? "zen" : "kitty"; px: 11; color: wnd.index ? Theme.mute : Theme.fg }
+                                            Repeater {
+                                                model: [0.7, 0.45, 0.85, 0.3, 0.6, 0.5]
+                                                Rectangle { required property real modelData; width: parent.width * modelData; height: 5; color: Theme.s3 }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Lb { y: 500; px: 11; color: Theme.mute; text: `to scale · ${root.aspect(root.disp.lw, root.disp.lh)} · ${root.disp.name}${wdesk.hides ? " · the bar hides" : ""} · the knobs drive it` }
+                    }
+
+                    Column {
+                        x: 1290
+                        y: 150
+                        spacing: 36
+                        Block {
+                            title: "knobs"
+                            note: "drag round · scroll · ←→"
+                            Row {
+                                spacing: 56
+                                Knob { label: "gaps in"; to: 30; value: Rules.store.gapsIn; onMoved: v => { Rules.store.gapsIn = v; Theme.apply(); } }
+                                Knob { label: "gaps out"; to: 60; value: Rules.store.gapsOut; onMoved: v => { Rules.store.gapsOut = v; Theme.apply(); } }
+                                Knob { label: "border"; to: 6; value: Rules.store.border; onMoved: v => { Rules.store.border = v; Theme.apply(); } }
+                                Knob { label: "rounding"; to: 40; value: Theme.state.rounding; onMoved: v => Theme.state.rounding = v } // shell.qml applies it
+                                Knob { label: "panels %"; to: 100; step: 5; value: Theme.state.corners; onMoved: v => Theme.state.corners = v }
+                            }
+                        }
+                        Block {
+                            title: "effects"
+                            Row {
+                                spacing: 12
+                                Key { text: "blur"; on: Rules.store.blur; onHit: { Rules.store.blur = !on; Theme.apply(); } }
+                                Key { text: "shadow"; on: Rules.store.shadow; onHit: { Rules.store.shadow = !on; Theme.apply(); } }
+                                Key { text: "motion"; on: Rules.store.motion; onHit: { Rules.store.motion = !on; Rules.motion(); } }
+                            }
+                        }
+                        // local: what game mode leaves alone (Rules.store.game*); dnd — only auto game mode sets it
+                        Block {
+                            title: "in a game, keep"
+                            note: "lamp off = game mode drops it"
+                            Row {
+                                spacing: 12
+                                Key { text: "gaps"; on: Rules.store.gameGaps; onHit: { Rules.store.gameGaps = !on; Theme.apply(); } }
+                                Key { text: "motion"; on: Rules.store.gameMotion; onHit: { Rules.store.gameMotion = !on; Rules.motion(); } }
+                                Key { text: "blur"; on: Rules.store.gameBlur; onHit: { Rules.store.gameBlur = !on; Theme.apply(); } }
+                                Key { text: "shadow"; on: Rules.store.gameShadow; onHit: { Rules.store.gameShadow = !on; Theme.apply(); } }
+                                Key { text: "dnd"; on: Rules.store.gameDnd; onHit: Rules.store.gameDnd = !on }
+                            }
+                        }
+                    }
+                }
+
+                // ---- c2 DISPLAY: the screens as hypr placed them (click picks, drag moves — it docks to a neighbour,
+                // Rules.dock/place), the picked one's brightness, size, scale and rate; night light for all ----
+                Page {
+                    i: 6
+                    Item {
+                        x: 40
+                        y: 150
+                        width: 1180
+                        height: 540
+
+                        Item {
+                            id: dmap
+                            readonly property var ms: Rules.mons
+                            // a screen being dragged: where it would land (logical px); held there until hypr answers
+                            property string held: ""
+                            property var at: null
+                            onMsChanged: held = ""
+                            readonly property real x0: Math.min(...ms.map(m => m.x))
+                            readonly property real y0: Math.min(...ms.map(m => m.y))
+                            readonly property real bw: Math.max(...ms.map(m => m.x + m.lw)) - x0
+                            readonly property real bh: Math.max(...ms.map(m => m.y + m.lh)) - y0
+                            readonly property real k: Math.min(width / bw, height / bh)
+                            width: 600
+                            height: 502
+                            Repeater {
+                                model: dmap.ms
+                                Rectangle {
+                                    id: sc
+                                    required property var modelData
+                                    readonly property bool on: modelData.name === root.disp.name
+                                    readonly property var p: dmap.held === modelData.name && dmap.at ? dmap.at : modelData
+                                    x: (p.x - dmap.x0) * dmap.k + 3
+                                    y: (p.y - dmap.y0) * dmap.k + 3
+                                    z: dmap.held === modelData.name ? 1 : 0
+                                    width: modelData.lw * dmap.k - 6
+                                    height: modelData.lh * dmap.k - 6
+                                    color: Theme.bg
+                                    border { width: on ? 1.5 : 1; color: on ? Theme.fg : Theme.mute }
+                                    Behavior on border.color { ColorAnimation { duration: Theme.t } }
+                                    Image {
+                                        anchors { fill: parent; margins: 2 }
+                                        fillMode: Image.Tile
+                                        source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><circle cx="6" cy="6" r="1.3" fill="#${Theme.hex(sc.on ? Theme.s3 : Theme.s2)}"/></svg>`)
+                                    }
+                                    Column {
+                                        anchors.centerIn: parent
+                                        spacing: 12
+                                        Rectangle {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            width: scN.implicitWidth + 20
+                                            height: scN.implicitHeight
+                                            color: Theme.bg
+                                            D { id: scN; anchors.centerIn: parent; text: sc.modelData.name; font.pixelSize: 44; color: sc.on ? Theme.fg : Theme.grey }
+                                        }
+                                        Rectangle {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            width: scL.implicitWidth + 16
+                                            height: scL.implicitHeight + 4
+                                            color: Theme.bg
+                                            Lb { id: scL; anchors.centerIn: parent; px: 11; color: sc.on ? Theme.fg : Theme.grey; text: `${sc.modelData.model} · ${sc.modelData.w} × ${sc.modelData.h} @ ${sc.modelData.hz}` }
+                                        }
+                                    }
+                                    TapHandler { onTapped: root.pickMon = sc.modelData.name }
+                                    HoverHandler { cursorShape: root.multi ? Qt.OpenHandCursor : Qt.PointingHandCursor }
+                                    // drag: it docks to a neighbour (Rules.dock); dropped — Rules.place. Not while hypr hasn't
+                                    // answered the last drop (it would count from old places). Untargeted, the shift is in
+                                    // window px, and the stage is scaled
+                                    DragHandler {
+                                        target: null
+                                        enabled: root.multi && (!dmap.held || active)
+                                        cursorShape: Qt.ClosedHandCursor
+                                        onActiveTranslationChanged: {
+                                            if (!active) return;
+                                            const m = sc.modelData, k = Theme.s * dmap.k;
+                                            dmap.at = Rules.dock({ x: m.x + activeTranslation.x / k, y: m.y + activeTranslation.y / k, w: m.lw, h: m.lh },
+                                                                 dmap.ms.filter(o => o.name !== m.name), 16 / dmap.k);
+                                        }
+                                        onActiveChanged: {
+                                            const m = sc.modelData;
+                                            if (active) {
+                                                root.pickMon = m.name;
+                                                dmap.at = null;
+                                                dmap.held = m.name;
+                                                return;
+                                            }
+                                            if (dmap.at && (dmap.at.x !== m.x || dmap.at.y !== m.y)) Rules.place(m.name, dmap.at.x, dmap.at.y);
+                                            else dmap.held = "";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Lb { y: 520; px: 11; color: Theme.mute; text: root.multi ? "as hyprland placed them · drag one to move it" : "as hyprland placed it" }
+
+                        // brightness: an external screen over DDC (services/Ddc), a built-in panel's backlight; else none
+                        Knob {
+                            x: 700
+                            enabled: !!root.ddc || root.ownBri
+                            size: 300
+                            n: 44
+                            numPx: 100
+                            live: true
+                            label: root.ddc ? `brightness · ddc · ${root.disp.name}` : root.ownBri ? `brightness · ${root.disp.name}` : `brightness · no ddc on ${root.disp.name}`
+                            value: root.ddc ? Math.round(root.ddc.value * 100) : root.ownBri ? Math.round(Sys.bri * 100) : 0
+                            onMoved: v => root.ddc ? root.ddc.set(v / 100) : Sys.setBri(v / 100)
+                        }
+                        Column {
+                            x: 700
+                            y: 400
+                            D { text: `${root.disp.lw}×${root.disp.lh}`; font.pixelSize: 48 }
+                            Lb { topPadding: 12; px: 11; text: `logical · ${root.want.scale ? "× " + root.want.scale : "auto · × " + root.disp.scale} · ${root.disp.hz} hz` }
+                        }
+                    }
+
+                    Item {
+                        x: 1290
+                        y: 150
+                        Column {
+                            spacing: 36
+                            Block {
+                                title: "screen"
+                                Bank { minW: 84; opts: root.sorted; cur: root.sorted.indexOf(root.mon); onPicked: i => root.pickMon = root.sorted[i] }
+                            }
+                            Block {
+                                title: "scale"
+                                Bank {
+                                    minW: 84
+                                    opts: Rules.scales
+                                    cur: root.want.scale ? Rules.scales.indexOf(String(root.want.scale)) : 0
+                                    onPicked: i => Rules.set(root.disp.name, "scale", i ? +Rules.scales[i] : 0)
+                                }
+                            }
+                            Block {
+                                title: "refresh"
+                                note: "hz"
+                                Bank {
+                                    minW: 84
+                                    opts: root.disp.rates.map(String)
+                                    cur: root.disp.rates.indexOf(root.want.refresh)
+                                    onPicked: i => Rules.set(root.disp.name, "refresh", root.disp.rates[i])
+                                }
+                            }
+                        }
+                        Column {
+                            x: 600
+                            spacing: 36
+                            Block {
+                                title: "on this screen"
+                                Row {
+                                    spacing: 12
+                                    Key { text: "bar"; on: Theme.scr(root.mon, "bar"); onHit: Theme.setScr(root.mon, "bar", !on) }
+                                    Key { text: "home"; on: Theme.scr(root.mon, "home"); onHit: Theme.setScr(root.mon, "home", !on) }
+                                    // every screen's own place, scale and rate forgotten — back to the hypr config (Rules.forget)
+                                    Key { text: "hypr config"; mom: true; enabled: Object.keys(Rules.store.outs).length > 0; onHit: Rules.forget() }
+                                }
+                            }
+                            Block {
+                                title: "all screens"
+                                Row {
+                                    spacing: 34
+                                    Key { anchors.verticalCenter: parent.verticalCenter; text: "night light"; on: Sys.night; onHit: Sys.toggleNight() }
+                                    Knob {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        beside: true
+                                        size: 120
+                                        n: 26
+                                        numPx: 28
+                                        label: "warmth · k"
+                                        from: 2500
+                                        to: 6500
+                                        step: 100
+                                        value: Rules.store.warmth
+                                        onMoved: v => {
+                                            Rules.store.warmth = v;
+                                            if (Rules.store.night) Rules.night();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // the dock: every module, its key value; the open one outlined with the accent dot
+            Row {
+                x: 72
+                y: 848
+                spacing: 12
+                Repeater {
+                    model: root.mods.length
+                    Tile {}
                 }
             }
         }
@@ -640,16 +1072,18 @@ PanelWindow {
             x: 72
             anchors { bottom: parent.bottom; bottomMargin: 36 }
             spacing: 40
-            Hint { k: "←↑↓→"; text: "module" }
-            Hint { k: "↵"; text: "open it" }
-            Hint { k: "tab"; text: "straight to its keys" }
-            Hint { k: "click"; text: "open" }
+            Repeater {
+                model: root.cur < 0 ? [["←↑↓→", "module"], ["↵", "open it"], ["tab", "straight to its keys"], ["click", "open"]]
+                    : [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank · turn a knob"]]
+                        .concat(root.cur === 6 ? [["drag", "move a screen"]] : [], [["[ ]", "next module"]])
+                Hint { required property var modelData; k: modelData[0]; text: modelData[1] }
+            }
         }
         Hint {
             anchors { right: parent.right; rightMargin: 72; bottom: parent.bottom; bottomMargin: 36 }
             k: "esc"
-            text: "close"
-            TapHandler { onTapped: root.close() }
+            text: root.cur < 0 ? "close" : "back to the wall"
+            TapHandler { onTapped: root.cur < 0 ? root.close() : root.back() }
         }
 
         // NieR's edge darkening: clear inside an ellipse 80 % × 90 % of the canvas out to 58 % of the way, then into the
@@ -682,6 +1116,46 @@ PanelWindow {
         }
     }
 
+    // an open module's insides: shown only while it's open, so tab walks its keys alone
+    component Page: Item {
+        required property int i
+        width: 2436
+        height: 712
+        visible: root.cur === i
+        opacity: visible ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+    }
+    // a block of keys: its name in white, a note in mute, then the keys
+    component Block: Column {
+        id: grp
+        property string title
+        property string note
+        spacing: 14
+        Row {
+            spacing: 12
+            Lb { text: grp.title; px: 13; color: Theme.fg }
+            Lb { visible: !!text; text: grp.note ? "· " + grp.note : ""; px: 13; color: Theme.mute }
+        }
+    }
+    // a module in the dock: address and dot, name, its key value, what that is
+    component Tile: Rectangle {
+        id: tile
+        required property int index
+        readonly property var d: root.mods[index]
+        readonly property bool open: root.cur === index
+        width: (2436 - 12 * 12) / 13
+        height: 136
+        color: "transparent"
+        border { width: open ? 1.5 : 1; color: open ? Theme.fg : th.hovered ? Theme.mute : Theme.s2 }
+        Behavior on border.color { ColorAnimation { duration: Theme.t } }
+        Lb { x: 14; y: 12; text: tile.d.tag; px: 10; color: Theme.mute }
+        Rectangle { anchors { right: parent.right; rightMargin: 14 } y: 15; width: 6; height: 6; radius: 3; color: tile.open ? Theme.accent : Theme.s3 }
+        Lb { x: 14; y: 38; text: tile.d.name; px: 11; color: Theme.fg }
+        D { x: 14; y: 66; width: parent.width - 28; elide: Text.ElideRight; text: root.dockVals[tile.index][0]; font.pixelSize: 30 }
+        Lb { x: 14; anchors { bottom: parent.bottom; bottomMargin: 12 } width: parent.width - 28; elide: Text.ElideRight; text: root.dockVals[tile.index][1]; px: 9; color: Theme.mute }
+        HoverHandler { id: th; cursorShape: Qt.PointingHandCursor }
+        TapHandler { onTapped: root.enter(tile.index) }
+    }
     // a module in its cell of the wall
     component Slot: Module {
         required property int i
