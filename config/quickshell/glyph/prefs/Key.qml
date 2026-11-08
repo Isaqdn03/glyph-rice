@@ -6,6 +6,7 @@ import qs.components
 // local: a console key (prefs/Console.qml) — hardware, not a pill: s1 with a hairline, a 28 × 4 lamp top-left, the label
 // bottom-left. On: the key lifts to s2, the label whitens, the lamp lights with a faint glow — the only glow in prefs, as on
 // a VFD only lit segments glow. mom: momentary, hollow — a press does a thing once (reload, hypr config). Disabled: 40 %.
+// chip: a swatch — the lamp is a 40 × 8 chip of that colour, no glow, on = a white outline. shift ←→ asks to move it (shifted).
 // ↵ / space / click press it. In a Bank (solo false) the bank takes focus and only its outer corners round
 Rectangle {
     id: root
@@ -18,9 +19,13 @@ Rectangle {
     property bool last: true   // round on the right
     property bool cursor       // a bank's ←→ position while the bank has focus
     property real minW: 150
+    property color chip: "transparent"
+    readonly property bool swatch: chip.a > 0
+    readonly property alias hovered: hov.hovered
     signal hit
+    signal shifted(int d)
 
-    readonly property bool ring: activeFocus || cursor
+    readonly property bool ring: activeFocus || cursor || swatch && on
     readonly property real r: Theme.corner(8)
 
     implicitWidth: Math.max(minW, lab.implicitWidth + 32)
@@ -36,6 +41,11 @@ Rectangle {
 
     activeFocusOnTab: solo
     Keys.onPressed: e => {
+        if (e.modifiers & Qt.ShiftModifier && (e.key === Qt.Key_Left || e.key === Qt.Key_Right)) {
+            root.shifted(e.key === Qt.Key_Left ? -1 : 1);
+            e.accepted = true;
+            return;
+        }
         if (e.key !== Qt.Key_Return && e.key !== Qt.Key_Enter && e.key !== Qt.Key_Space) return;
         root.hit();
         e.accepted = true;
@@ -43,7 +53,7 @@ Rectangle {
 
     RectangularShadow {
         anchors.fill: lamp
-        visible: root.on && !root.mom
+        visible: root.on && !root.mom && !root.swatch
         radius: 2
         blur: 10
         color: Theme.fade(Theme.fg, 0.55)
@@ -52,10 +62,10 @@ Rectangle {
         id: lamp
         x: 16
         y: 13
-        width: 28
-        height: 4
+        width: root.swatch ? 40 : 28
+        height: root.swatch ? 8 : 4
         radius: 2
-        color: root.mom ? "transparent" : root.on ? Theme.fg : Theme.s3
+        color: root.swatch ? root.chip : root.mom ? "transparent" : root.on ? Theme.fg : Theme.s3
         border { width: root.mom ? 1 : 0; color: Theme.mute }
         Behavior on color { ColorAnimation { duration: Theme.t } }
     }
