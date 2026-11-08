@@ -57,7 +57,7 @@ PanelWindow {
         }
     }
     // open module i (-1 — the wall); keys: straight to its first key. Not built here yet — the old page
-    readonly property var built: [5, 6, 8, 9, 10, 12] // windows, display, power, input, idle, shell
+    readonly property var built: [3, 5, 6, 7, 8, 9, 10, 11, 12] // look, windows, display, audio, power, input, idle, lights, shell
     property int cur: -1
     function enter(i, keys) {
         sel = i;
@@ -180,12 +180,13 @@ PanelWindow {
         [meta.name ?? "GLYPH", "running"]
     ]
     // under the open module's name
-    readonly property var heads: ["desktop · home", "desktop · deck", "desktop · bar", "desktop · look", "system · colour",
-        "desktop · hyprland", `system · ${disp.name} ${disp.model ?? ""}`, "system · pipewire",
+    readonly property var heads: ["desktop · home", "desktop · deck", "desktop · bar", "desktop · the home screen, live", "system · colour",
+        "desktop · hyprland", `system · ${disp.name} ${disp.model ?? ""}`, audioPage.head,
         `system · ${Rules.modes[Rules.mode].name}${Rules.store.ultra ? " · no motion · no blur" : " · cpu profile only"}`,
-        "system · keyboard · mouse · touchpad", "system · minutes without input · hypridle", "case · openrgb", "more · quickshell"]
+        "system · keyboard · mouse · touchpad", "system · minutes without input · hypridle", lightsPage.head, "more · quickshell"]
 
     SystemClock { id: clock; enabled: root.visible; precision: SystemClock.Minutes }
+    readonly property string who: (Theme.state.name || Quickshell.env("USER")).replace(/&/g, "&amp;").replace(/</g, "&lt;")
     readonly property string hello: { const h = clock.date.getHours(); return h < 5 ? "good night" : h < 12 ? "good morning" : h < 18 ? "good afternoon" : "good evening"; }
     property bool dim: false // look's colon, off half the time when the home clock blinks
     Timer { running: root.visible && Theme.state.blink; interval: 500; repeat: true; onTriggered: root.dim = !root.dim; onRunningChanged: root.dim = false }
@@ -247,6 +248,7 @@ PanelWindow {
                 else if (go || k === Qt.Key_Tab) root.enter(root.sel, k === Qt.Key_Tab);
                 else return;
             } else if (k === Qt.Key_BracketLeft || k === Qt.Key_BracketRight) root.cycle(k === Qt.Key_BracketLeft ? -1 : 1);
+            else if (k === Qt.Key_M && root.cur === 7) audioPage.mute();
             else if (stage.activeFocus && (go || k === Qt.Key_Tab || k === Qt.Key_Down || k === Qt.Key_Right)) root.firstKey();
             // arrows off a plain key: the key before or after it
             else if (k === Qt.Key_Up || k === Qt.Key_Down || k === Qt.Key_Left || k === Qt.Key_Right)
@@ -775,39 +777,8 @@ PanelWindow {
                         y: 150
                         width: 1180
                         height: 540
-                        Rectangle {
+                        Screen {
                             id: wdesk
-                            readonly property real k: width / (root.disp.lw || 2752) // a logical px here
-                            readonly property real u: Theme.s * k                     // a design px of the shell here
-                            readonly property bool across: Theme.state.barAt === "top"
-                            readonly property bool hasBar: Theme.scr(root.mon, "bar")
-                            readonly property bool hides: !across && Theme.state.barHide.includes(root.monModel) // out of the way
-                            readonly property real o: Rules.store.gapsOut * k
-                            readonly property real g: Rules.store.gapsIn * k
-                            // windows start past the bar's zone (pill 64 at the gap, Bar.qml) and hypr's own gap
-                            readonly property real l: hasBar && !hides ? (64 + Rules.store.gapsOut) * u + o : o
-                            width: 1140
-                            height: width * (root.disp.lh || 1152) / (root.disp.lw || 2752)
-                            color: "transparent"
-                            border { width: 1; color: Theme.s3 }
-                            clip: true
-                            Image {
-                                anchors { fill: parent; margins: 1 }
-                                fillMode: Image.Tile
-                                source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1.2" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
-                            }
-                            // an auto-hidden bar slides in over the windows: an unlit outline on top of them
-                            Rectangle {
-                                visible: wdesk.hasBar
-                                z: wdesk.hides ? 1 : 0
-                                x: Rules.store.gapsOut * wdesk.u
-                                y: x
-                                width: wdesk.across ? wdesk.width - 2 * x : 64 * wdesk.u
-                                height: wdesk.across ? 64 * wdesk.u : wdesk.height - 2 * y
-                                radius: Theme.corner(Math.min(width, height) / 2)
-                                color: wdesk.hides ? "transparent" : Theme.s1
-                                border { width: 1; color: wdesk.hides ? Theme.mute : Theme.s2 }
-                            }
                             Repeater {
                                 model: 2
                                 Item {
@@ -1456,6 +1427,158 @@ PanelWindow {
                         }
                     }
                 }
+
+                // ---- d1 LOOK: the home screen as it will be — follows every key on the right ----
+                Page {
+                    i: 3
+                    Item {
+                        x: 40
+                        y: 150
+                        width: 1180
+                        height: 540
+                        Screen {
+                            Orb { visible: Theme.state.orb; x: 600; y: 70; scale: 340 / 1100; transformOrigin: Item.TopLeft }
+                            Row {
+                                x: 80
+                                y: 64
+                                visible: Theme.state.homeClock
+                                D { id: homeH; text: Theme.hh(clock.date); font.pixelSize: 140 }
+                                D { text: ":"; font.pixelSize: 140; opacity: root.dim ? 0.2 : 1 }
+                                D { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 140 }
+                                Lb { visible: !Theme.state.clock24; anchors.baseline: homeH.baseline; leftPadding: 14; text: clock.date.getHours() < 12 ? "am" : "pm"; px: 13 }
+                            }
+                            Lb { x: 86; y: 226; visible: Theme.state.homeClock; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 13 }
+                            Text {
+                                x: 84
+                                y: 290
+                                visible: Theme.state.homeHello
+                                textFormat: Text.StyledText
+                                text: `${root.hello.charAt(0).toUpperCase() + root.hello.slice(1)},<br><font color="${Theme.grey}">${root.who}.</font>`
+                                font { family: Theme.mono; pixelSize: 34 }
+                                lineHeight: 1.25
+                                color: Theme.fg
+                            }
+                            Item {
+                                anchors { right: parent.right; rightMargin: 56 }
+                                y: 84
+                                width: 190
+                                height: 190
+                                visible: Theme.state.homeBento && Theme.scr(root.mon, "home")
+                                Repeater {
+                                    model: root.cells.filter(c => c.fits)
+                                    Rectangle {
+                                        required property var modelData
+                                        x: modelData.col * 66
+                                        y: modelData.row * 66
+                                        width: modelData.span * 66 - 8
+                                        height: 58
+                                        radius: modelData.span === 1 && root.rounds.includes(modelData.id) ? 29 : Theme.corner(12)
+                                        color: Theme.s1
+                                        border { width: 1; color: Theme.s2 }
+                                    }
+                                }
+                            }
+                            // Glyph's edges: the volume on the right, what's playing along the bottom
+                            Seg { visible: Theme.state.edges; anchors { right: parent.right; rightMargin: 14 } y: 140; width: 4; height: 114; n: 12; vertical: true; f: Sys.muted ? 0 : Sys.vol }
+                            Seg { visible: Theme.state.edges; x: 440; anchors { bottom: parent.bottom; bottomMargin: 12 } width: 234; height: 4; n: 24; f: Media.player?.length > 0 ? Media.position / Media.player.length : 0 }
+                        }
+                        Lb { y: 500; px: 11; color: Theme.mute; text: `your screen · ${root.aspect(root.disp.lw, root.disp.lh)} · ${root.disp.name} · follows every key on the right` }
+                    }
+                    Column {
+                        x: 1290
+                        y: 150
+                        spacing: 34
+                        Block {
+                            title: "home screen"
+                            Row {
+                                spacing: 12
+                                Key { minW: 162; text: "light"; on: Theme.light; onHit: Theme.setLight(!Theme.light) }
+                                Key { minW: 162; text: "dot grid"; on: Theme.state.grid; onHit: Theme.state.grid = !on }
+                                Key { minW: 162; text: "orb"; on: Theme.state.orb; onHit: Theme.state.orb = !on }
+                                Key { minW: 162; text: "24 hours"; on: Theme.state.clock24; onHit: Theme.state.clock24 = !on }
+                                Key { minW: 162; text: "blink"; on: Theme.state.blink; onHit: Theme.state.blink = !on }
+                                Key { minW: 162; text: "edges"; on: Theme.state.edges; onHit: Theme.state.edges = !on }
+                            }
+                        }
+                        // local: what home shows — each part, or all of it at once (home/Home.qml)
+                        Block {
+                            title: "on home"
+                            Row {
+                                readonly property bool all: Theme.state.homeClock && Theme.state.homeHello && Theme.state.homeBento
+                                spacing: 12
+                                Key { minW: 162; text: "clock"; on: Theme.state.homeClock; onHit: Theme.state.homeClock = !on }
+                                Key { minW: 162; text: "greeting"; on: Theme.state.homeHello; onHit: Theme.state.homeHello = !on }
+                                Key { minW: 162; text: "widgets"; on: Theme.state.homeBento; onHit: Theme.state.homeBento = !on }
+                                Key {
+                                    mom: true
+                                    text: parent.all ? "hide all" : "show all"
+                                    onHit: {
+                                        const v = !parent.all;
+                                        Theme.state.homeClock = v;
+                                        Theme.state.homeHello = v;
+                                        Theme.state.homeBento = v;
+                                    }
+                                }
+                            }
+                        }
+                        Block {
+                            title: "you"
+                            Row {
+                                spacing: 12
+                                // the name in the greeting; empty — $USER
+                                Rectangle {
+                                    width: 420
+                                    height: 72
+                                    radius: Theme.corner(8)
+                                    color: Theme.s1
+                                    border { width: nameIn.activeFocus ? 1.5 : 1; color: nameIn.activeFocus ? Theme.fg : Theme.s3 }
+                                    Lb { x: 16; y: 12; text: "name · empty = $user"; px: 10 }
+                                    TextInput {
+                                        id: nameIn
+                                        x: 16
+                                        y: 34
+                                        width: parent.width - 32
+                                        text: Theme.state.name
+                                        maximumLength: 24
+                                        activeFocusOnTab: true
+                                        font { family: Theme.mono; pixelSize: 20; letterSpacing: 1.2 }
+                                        color: Theme.fg
+                                        selectionColor: Theme.s3
+                                        clip: true
+                                        onTextEdited: Theme.state.name = text
+                                        Text { visible: !nameIn.text; text: Quickshell.env("USER"); font: nameIn.font; color: Theme.mute }
+                                        Keys.onPressed: e => {
+                                            if (e.key !== Qt.Key_Escape && e.key !== Qt.Key_Return && e.key !== Qt.Key_Enter) return;
+                                            stage.forceActiveFocus();
+                                            e.accepted = true;
+                                        }
+                                    }
+                                }
+                                Key {
+                                    minW: 220
+                                    mom: true
+                                    text: "wallpapers ›"
+                                    onHit: {
+                                        root.close();
+                                        root.wallRequested();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ---- e2 AUDIO (prefs/ConsoleAudio) ----
+                Page {
+                    i: 7
+                    ConsoleAudio { id: audioPage; x: 40; y: 150; live: root.cur === 7 && root.shown }
+                }
+
+                // ---- d3 LIGHTS (prefs/ConsoleLights) ----
+                Page {
+                    i: 11
+                    ConsoleLights { id: lightsPage; x: 40; y: 150; live: root.cur === 11 && root.shown }
+                }
             }
 
             // the dock: every module, its key value; the open one outlined with the accent dot
@@ -1478,11 +1601,14 @@ PanelWindow {
             Repeater {
                 model: root.cur < 0 ? [["←↑↓→", "module"], ["↵", "open it"], ["tab", "straight to its keys"], ["click", "open"]]
                     : (({
+                        3: [["tab", "next key"], ["↵ · space", "press"]],
                         5: [["tab", "next key"], ["↵ · space", "press"], ["←→", "turn a knob"]],
                         6: [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank"], ["drag", "move a screen"]],
+                        7: [["tab", "next key"], ["←→", "volume"], ["↑↓", "a device"], ["↵ · space", "press"], ["m", "mute"]],
                         8: [["tab", "the modes"], ["←→", "mode"], ["↵ · space", "set it"]],
                         9: [["tab", "next key"], ["↵ · space", "press"], ["←→", "turn a knob"]],
                         10: [["tab", "next knob"], ["←→", "a minute"], ["drag", "a mark on the line"]],
+                        11: [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank · the level"]],
                         12: [["tab", "next key"], ["↵ · space", "press"]]
                     })[root.cur] ?? []).concat([["[ ]", "next module"]])
                 Hint { required property var modelData; k: modelData[0]; text: modelData[1] }
@@ -1534,16 +1660,40 @@ PanelWindow {
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
     }
-    // a block of keys: its name in white, a note in mute, then the keys
-    component Block: Column {
-        id: grp
-        property string title
-        property string note
-        spacing: 14
-        Row {
-            spacing: 12
-            Lb { text: grp.title; px: 13; color: Theme.fg }
-            Lb { visible: !!text; text: grp.note ? "· " + grp.note : ""; px: 13; color: Theme.mute }
+    // the screen in miniature, to scale (a logical px is k here, a design px of the shell u): the dot grid if it's on, and the
+    // bar where Bar.qml puts it — pill 64 at the gap. Windows start past its zone and hypr's own gap (l). An auto-hidden one
+    // slides in over the windows: an unlit outline on top of them
+    component Screen: Rectangle {
+        id: scr
+        readonly property real k: width / (root.disp.lw || 2752)
+        readonly property real u: Theme.s * k
+        readonly property bool across: Theme.state.barAt === "top"
+        readonly property bool hasBar: Theme.scr(root.mon, "bar")
+        readonly property bool hides: !across && Theme.state.barHide.includes(root.monModel)
+        readonly property real o: Rules.store.gapsOut * k
+        readonly property real g: Rules.store.gapsIn * k
+        readonly property real l: hasBar && !hides ? (64 + Rules.store.gapsOut) * u + o : o
+        width: 1140
+        height: width * (root.disp.lh || 1152) / (root.disp.lw || 2752)
+        color: "transparent"
+        border { width: 1; color: Theme.s3 }
+        clip: true
+        Image {
+            visible: Theme.state.grid
+            anchors { fill: parent; margins: 1 }
+            fillMode: Image.Tile
+            source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1.2" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
+        }
+        Rectangle {
+            visible: scr.hasBar
+            z: scr.hides ? 1 : 0
+            x: Rules.store.gapsOut * scr.u
+            y: x
+            width: scr.across ? scr.width - 2 * x : 64 * scr.u
+            height: scr.across ? 64 * scr.u : scr.height - 2 * y
+            radius: Theme.corner(Math.min(width, height) / 2)
+            color: scr.hides ? "transparent" : Theme.s1
+            border { width: 1; color: scr.hides ? Theme.mute : Theme.s2 }
         }
     }
     // a module in the dock: address and dot, name, its key value, what that is
@@ -1635,8 +1785,6 @@ PanelWindow {
         on: root.sel === i
         onOpened: root.enter(i)
     }
-    // numbers in Doto at 700: at 900 its dots fuse at these sizes
-    component D: Num { font.weight: Font.Bold; font.variableAxes: ({ "ROND": 100, "wght": 700 }) }
     // a number and what it is
     component Stat: Column {
         property var v
