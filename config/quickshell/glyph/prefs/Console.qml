@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.UPower
 import Quickshell.Wayland
 import qs
 import qs.components
@@ -56,7 +57,7 @@ PanelWindow {
         }
     }
     // open module i (-1 — the wall); keys: straight to its first key. Not built here yet — the old page
-    readonly property var built: [5, 6] // windows, display
+    readonly property var built: [5, 6, 8, 9, 10, 12] // windows, display, power, input, idle, shell
     property int cur: -1
     function enter(i, keys) {
         sel = i;
@@ -180,13 +181,36 @@ PanelWindow {
     ]
     // under the open module's name
     readonly property var heads: ["desktop · home", "desktop · deck", "desktop · bar", "desktop · look", "system · colour",
-        "desktop · hyprland", `system · ${disp.name} ${disp.model ?? ""}`, "system · pipewire", "system · power", "system · input",
-        "system · hypridle", "case · openrgb", "quickshell"]
+        "desktop · hyprland", `system · ${disp.name} ${disp.model ?? ""}`, "system · pipewire",
+        `system · ${Rules.modes[Rules.mode].name}${Rules.store.ultra ? " · no motion · no blur" : " · cpu profile only"}`,
+        "system · keyboard · mouse · touchpad", "system · minutes without input · hypridle", "case · openrgb", "more · quickshell"]
 
     SystemClock { id: clock; enabled: root.visible; precision: SystemClock.Minutes }
     readonly property string hello: { const h = clock.date.getHours(); return h < 5 ? "good night" : h < 12 ? "good morning" : h < 18 ? "good afternoon" : "good evening"; }
     property bool dim: false // look's colon, off half the time when the home clock blinks
     Timer { running: root.visible && Theme.state.blink; interval: 500; repeat: true; onTriggered: root.dim = !root.dim; onRunningChanged: root.dim = false }
+
+    // SHELL's mark on a 25 × 25 matrix cut to a circle: 16 points on a ring and a disc
+    readonly property var matrix: {
+        const c = 12, lit = {}, out = [];
+        for (let k = 0; k < 16; k++) {
+            const a = k / 16 * Math.PI * 2;
+            lit[Math.round(c + 9.5 * Math.cos(a)) + "," + Math.round(c + 9.5 * Math.sin(a))] = true;
+        }
+        for (let y = 0; y < 25; y++)
+            for (let x = 0; x < 25; x++) {
+                const d = Math.hypot(x - c, y - c);
+                if (d <= 12.4) out.push({ x: x * 16 + 3, y: y * 16 + 3, on: d <= 2.6 || !!lit[x + "," + y] });
+            }
+        return out;
+    }
+    // "switch shell" only with somewhere to go: other rice.json folders next to this one
+    property int shells: 1
+    Process {
+        running: root.visible
+        command: [Quickshell.env("HOME") + "/.config/quickshell/rice/rice", "list"]
+        stdout: StdioCollector { onStreamFinished: root.shells = text.trim().split("\n").length }
+    }
 
     property var meta: ({})
     FileView { path: Quickshell.shellPath("rice.json"); onLoaded: try { root.meta = JSON.parse(text()); } catch (e) {} }
@@ -1053,6 +1077,385 @@ PanelWindow {
                         }
                     }
                 }
+
+                // ---- a3 POWER: the mode as four big keys, dots for how hard each pushes; what it changes, honestly: on a
+                // desktop there's no main screen, so ultra leaves every rate alone (Rules.setMode) ----
+                Page {
+                    i: 8
+                    Column {
+                        x: 40
+                        y: 150
+                        spacing: 34
+                        Block {
+                            title: "mode"
+                            note: "dots = how hard it pushes"
+                            Row {
+                                id: modes
+                                property int at: 0
+                                spacing: 6
+                                activeFocusOnTab: true
+                                onActiveFocusChanged: if (activeFocus) at = Rules.mode
+                                Keys.onPressed: e => {
+                                    const d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0;
+                                    if (d) at = Math.max(0, Math.min(Rules.modeCount - 1, at + d));
+                                    else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) Rules.setMode(at);
+                                    else return;
+                                    e.accepted = true;
+                                }
+                                Repeater {
+                                    model: Rules.modes.slice(0, Rules.modeCount)
+                                    Rectangle {
+                                        id: mk
+                                        required property var modelData
+                                        required property int index
+                                        readonly property bool on: index === Rules.mode
+                                        readonly property bool ring: modes.activeFocus && index === modes.at
+                                        readonly property real r: Theme.corner(10)
+                                        width: 270
+                                        height: 300
+                                        topLeftRadius: index === 0 ? r : 0
+                                        bottomLeftRadius: index === 0 ? r : 0
+                                        topRightRadius: index === Rules.modeCount - 1 ? r : 0
+                                        bottomRightRadius: index === Rules.modeCount - 1 ? r : 0
+                                        color: on ? Theme.s2 : Theme.s1
+                                        border { width: ring ? 1.5 : 1; color: ring ? Theme.fg : mh.hovered ? Theme.mute : Theme.s3 }
+                                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                                        RectangularShadow { anchors.fill: lamp; visible: mk.on; radius: 3; blur: 12; color: Theme.fade(Theme.fg, 0.55) }
+                                        Rectangle { id: lamp; x: 22; y: 22; width: 60; height: 6; radius: 3; color: mk.on ? Theme.fg : Theme.s3 }
+                                        Column {
+                                            x: 22
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            D { text: mk.modelData.short; font.pixelSize: 80; color: mk.on ? Theme.fg : Theme.grey }
+                                            Lb { topPadding: 14; text: mk.modelData.name; px: 13; color: mk.on ? Theme.fg : Theme.grey }
+                                        }
+                                        Row {
+                                            x: 22
+                                            anchors { bottom: parent.bottom; bottomMargin: 20 }
+                                            spacing: 6
+                                            Repeater {
+                                                model: 4
+                                                Rectangle {
+                                                    required property int index
+                                                    width: 10
+                                                    height: 10
+                                                    radius: 5
+                                                    color: index <= mk.index ? mk.on ? Theme.fg : Theme.grey : Theme.s3
+                                                }
+                                            }
+                                        }
+                                        HoverHandler { id: mh; cursorShape: Qt.PointingHandCursor }
+                                        TapHandler {
+                                            onTapped: {
+                                                modes.forceActiveFocus();
+                                                modes.at = mk.index;
+                                                Rules.setMode(mk.index);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Lb {
+                            px: 11
+                            text: Rules.store.ultra ? `ultra · ${Rules.mon.name ? Rules.rates[0] + " hz, " : ""}no motion, no blur, no shadows · your settings come back when you leave`
+                                : "cpu profile only · refresh, motion and looks stay as you set them"
+                        }
+                    }
+                    Column {
+                        x: 1290
+                        y: 150
+                        spacing: 34
+                        Block {
+                            title: `what ${Rules.modes[Rules.mode].name} changes`
+                            note: "yours = left as you set it"
+                            Grid {
+                                columns: 2
+                                spacing: 12
+                                Cell { label: "cpu profile"; value: ["SAVER", "SAVER", "BALANCED", "PERFORMANCE"][Rules.mode] }
+                                Cell { label: "refresh rate"; value: Rules.store.ultra && Rules.mon.name ? Rules.rates[0] + " HZ" : "YOURS" }
+                                Cell { label: "motion"; value: Rules.store.ultra ? "OFF" : "YOURS" }
+                                Cell { label: "blur · shadows"; value: Rules.store.ultra ? "OFF" : "YOURS" }
+                            }
+                        }
+                        Block {
+                            title: "this machine"
+                            Cell { label: "performance profile · power-profiles-daemon"; value: PowerProfiles.hasPerformanceProfile ? "AVAILABLE" : "MISSING" }
+                        }
+                    }
+                }
+
+                // ---- b3 INPUT: a key held down, played out at the knobs' values: the first at once, the pause, then the rate ----
+                Page {
+                    id: inPage
+                    i: 9
+                    property int n: 0 // how many have come; 0 — the key is up
+                    Timer {
+                        running: inPage.visible && root.visible
+                        repeat: true
+                        interval: inPage.n === 0 ? 700 : inPage.n === 1 ? delayK.v : 1000 / rateK.v
+                        onTriggered: inPage.n = (inPage.n + 1) % 41
+                    }
+                    Column {
+                        x: 40
+                        y: 150
+                        Block {
+                            title: "key repeat"
+                            note: "played out at your values"
+                            Row {
+                                spacing: 40
+                                Rectangle {
+                                    width: 200
+                                    height: 200
+                                    radius: Theme.corner(40)
+                                    color: inPage.n ? Theme.fg : Theme.s1
+                                    border { width: 1; color: Theme.s3 }
+                                    D { anchors.centerIn: parent; text: "A"; font.pixelSize: 96; color: inPage.n ? Theme.ink : Theme.fg }
+                                }
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 22
+                                    Row {
+                                        spacing: 16
+                                        D { id: dlN; text: Math.round(delayK.v); font.pixelSize: 72 }
+                                        Lb { anchors.baseline: dlN.baseline; text: "ms · first pause"; px: 13 }
+                                    }
+                                    Row {
+                                        spacing: 16
+                                        D { id: rtN; text: Math.round(rateK.v); font.pixelSize: 72 }
+                                        Lb { anchors.baseline: rtN.baseline; text: "a second · after that"; px: 13 }
+                                    }
+                                }
+                            }
+                        }
+                        Row {
+                            topPadding: 48
+                            spacing: 5
+                            Repeater {
+                                model: 40
+                                Rectangle { required property int index; width: 24; height: 24; radius: 12; color: index < inPage.n ? Theme.fg : Theme.s2 }
+                            }
+                        }
+                        Lb { topPadding: 20; px: 11; color: Theme.mute; text: "hold a key · the first comes at once, then the pause, then the rate" }
+                    }
+                    Column {
+                        x: 1290
+                        y: 150
+                        spacing: 30
+                        Block {
+                            title: "knobs"
+                            note: "drag round · scroll · ←→"
+                            Row {
+                                spacing: 64
+                                Knob { id: delayK; size: 150; n: 36; label: "delay · ms"; from: 150; to: 600; step: 10; value: Rules.store.repeatDelay; onMoved: v => { Rules.store.repeatDelay = v; Rules.input(); } }
+                                Knob { id: rateK; size: 150; n: 36; label: "rate · /s"; from: 10; to: 60; value: Rules.store.repeatRate; onMoved: v => { Rules.store.repeatRate = v; Rules.input(); } }
+                                Knob { size: 150; n: 36; label: "scroll · %"; from: 10; to: 100; step: 5; value: Rules.store.scroll; onMoved: v => { Rules.store.scroll = v; Rules.input(); } }
+                                Knob { size: 150; n: 36; label: "pointer"; from: -100; to: 100; step: 5; value: Rules.store.sens; onMoved: v => { Rules.store.sens = v; Rules.input(); } }
+                            }
+                        }
+                        Block {
+                            title: "pointer"
+                            Row {
+                                spacing: 12
+                                Key { minW: 220; text: "natural scroll"; on: Rules.store.natural; onHit: { Rules.store.natural = !on; Rules.input(); } }
+                                Key { minW: 220; text: "tap to click"; on: Rules.store.tap; onHit: { Rules.store.tap = !on; Rules.input(); } }
+                                Key { minW: 220; text: "off while typing"; on: Rules.store.typingOff; onHit: { Rules.store.typingOff = !on; Rules.input(); } }
+                                Key { minW: 220; text: "flat accel"; on: Rules.store.flat; onHit: { Rules.store.flat = !on; Rules.input(); } }
+                            }
+                        }
+                        Block {
+                            title: "layout switch"
+                            note: "between keyboard layouts"
+                            Bank {
+                                minW: 120
+                                opts: Rules.switches.map(s => s[0])
+                                cur: Rules.store.kbSwitch
+                                onPicked: i => {
+                                    Rules.store.kbSwitch = i;
+                                    Rules.input();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ---- c3 IDLE: the hour as a line of dots that dim at every step, the marks dragged along it (past 60 is
+                // never), the same three on knobs for the keyboard. A mark previews as it moves; hypridle hears on release ----
+                Page {
+                    i: 10
+                    Item {
+                        id: idleLine
+                        x: 40
+                        y: 150
+                        width: 1180
+                        height: 540
+                        readonly property var at: [lockM.v, dpmsM.v, sleepM.v]
+                        Repeater {
+                            model: 61
+                            Rectangle {
+                                required property int index
+                                readonly property int lvl: idleLine.at.filter(m => m && m <= index).length
+                                x: index * 18
+                                y: 356
+                                width: 10
+                                height: 10
+                                radius: 5
+                                color: Sys.caffeine ? Theme.fg : [Theme.fg, Theme.grey, Theme.mute, Theme.s3][lvl]
+                            }
+                        }
+                        // never: an empty ring past the line
+                        Rectangle { x: 1112; y: 352; width: 18; height: 18; radius: 9; color: "transparent"; border { width: 1.5; color: Theme.mute } }
+                        Repeater {
+                            model: [0, 15, 30, 45, 60]
+                            Lb { required property int modelData; x: modelData * 18 + 5 - width / 2; y: 396; text: modelData; px: 13 }
+                        }
+                        Lb { x: 1098; y: 420; text: "never"; px: 11 }
+                        Mark { id: lockM; row: 0; label: "lock"; value: Rules.store.lockAfter; onMoved: v => { Rules.store.lockAfter = v; Rules.idle(); } }
+                        Mark { id: dpmsM; row: 1; label: "screen off"; value: Rules.store.dpmsAfter; onMoved: v => { Rules.store.dpmsAfter = v; Rules.idle(); } }
+                        Mark { id: sleepM; row: 2; label: Rules.hibernateOn ? "sleep · hibernate" : "sleep"; value: Rules.store.sleepAfter; onMoved: v => { Rules.store.sleepAfter = v; Rules.idle(); } }
+                        Row {
+                            y: 480
+                            spacing: 34
+                            Repeater {
+                                model: [["awake", Theme.fg], ["locked", Theme.grey], ["dark", Theme.mute], ["asleep", Theme.s3]]
+                                Row {
+                                    required property var modelData
+                                    spacing: 10
+                                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 10; height: 10; radius: 5; color: parent.modelData[1] }
+                                    Lb { text: parent.modelData[0]; px: 11 }
+                                }
+                            }
+                        }
+                    }
+                    Column {
+                        x: 1290
+                        y: 150
+                        spacing: 32
+                        Block {
+                            title: "after"
+                            note: "drag round · scroll · ←→ a minute · past 60 is never"
+                            Row {
+                                spacing: 72
+                                Repeater {
+                                    model: [["lock", "lockAfter"], ["screen off", "dpmsAfter"], [Rules.hibernateOn ? "hibernate" : "sleep", "sleepAfter"]]
+                                    Knob {
+                                        required property var modelData
+                                        size: 160
+                                        n: 36
+                                        numPx: v > 60 ? 26 : 48
+                                        text: v > 60 ? "NEVER" : Math.round(v)
+                                        label: modelData[0]
+                                        from: 1
+                                        to: 61
+                                        value: Rules.store[modelData[1]] || 61
+                                        onMoved: v => {
+                                            Rules.store[modelData[1]] = v > 60 ? 0 : v;
+                                            Rules.idle();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Block {
+                            title: "right now"
+                            Row {
+                                spacing: 18
+                                Key { text: "caffeine"; on: Sys.caffeine; onHit: Sys.caffeine = !on }
+                                Lb { anchors.verticalCenter: parent.verticalCenter; px: 11; color: Theme.mute; text: "stays awake until it's off · ignores the marks" }
+                            }
+                        }
+                        Block {
+                            title: "sleep into"
+                            Row {
+                                spacing: 4
+                                Key {
+                                    last: false
+                                    text: "suspend"
+                                    on: !Rules.hibernateOn
+                                    onHit: {
+                                        Rules.store.hibernate = false;
+                                        Rules.idle();
+                                    }
+                                }
+                                Key {
+                                    first: false
+                                    enabled: Rules.canHibernate
+                                    text: Rules.canHibernate ? "hibernate" : "hibernate · needs swap"
+                                    on: Rules.hibernateOn
+                                    onHit: {
+                                        Rules.store.hibernate = true;
+                                        Rules.idle();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ---- e3 SHELL: the mark lit on a round matrix, the rice's name; do not disturb, reload, switch ----
+                Page {
+                    i: 12
+                    Row {
+                        x: 40
+                        y: 150
+                        spacing: 70
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 400
+                            height: 400
+                            Repeater {
+                                model: root.matrix
+                                Rectangle {
+                                    required property var modelData
+                                    x: modelData.x
+                                    y: modelData.y
+                                    width: 10
+                                    height: 10
+                                    radius: 5
+                                    color: modelData.on ? Theme.fg : Theme.s2
+                                }
+                            }
+                        }
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            Lb { text: "running now"; px: 13 }
+                            D { topPadding: lead + 24; bottomPadding: lead + 24; text: root.meta.name ?? "GLYPH"; font.pixelSize: 160 }
+                            Lb { text: root.meta.tagline ?? ""; px: 13 }
+                            Lb { topPadding: 10; px: 11; color: Theme.mute; text: `${root.matrix.length} dots · the mark on a round matrix` }
+                        }
+                    }
+                    Column {
+                        x: 1290
+                        y: 150
+                        spacing: 34
+                        Block {
+                            title: "shell"
+                            Row {
+                                spacing: 18
+                                Key { minW: 240; text: "do not disturb"; on: Theme.state.dnd; onHit: Theme.state.dnd = !on }
+                                Lb { anchors.verticalCenter: parent.verticalCenter; px: 11; color: Theme.mute; text: "notifications wait in quick" }
+                            }
+                        }
+                        Block {
+                            title: "actions"
+                            note: "hollow keys do one thing and spring back"
+                            Row {
+                                spacing: 12
+                                Key { minW: 240; mom: true; text: "reload the shell"; onHit: Quickshell.reload(false) }
+                                // only with another shell to go to: rice.json folders next to this one
+                                Key {
+                                    minW: 240
+                                    mom: true
+                                    enabled: root.shells > 1
+                                    text: root.shells > 1 ? "switch shell" : `switch shell · only ${(root.meta.name ?? "glyph").toLowerCase()}`
+                                    onHit: {
+                                        root.close();
+                                        Quickshell.execDetached(["qs", "-c", "rice"]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // the dock: every module, its key value; the open one outlined with the accent dot
@@ -1074,8 +1477,14 @@ PanelWindow {
             spacing: 40
             Repeater {
                 model: root.cur < 0 ? [["←↑↓→", "module"], ["↵", "open it"], ["tab", "straight to its keys"], ["click", "open"]]
-                    : [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank · turn a knob"]]
-                        .concat(root.cur === 6 ? [["drag", "move a screen"]] : [], [["[ ]", "next module"]])
+                    : (({
+                        5: [["tab", "next key"], ["↵ · space", "press"], ["←→", "turn a knob"]],
+                        6: [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank"], ["drag", "move a screen"]],
+                        8: [["tab", "the modes"], ["←→", "mode"], ["↵ · space", "set it"]],
+                        9: [["tab", "next key"], ["↵ · space", "press"], ["←→", "turn a knob"]],
+                        10: [["tab", "next knob"], ["←→", "a minute"], ["drag", "a mark on the line"]],
+                        12: [["tab", "next key"], ["↵ · space", "press"]]
+                    })[root.cur] ?? []).concat([["[ ]", "next module"]])
                 Hint { required property var modelData; k: modelData[0]; text: modelData[1] }
             }
         }
@@ -1155,6 +1564,64 @@ PanelWindow {
         Lb { x: 14; anchors { bottom: parent.bottom; bottomMargin: 12 } width: parent.width - 28; elide: Text.ElideRight; text: root.dockVals[tile.index][1]; px: 9; color: Theme.mute }
         HoverHandler { id: th; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: root.enter(tile.index) }
+    }
+    // a fact in a box: what it is, its value; "YOURS" (left as you set it) stays in mute
+    component Cell: Rectangle {
+        id: cell
+        property string label
+        property string value
+        width: 547
+        height: 124
+        color: "transparent"
+        border { width: 1; color: Theme.s2 }
+        Lb { x: 22; y: 20; text: cell.label; px: 11 }
+        D { x: 22; anchors { bottom: parent.bottom; bottomMargin: 20 } text: cell.value; font.pixelSize: 44; color: cell.value === "YOURS" ? Theme.mute : Theme.fg }
+    }
+    // an idle mark: a stem down to the line, its minutes and name. Drag along the line, past 60 is never (0). It keeps its own v
+    // while it moves; moved(v) on release or after 400 ms still
+    component Mark: Item {
+        id: mk
+        property int row
+        property string label
+        property int value
+        property int v: value
+        signal moved(int v)
+        function put(m) {
+            m = m > 60.5 ? 0 : Math.max(1, Math.round(m));
+            if (m === v) return;
+            v = m;
+            wait.restart();
+        }
+        onValueChanged: if (!ma.pressed && !wait.running) v = value
+        Timer { id: wait; interval: 400; onTriggered: if (!ma.pressed && mk.v !== mk.value) mk.moved(mk.v) }
+        x: (v || 62) * 18 + 5
+        y: 20 + row * 100
+        width: 200
+        height: 361 - y
+        Behavior on x { NumberAnimation { duration: 120 } }
+        Rectangle { width: 1; height: parent.height; color: ma.pressed ? Theme.fg : Theme.mute }
+        // past the line there's no room on the right: the label goes left of its stem
+        Column {
+            x: mk.v ? 14 : -14 - width
+            D { text: mk.v || "NEVER"; font.pixelSize: 52 }
+            Lb { topPadding: 8; text: mk.label; px: 13; color: Theme.fg }
+        }
+        MouseArea {
+            id: ma
+            x: mk.v ? 0 : -parent.width
+            width: parent.width
+            height: 100
+            preventStealing: true
+            cursorShape: Qt.SizeHorCursor
+            // where on it the drag took hold, on the line: the mark moves by the drag, it doesn't jump to the pointer
+            property real grab: 0
+            onPressed: e => grab = mapToItem(mk.parent, e.x, 0).x - mk.x
+            onPositionChanged: e => mk.put((mapToItem(mk.parent, e.x, 0).x - grab - 5) / 18)
+            onReleased: {
+                wait.stop();
+                if (mk.v !== mk.value) mk.moved(mk.v);
+            }
+        }
     }
     // a module in its cell of the wall
     component Slot: Module {
