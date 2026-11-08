@@ -3,3 +3,7 @@ config/hypr/user.lua
 config/quickshell/glyph/buds/*.png
 # fontconfig пишет его в config/fonts после fc-cache (install.sh): у каждого свой
 config/fonts/.uuid
+# python's own cache
+__pycache__/
+# this machine's game setups, not for the repo
+loadout-setup.md

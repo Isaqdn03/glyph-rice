@@ -4,7 +4,8 @@ import qs.components
 
 // local: one module on the console wall (prefs/Console.qml): a hairline frame with corner brackets, `a1 · name` in
 // Space Mono, one status dot (unlit; the accent, breathing, only on the selected one) and a body — a tiny instrument and
-// the section's live numbers. Hover lifts the outline a step, a click opens it
+// the section's live numbers. Hover lifts the outline a step, a click opens it. The selection's outline is the console's
+// own: one frame that travels the wall
 Item {
     id: root
 
@@ -22,10 +23,10 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: "transparent"
-        border { width: root.on ? 1.5 : 1; color: root.on ? Theme.fg : root.hot ? Theme.mute : Theme.s2 }
+        border { width: 1; color: root.hot ? Theme.mute : Theme.s2 }
         Behavior on border.color { ColorAnimation { duration: Theme.t } }
     }
-    Brackets { anchors.fill: parent; color: root.on ? Theme.fg : Theme.grey }
+    Brackets { anchors.fill: parent; color: Theme.grey }
 
     Row {
         x: 20
