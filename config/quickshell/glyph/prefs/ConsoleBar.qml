@@ -11,7 +11,27 @@ Item {
 
     required property var ctl
     readonly property var ids: Theme.state.bar.filter(b => Theme.bars.includes(b))
-    readonly property var order: ids.concat(Theme.bars.filter(k => !ids.includes(k)))
+    // the keys' order: the list's, then what it leaves out. A press leaves every key where it is — otherwise the next part slides under
+    // the pointer and a second press drops that one; press-press puts it back in its place. A move re-sorts, so does coming back here
+    function sorted() { return ids.concat(Theme.bars.filter(k => !ids.includes(k))); }
+    property var order: []
+    property var last: []
+    property bool pressing: false
+    Component.onCompleted: {
+        last = ids;
+        order = sorted();
+    }
+    onIdsChanged: {
+        const same = ids.join() === last.join();
+        last = ids;
+        if (!pressing && !same) order = sorted();
+    }
+    onVisibleChanged: if (visible) order = sorted()
+    function press(id, slot) {
+        pressing = true;
+        ctl.flip("bar", id, order.slice(0, slot).filter(k => ids.includes(k)).length - 1);
+        pressing = false;
+    }
     readonly property bool across: Theme.state.barAt === "top"
     readonly property real step: across ? 100 : 52
     readonly property string head: `desktop · ${ids.length} of ${Theme.bars.length} in the tray · ${across ? "top" : "left"} edge`
@@ -154,7 +174,7 @@ Item {
                     minW: 162
                     text: (at >= 0 ? String(at + 1).padStart(2, "0") : "--") + " " + id_
                     on: at >= 0
-                    onHit: root.ctl.flip("bar", id_, Math.max(0, root.ids.length - 1))
+                    onHit: root.press(id_, index)
                     onShifted: d => {
                         if (at >= 0) parts.itemAt(root.ctl.move("bar", at, at + d))?.forceActiveFocus(); // focus follows it
                     }

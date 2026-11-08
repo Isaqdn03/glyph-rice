@@ -9,8 +9,27 @@ Item {
 
     required property var ctl
     readonly property var ids: Theme.state.deck
-    // what the keys show: the strip's order, then what it leaves out
-    readonly property var order: ids.concat(Theme.decks.filter(k => !ids.includes(k)))
+    // the keys' order: the list's, then what it leaves out. A press leaves every key where it is — otherwise the next part slides under
+    // the pointer and a second press drops that one; press-press puts it back in its place. A move re-sorts, so does coming back here
+    function sorted() { return ids.concat(Theme.decks.filter(k => !ids.includes(k))); }
+    property var order: []
+    property var last: []
+    property bool pressing: false
+    Component.onCompleted: {
+        last = ids;
+        order = sorted();
+    }
+    onIdsChanged: {
+        const same = ids.join() === last.join();
+        last = ids;
+        if (!pressing && !same) order = sorted();
+    }
+    onVisibleChanged: if (visible) order = sorted()
+    function press(id, slot) {
+        pressing = true;
+        ctl.flip("deck", id, order.slice(0, slot).filter(k => ids.includes(k)).length - 1);
+        pressing = false;
+    }
     readonly property string head: `desktop · ${ids.length} of ${Theme.decks.length} sections · bottom edge`
     // a section being dragged (-1 — none): dx — the pointer's shift, at — where it is in the strip, to — where it'd land
     property int from: -1
@@ -122,7 +141,7 @@ Item {
                         minW: 180
                         text: (at >= 0 ? String(at + 1).padStart(2, "0") : "--") + " " + id_
                         on: at >= 0
-                        onHit: root.ctl.flip("deck", id_, Math.max(0, root.ids.length - 1))
+                        onHit: root.press(id_, index)
                         onShifted: d => {
                             if (at >= 0) secs.itemAt(root.ctl.move("deck", at, at + d))?.forceActiveFocus(); // focus follows it
                         }
