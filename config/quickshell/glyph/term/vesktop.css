@@ -1,0 +1,192 @@
+/**
+ * @name rice
+ * @description Vesktop in the look of the current Quickshell rice (this copy: Glyph). Written by `rice` and the shell — don't edit the copy in themes/.
+ * @author glyph (local:)
+ * @version 1.0.0
+ */
+
+/* local: Glyph for Vesktop. `rice` copies this to ~/.config/vesktop/themes/rice.theme.css on start and switch; Theme.apps()
+   appends a :root block with the live palette (--g-*), which wins over the defaults below. Discord's own classes change every
+   few weeks, so the heavy lifting is refact0r's midnight (MIT, github.com/refact0r/midnight-discord), loaded live — it maps
+   Discord's hundreds of variables onto ~30. Black, white dots, one red: greys by role, red only for alerts, accent only live */
+@import url('https://refact0r.github.io/midnight-discord/build/midnight.css');
+
+/* the nothing palette — the shell appends the real one after this */
+:root {
+    --g-bg: #000000;
+    --g-s1: #0E0E0E;
+    --g-s2: #1A1A1A;
+    --g-s3: #2A2A2A;
+    --g-mute: #4A4A4A;
+    --g-grey: #8C8C8C;
+    --g-fg: #F2F2F2;
+    --g-ink: #000000;
+    --g-accent: #D71921;
+    --g-red: #D71921;
+    --g-on-red: #FFFFFF;
+    --g-yellow: #D9C38A;
+}
+
+body {
+    --font: 'Space Grotesk';
+    --code-font: 'Space Mono';
+    font-weight: 400;
+
+    --gap: 12px;
+    --divider-thickness: 2px;
+    --border-thickness: 1px;
+
+    --animations: on;
+    --list-item-transition: 0.35s cubic-bezier(0.25, 1, 0.5, 1); /* Theme.glide, Theme.t */
+    --dms-icon-svg-transition: 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    --border-hover-transition: 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+
+    --top-bar-height: var(--gap);
+    --top-bar-button-position: titlebar;
+    --top-bar-title-position: off;
+    --subtle-top-bar-title: off;
+    --custom-window-controls: on;
+    --window-control-size: 14px;
+
+    /* DMs button: a ring of dots round a lit centre */
+    --custom-dms-icon: custom;
+    --dms-icon-svg-url: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='2.6'/><circle cx='12' cy='3.5' r='1.5'/><circle cx='18' cy='6' r='1.5'/><circle cx='20.5' cy='12' r='1.5'/><circle cx='18' cy='18' r='1.5'/><circle cx='12' cy='20.5' r='1.5'/><circle cx='6' cy='18' r='1.5'/><circle cx='3.5' cy='12' r='1.5'/><circle cx='6' cy='6' r='1.5'/></svg>");
+    --dms-icon-svg-size: 70%;
+    --dms-icon-color-before: var(--g-grey);
+    --dms-icon-color-after: var(--g-fg);
+    --custom-dms-background: off;
+
+    --background-image: off;
+    --transparency-tweaks: off;
+    --remove-bg-layer: off;
+    --panel-blur: off;
+    --bg-floating: var(--bg-3);
+
+    --custom-chatbar: off;
+    --chatbar-height: 47px;
+    --small-user-panel: on;
+}
+
+:root {
+    --colors: on;
+
+    /* text: fg for what matters, grey for labels and icons, mute for what's off */
+    --text-0: var(--g-ink);
+    --text-1: var(--g-fg);
+    --text-2: var(--g-fg);
+    --text-3: color-mix(in srgb, var(--g-fg) 82%, var(--g-grey));
+    --text-4: var(--g-grey);
+    --text-5: color-mix(in srgb, var(--g-grey) 55%, var(--g-mute));
+
+    /* the frame is the wallpaper black, panels s1 like the bar, tiles s2, pressed s3 */
+    --bg-1: var(--g-s3);
+    --bg-2: var(--g-s2);
+    --bg-3: var(--g-s1);
+    --bg-4: var(--g-bg);
+    --hover: color-mix(in srgb, var(--g-fg) 6%, transparent);
+    --active: color-mix(in srgb, var(--g-fg) 11%, transparent);
+    --active-2: color-mix(in srgb, var(--g-fg) 16%, transparent);
+    --message-hover: color-mix(in srgb, var(--g-fg) 3%, transparent);
+
+    /* "on" is white, as on the shell's switches and pills */
+    --accent-1: var(--g-fg);
+    --accent-2: var(--g-fg);
+    --accent-3: var(--g-fg);
+    --accent-4: color-mix(in srgb, var(--g-fg) 85%, var(--g-grey));
+    --accent-5: color-mix(in srgb, var(--g-fg) 70%, var(--g-grey));
+    --accent-new: var(--g-red);
+    --mention: linear-gradient(to right, color-mix(in srgb, var(--g-fg) 8%, transparent) 40%, transparent);
+    --mention-hover: linear-gradient(to right, color-mix(in srgb, var(--g-fg) 5%, transparent) 40%, transparent);
+    --reply: linear-gradient(to right, color-mix(in srgb, var(--g-grey) 10%, transparent) 40%, transparent);
+    --reply-hover: linear-gradient(to right, color-mix(in srgb, var(--g-grey) 5%, transparent) 40%, transparent);
+
+    /* status dots: lit, dim, red, live, off */
+    --online: var(--g-fg);
+    --idle: var(--g-grey);
+    --dnd: var(--g-red);
+    --streaming: var(--g-accent);
+    --offline: var(--g-mute);
+
+    --border-light: var(--hover);
+    --border: color-mix(in srgb, var(--g-fg) 7%, transparent);
+    --border-hover: color-mix(in srgb, var(--g-fg) 14%, transparent);
+    --button-border: color-mix(in srgb, var(--g-fg) 10%, transparent);
+
+    /* Discord's hues, folded into the palette: red stays red, green (positive, in a call) is "on" = white,
+       blue is white too, purple (nitro, live) is the accent, yellow (warnings) the palette's own */
+    --red-1: color-mix(in srgb, var(--g-red) 70%, var(--g-fg));
+    --red-2: var(--g-red);
+    --red-3: var(--g-red);
+    --red-4: color-mix(in srgb, var(--g-red) 88%, var(--g-bg));
+    --red-5: color-mix(in srgb, var(--g-red) 76%, var(--g-bg));
+    --green-1: var(--g-fg);
+    --green-2: var(--g-fg);
+    --green-3: var(--g-fg);
+    --green-4: color-mix(in srgb, var(--g-fg) 85%, var(--g-grey));
+    --green-5: color-mix(in srgb, var(--g-fg) 70%, var(--g-grey));
+    --blue-1: var(--g-fg);
+    --blue-2: var(--g-fg);
+    --blue-3: var(--g-fg);
+    --blue-4: color-mix(in srgb, var(--g-fg) 85%, var(--g-grey));
+    --blue-5: color-mix(in srgb, var(--g-fg) 70%, var(--g-grey));
+    --yellow-1: color-mix(in srgb, var(--g-yellow) 80%, var(--g-fg));
+    --yellow-2: var(--g-yellow);
+    --yellow-3: var(--g-yellow);
+    --yellow-4: color-mix(in srgb, var(--g-yellow) 88%, var(--g-bg));
+    --yellow-5: color-mix(in srgb, var(--g-yellow) 76%, var(--g-bg));
+    --purple-1: color-mix(in srgb, var(--g-accent) 70%, var(--g-fg));
+    --purple-2: var(--g-accent);
+    --purple-3: var(--g-accent);
+    --purple-4: color-mix(in srgb, var(--g-accent) 88%, var(--g-bg));
+    --purple-5: color-mix(in srgb, var(--g-accent) 76%, var(--g-bg));
+}
+
+/* midnight sets these under the same selector; text on red follows Theme.on(red), not the ink used on white */
+body,
+.theme-dark:not(.custom-user-profile-theme),
+.theme-light:not(.custom-user-profile-theme) {
+    --control-critical-primary-text-default: var(--g-on-red);
+    --control-critical-primary-text-hover: var(--g-on-red);
+    --control-critical-primary-text-active: var(--g-on-red);
+    --control-critical-primary-icon-default: var(--g-on-red);
+    --control-critical-primary-icon-hover: var(--g-on-red);
+    --control-critical-primary-icon-active: var(--g-on-red);
+    --font-display: 'Space Grotesk', var(--font-primary);
+    --font-headline: 'Space Grotesk', var(--font-primary);
+}
+
+/* labels: Space Mono, caps, tracked wide, grey — as everywhere in the shell */
+[data-text-variant='eyebrow'],
+li[class*='containerDefault_'] h3,
+h3[class*='membersGroup_'],
+[class*='privateChannelsHeaderContainer_'] [class*='headerText_'],
+h3 time,
+[class*='timestamp_'] time {
+    font-family: 'Space Mono', var(--font-code);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+[class*='numberBadge_'] {
+    font-family: 'Space Mono', var(--font-code);
+}
+[class*='timestamp_'] time,
+h3 time {
+    font-size: 10px;
+}
+
+/* links stay white, underlined in grey so they read as links */
+[id^='message-content-'] a {
+    text-decoration: underline;
+    text-decoration-color: var(--g-mute);
+    text-underline-offset: 3px;
+}
+[id^='message-content-'] a:hover {
+    text-decoration-color: var(--g-fg);
+}
+
+/* buttons with words are pills */
+button[class*='lookFilled_'],
+button[class*='lookOutlined_'],
+button[class*='hasText_'] {
+    border-radius: 999px;
+}

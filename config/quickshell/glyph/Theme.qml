@@ -300,6 +300,21 @@ for f in gtk-3.0/gtk.css gtk-4.0/gtk.css qtengine.colors; do
 done`,
             "bash", Quickshell.shellPath("term"), riceState + "/glyph"].concat(sed));
         fox(); // local: Firefox follows the palette too
+        vesk(p); // local: and Vesktop
+    }
+
+    // local: Vesktop's "rice" theme = term/vesktop.css (Glyph on top of midnight) + this palette's --g-* in a :root after it,
+    // so they win. The dark pair, as gtk: Discord's own dark theme sits underneath. Vencord watches themes/ and reloads live.
+    // No ~/.config/vesktop — Vesktop isn't used, nothing to write
+    function vesk(p) {
+        const h = c => "#" + hex(Qt.lighter(c, 1)), c = p.c;
+        const vars = [["bg", c[0]], ["s1", c[1]], ["s2", c[2]], ["s3", c[3]], ["mute", c[4]], ["grey", c[5]], ["fg", c[6]], ["ink", c[0]],
+                      ["accent", p.accent], ["red", p.red], ["on-red", on(p.red)], ["yellow", p.ansi[3]]];
+        const css = `\n/* Theme.apps(): the palette now */\n:root {\n${vars.map(([k, v]) => `    --g-${k}: ${h(v)};`).join("\n")}\n}\n`;
+        Quickshell.execDetached(["sh", "-c", `[ -d "$HOME/.config/vesktop" ] || exit 0
+d=$HOME/.config/vesktop/themes
+mkdir -p "$d" && { cat "$1" && printf '%s' "$2"; } > "$d/.rice.tmp" && mv -f "$d/.rice.tmp" "$d/rice.theme.css"`,
+            "sh", Quickshell.shellPath("term/vesktop.css"), css]);
     }
 
     // local: Firefox through Pywalfox (AUR python-pywalfox + its AMO add-on), which themes the browser live from pywal's
