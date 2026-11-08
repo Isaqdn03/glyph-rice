@@ -290,7 +290,8 @@ Singleton {
     }
     function brightness() { Quickshell.execDetached(["brightnessctl", "-q", "set", store.brightness + "%"]); }
     function night() {
-        Quickshell.execDetached(["sh", "-c", store.night ? `pkill -x hyprsunset; exec hyprsunset -t ${store.warmth}` : "pkill -x hyprsunset"]);
+        // local: wait for the old one to go. Started while it's still exiting, the new one died too: a warmth change put the night light out
+        Quickshell.execDetached(["sh", "-c", store.night ? `pkill -x hyprsunset; while pgrep -x hyprsunset >/dev/null; do sleep 0.05; done; exec hyprsunset -t ${store.warmth}` : "pkill -x hyprsunset"]);
     }
 
     // палитра: Theme перекрашивается сам (биндинги на pal), здесь — то, что живёт вне шелла
