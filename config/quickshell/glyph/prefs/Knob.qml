@@ -20,6 +20,7 @@ Grid {
     property string text: enabled ? Math.round(v) : "—"
     property bool live: false
     property bool beside: false // the label right of the arc, not under it
+    property bool dim: false    // muted or off: lit dots and the number step down
     property real v: value
     signal moved(real v)
 
@@ -65,7 +66,7 @@ Grid {
                 width: d
                 height: d
                 radius: d / 2
-                color: index <= root.k ? Theme.fg : root.activeFocus ? Theme.mute : Theme.s3
+                color: index <= root.k ? root.dim ? Theme.mute : Theme.fg : root.activeFocus ? Theme.mute : Theme.s3
             }
         }
         Num {
@@ -74,6 +75,7 @@ Grid {
             font.pixelSize: root.numPx
             font.weight: Font.Bold
             font.variableAxes: ({ "ROND": 100, "wght": 700 })
+            color: root.dim ? Theme.mute : Theme.fg
         }
 
         MouseArea {
