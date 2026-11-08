@@ -31,9 +31,9 @@ ShellRoot {
     Launcher { id: launcher }
     Quick { id: quick; onPowerRequested: power.open(); onSettingsRequested: prefs.open() }
     Power { id: power }
-    // local: prefs as a console (prefs/Console.qml); a module it hasn't built yet opens that page of the old prefs
-    Console { id: prefs; onWallRequested: walls.open(); onPageRequested: k => { if (k >= 0) pages.sel = k; pages.open(); } }
-    Prefs { id: pages; onWallRequested: walls.open() } // local: the old prefs, behind the console's modules
+    // local: prefs as a console (prefs/Console.qml); the old prefs for a screen narrower than its wall (the 16:10 laptop)
+    Console { id: prefs; onWallRequested: walls.open(); onNarrowRequested: pages.open() }
+    Prefs { id: pages; onWallRequested: walls.open() } // local
     Glyph {}
     Buds {}
     Cal { id: cal }

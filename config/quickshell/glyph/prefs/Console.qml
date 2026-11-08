@@ -17,29 +17,29 @@ import qs.settings
 // selected module's dot. ←↑↓→ move, ↵ / tab / click open, esc closes.
 // Open, a module fills a frame — header, the object it sets on the left, its keys on the right — with the other modules
 // in a dock under it: tab walks the keys, [ ] the modules, esc goes back to the wall.
-// Same API as Prefs.qml (open, close, toggle, wallRequested), shell.qml swaps it in. A module that isn't built here yet
-// opens that page of the old Prefs (pageRequested)
+// Same API as Prefs.qml (open, close, toggle, wallRequested), shell.qml swaps it in. A screen narrower than the wall (the 16:10
+// laptop) gets the old Prefs instead (narrowRequested)
 PanelWindow {
     id: root
 
     signal wallRequested
-    signal pageRequested(int k) // the old Prefs' page k (Prefs.sections); -1 — the old prefs as it was left
+    signal narrowRequested
 
-    // the wall, left to right and down: c, r — top-left cell, w — cells wide; k — the page in Prefs.qml
+    // the wall, left to right and down: c, r — top-left cell, w — cells wide
     readonly property var mods: [
-        { tag: "a1", name: "home", k: 0, c: 0, r: 0, w: 1 },
-        { tag: "b1", name: "deck", k: 1, c: 1, r: 0, w: 1 },
-        { tag: "c1", name: "bar", k: 2, c: 2, r: 0, w: 1 },
-        { tag: "d1", name: "look", k: 3, c: 3, r: 0, w: 1 },
-        { tag: "e1", name: "style", k: 4, c: 4, r: 0, w: 1 },
-        { tag: "a2", name: "windows", k: 5, c: 0, r: 1, w: 2 },
-        { tag: "c2", name: "display", k: 6, c: 2, r: 1, w: 2 },
-        { tag: "e2", name: "audio", k: 7, c: 4, r: 1, w: 1 },
-        { tag: "a3", name: "power", k: 8, c: 0, r: 2, w: 1 },
-        { tag: "b3", name: "input", k: 9, c: 1, r: 2, w: 1 },
-        { tag: "c3", name: "idle", k: 10, c: 2, r: 2, w: 1 },
-        { tag: "d3", name: "lights", k: 12, c: 3, r: 2, w: 1 },
-        { tag: "e3", name: "shell", k: 11, c: 4, r: 2, w: 1 }
+        { tag: "a1", name: "home", c: 0, r: 0, w: 1 },
+        { tag: "b1", name: "deck", c: 1, r: 0, w: 1 },
+        { tag: "c1", name: "bar", c: 2, r: 0, w: 1 },
+        { tag: "d1", name: "look", c: 3, r: 0, w: 1 },
+        { tag: "e1", name: "style", c: 4, r: 0, w: 1 },
+        { tag: "a2", name: "windows", c: 0, r: 1, w: 2 },
+        { tag: "c2", name: "display", c: 2, r: 1, w: 2 },
+        { tag: "e2", name: "audio", c: 4, r: 1, w: 1 },
+        { tag: "a3", name: "power", c: 0, r: 2, w: 1 },
+        { tag: "b3", name: "input", c: 1, r: 2, w: 1 },
+        { tag: "c3", name: "idle", c: 2, r: 2, w: 1 },
+        { tag: "d3", name: "lights", c: 3, r: 2, w: 1 },
+        { tag: "e3", name: "shell", c: 4, r: 2, w: 1 }
     ]
     property int sel: 6 // remembered between opens; display first
     property int cx: 2  // the column ↑↓ keep: b1 ↓ a2 ↓ lands on b3, not a3
@@ -56,17 +56,11 @@ PanelWindow {
             sel = at(cx, m.r + dr);
         }
     }
-    // open module i (-1 — the wall); keys: straight to its first key. Not built here yet — the old page
-    readonly property var built: [3, 5, 6, 7, 8, 9, 10, 11, 12] // look, windows, display, audio, power, input, idle, lights, shell
+    // open module i; keys: straight to its first key. -1 — the wall
     property int cur: -1
     function enter(i, keys) {
         sel = i;
         cx = mods[i].c;
-        if (!built.includes(i)) {
-            close();
-            pageRequested(mods[i].k);
-            return;
-        }
         cur = i;
         stage.forceActiveFocus();
         if (keys) Qt.callLater(firstKey);
@@ -75,11 +69,8 @@ PanelWindow {
         cur = -1;
         stage.forceActiveFocus();
     }
-    // [ ] — the next module that's built, round the dock
-    function cycle(d) {
-        const n = built.length, j = built.indexOf(cur);
-        enter(built[(j + d + n) % n]);
-    }
+    // [ ] — the next module, round the dock
+    function nextModule(d) { enter((cur + d + mods.length) % mods.length); }
     function firstKey() { stage.nextItemInFocusChain(true)?.forceActiveFocus(); }
 
     // ---- open and close: animates itself (glyph's layers are no_anim in hypr) ----
@@ -91,7 +82,7 @@ PanelWindow {
         // the wall needs 2580 design px (21:9); a 16:10 stage is 1920 — the old prefs there, until a narrow wall exists
         const s = Quickshell.screens.find(x => x.name === pickMon);
         if (s && s.width / Theme.s < 2580) {
-            pageRequested(-1);
+            narrowRequested();
             return;
         }
         cur = -1;
@@ -110,17 +101,68 @@ PanelWindow {
     readonly property var sorted: names.slice().sort() // DP-1 before DP-2
     readonly property string monModel: Quickshell.screens.find(s => s.name === mon)?.model || mon
 
+    // ---- lists of ids in Theme.state: home's widgets, the deck, the tray (as Prefs.qml). Edit a copy — JsonAdapter writes the file on
+    // assignment. They return the new cursor. Widgets are this screen's: with several screens an edit gives it its own set ----
+    function list(key) { return key === "widgets" ? Theme.scr(mon, "widgets") : Theme.state[key]; }
+    function edit(key, f) {
+        const a = list(key).slice();
+        f(a);
+        if (key === "widgets" && (multi || Theme.own(mon)?.widgets)) Theme.setScr(mon, "widgets", a);
+        else Theme.state[key] = a;
+    }
+    function move(key, i, to) {
+        if (to < 0 || to >= list(key).length || to === i) return i;
+        edit(key, a => a.splice(to, 0, a.splice(i, 1)[0]));
+        return to;
+    }
+    function cut(key, i) {
+        const n = list(key).length;
+        if (i >= n) return i;
+        edit(key, a => a.splice(i, 1));
+        return Math.max(0, Math.min(i, n - 2));
+    }
+    // ↵ on the selected one: the next of all that isn't there yet. In an empty list — the first free
+    function cycle(key, i, all) {
+        const a = list(key);
+        if (all.every(k => a.includes(k))) return i;
+        i = Math.min(i, a.length);
+        let j = all.indexOf(a[i]);
+        do j = (j + 1) % all.length; while (a.includes(all[j]));
+        edit(key, b => b[i] = all[j]);
+        return i;
+    }
+    // there — take it out; not there — put it after the selected one
+    function flip(key, w, cur) {
+        const a = list(key), i = a.indexOf(w);
+        if (i >= 0) {
+            edit(key, b => b.splice(i, 1));
+            return Math.max(0, Math.min(i < cur ? cur - 1 : cur, a.length - 2));
+        }
+        const at = Math.min(cur + 1, a.length);
+        edit(key, b => b.splice(at, 0, w));
+        return at;
+    }
+    // a list in focus: ←→ select, shift ←→ move, ↵ / space next kind, del drop. -1 — not its key
+    function nav(e, key, cur, all) {
+        const n = list(key).length, d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0;
+        if (d && (e.modifiers & Qt.ShiftModifier)) return move(key, cur, cur + d);
+        if (d) return n ? (cur + d + n) % n : 0;
+        if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) return cycle(key, cur, all);
+        if (e.key === Qt.Key_Delete || e.key === Qt.Key_Backspace) return cut(key, cur);
+        return -1;
+    }
+
     // ---- what the modules read ----
     // home's bento on this screen, packed like Home: left to right, a widget that doesn't fit its row starts the next
     readonly property var cells: {
         let row = 0, col = 0;
-        return Theme.scr(mon, "widgets").map(w => {
+        return Theme.scr(mon, "widgets").map((w, i) => {
             const span = Theme.kinds[w] ?? 1;
             if (col + span > 3) {
                 row++;
                 col = 0;
             }
-            const c = { id: w, row, col, span, fits: row < 3 };
+            const c = { id: w, i, row, col, span, fits: row < 3 };
             col += span;
             return c;
         });
@@ -180,7 +222,7 @@ PanelWindow {
         [meta.name ?? "GLYPH", "running"]
     ]
     // under the open module's name
-    readonly property var heads: ["desktop · home", "desktop · deck", "desktop · bar", "desktop · the home screen, live", "system · colour",
+    readonly property var heads: [homePage.head, deckPage.head, barPage.head, "desktop · the home screen, live", stylePage.head,
         "desktop · hyprland", `system · ${disp.name} ${disp.model ?? ""}`, audioPage.head,
         `system · ${Rules.modes[Rules.mode].name}${Rules.store.ultra ? " · no motion · no blur" : " · cpu profile only"}`,
         "system · keyboard · mouse · touchpad", "system · minutes without input · hypridle", lightsPage.head, "more · quickshell"]
@@ -247,7 +289,7 @@ PanelWindow {
                 else if (k === Qt.Key_Down || k === Qt.Key_J) root.step(0, 1);
                 else if (go || k === Qt.Key_Tab) root.enter(root.sel, k === Qt.Key_Tab);
                 else return;
-            } else if (k === Qt.Key_BracketLeft || k === Qt.Key_BracketRight) root.cycle(k === Qt.Key_BracketLeft ? -1 : 1);
+            } else if (k === Qt.Key_BracketLeft || k === Qt.Key_BracketRight) root.nextModule(k === Qt.Key_BracketLeft ? -1 : 1);
             else if (k === Qt.Key_M && root.cur === 7) audioPage.mute();
             else if (stage.activeFocus && (go || k === Qt.Key_Tab || k === Qt.Key_Down || k === Qt.Key_Right)) root.firstKey();
             // arrows off a plain key: the key before or after it
@@ -777,8 +819,9 @@ PanelWindow {
                         y: 150
                         width: 1180
                         height: 540
-                        Screen {
+                        ConsoleScreen {
                             id: wdesk
+                            ctl: root
                             Repeater {
                                 model: 2
                                 Item {
@@ -1436,7 +1479,8 @@ PanelWindow {
                         y: 150
                         width: 1180
                         height: 540
-                        Screen {
+                        ConsoleScreen {
+                            ctl: root
                             Orb { visible: Theme.state.orb; x: 600; y: 70; scale: 340 / 1100; transformOrigin: Item.TopLeft }
                             Row {
                                 x: 80
@@ -1568,6 +1612,38 @@ PanelWindow {
                     }
                 }
 
+                // ---- a1 HOME (prefs/ConsoleHome) ----
+                Page {
+                    i: 0
+                    ConsoleHome { id: homePage; x: 40; y: 150; ctl: root; live: root.cur === 0 && root.shown }
+                }
+
+                // ---- b1 DECK (prefs/ConsoleDeck) ----
+                Page {
+                    i: 1
+                    ConsoleDeck { id: deckPage; x: 40; y: 150; ctl: root }
+                }
+
+                // ---- c1 BAR (prefs/ConsoleBar) ----
+                Page {
+                    i: 2
+                    ConsoleBar { id: barPage; x: 40; y: 150; ctl: root }
+                }
+
+                // ---- e1 STYLE (prefs/ConsoleStyle) ----
+                Page {
+                    i: 4
+                    ConsoleStyle {
+                        id: stylePage
+                        x: 40
+                        y: 150
+                        onWallRequested: {
+                            root.close();
+                            root.wallRequested();
+                        }
+                    }
+                }
+
                 // ---- e2 AUDIO (prefs/ConsoleAudio) ----
                 Page {
                     i: 7
@@ -1601,7 +1677,11 @@ PanelWindow {
             Repeater {
                 model: root.cur < 0 ? [["←↑↓→", "module"], ["↵", "open it"], ["tab", "straight to its keys"], ["click", "open"]]
                     : (({
+                        0: [["tab", "next key"], ["↵ · space", "press"], ["←→", "pick a cell"], ["shift ←→", "move it"], ["drag", "swap cells"]],
+                        1: [["tab", "next key"], ["↵ · space", "press"], ["shift ←→", "reorder"], ["drag", "along the strip"]],
+                        2: [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank"], ["shift ←→", "reorder the tray"], ["drag", "along the bar"]],
                         3: [["tab", "next key"], ["↵ · space", "press"]],
+                        4: [["tab", "next key"], ["←→", "next swatch"], ["hover", "preview it"], ["↵", "set it"]],
                         5: [["tab", "next key"], ["↵ · space", "press"], ["←→", "turn a knob"]],
                         6: [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank"], ["drag", "move a screen"]],
                         7: [["tab", "next key"], ["←→", "volume"], ["↑↓", "a device"], ["↵ · space", "press"], ["m", "mute"]],
@@ -1659,42 +1739,6 @@ PanelWindow {
         visible: root.cur === i
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-    }
-    // the screen in miniature, to scale (a logical px is k here, a design px of the shell u): the dot grid if it's on, and the
-    // bar where Bar.qml puts it — pill 64 at the gap. Windows start past its zone and hypr's own gap (l). An auto-hidden one
-    // slides in over the windows: an unlit outline on top of them
-    component Screen: Rectangle {
-        id: scr
-        readonly property real k: width / (root.disp.lw || 2752)
-        readonly property real u: Theme.s * k
-        readonly property bool across: Theme.state.barAt === "top"
-        readonly property bool hasBar: Theme.scr(root.mon, "bar")
-        readonly property bool hides: !across && Theme.state.barHide.includes(root.monModel)
-        readonly property real o: Rules.store.gapsOut * k
-        readonly property real g: Rules.store.gapsIn * k
-        readonly property real l: hasBar && !hides ? (64 + Rules.store.gapsOut) * u + o : o
-        width: 1140
-        height: width * (root.disp.lh || 1152) / (root.disp.lw || 2752)
-        color: "transparent"
-        border { width: 1; color: Theme.s3 }
-        clip: true
-        Image {
-            visible: Theme.state.grid
-            anchors { fill: parent; margins: 1 }
-            fillMode: Image.Tile
-            source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1.2" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
-        }
-        Rectangle {
-            visible: scr.hasBar
-            z: scr.hides ? 1 : 0
-            x: Rules.store.gapsOut * scr.u
-            y: x
-            width: scr.across ? scr.width - 2 * x : 64 * scr.u
-            height: scr.across ? 64 * scr.u : scr.height - 2 * y
-            radius: Theme.corner(Math.min(width, height) / 2)
-            color: scr.hides ? "transparent" : Theme.s1
-            border { width: 1; color: scr.hides ? Theme.mute : Theme.s2 }
-        }
     }
     // a module in the dock: address and dot, name, its key value, what that is
     component Tile: Rectangle {
