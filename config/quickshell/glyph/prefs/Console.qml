@@ -45,6 +45,18 @@ PanelWindow {
     property int cx: 2  // the column ↑↓ keep: b1 ↓ a2 ↓ lands on b3, not a3
 
     function at(c, r) { return mods.findIndex(m => m.r === r && c >= m.c && c < m.c + m.w); }
+    // a module's box on the wall, and its middle
+    function box(i) {
+        const d = mods[i];
+        return { x: 120 + d.c * 482, y: 130 + d.r * 291, w: 458 + (d.w - 1) * 482, h: 267 };
+    }
+    function mid(i) {
+        const b = box(i);
+        return Qt.point(b.x + b.w / 2, b.y + b.h / 2);
+    }
+    // its tile in the dock, and the box of an open module
+    function dockBox(i) { return { x: 72 + i * (tileW + 12), y: 848, w: tileW, h: 136 }; }
+    readonly property var whole: ({ x: 72, y: 110, w: 2436, h: 712 })
     function step(dc, dr) {
         const m = mods[sel];
         if (dc) {
@@ -58,10 +70,15 @@ PanelWindow {
     }
     // open module i; keys: straight to its first key. -1 — the wall
     property int cur: -1
+    property int page: 0 // the module on show: outlives cur on the way back to the wall
     function enter(i, keys) {
+        const was = cur;
+        if (was < 0 && i !== sel) leap(box(i)); // clicked: the frame grows out of that module, not the selected one
         sel = i;
         cx = mods[i].c;
+        page = i;
         cur = i;
+        if (was >= 0 && was !== i) leap(dockBox(i)); // another module: out of its tile
         stage.forceActiveFocus();
         if (keys) Qt.callLater(firstKey);
     }
@@ -75,8 +92,30 @@ PanelWindow {
 
     // ---- open and close: animates itself (glyph's layers are no_anim in hypr) ----
     property bool shown: false
-    property real t: shown ? 1 : 0
-    Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+    readonly property real t: shut.value
+    // springs, no bounce (components/Spring), exits quicker than entrances. Periods are Rune's: glide .32/.26
+    readonly property real pace: 1.3 // the openings only, not exits or the frame's way round the wall: higher is slower
+    readonly property bool still: !Rules.moving
+    readonly property real frameT: cur < 0 ? 0.26 : 0.32 * pace
+    // one frame: it goes round the wall with the selection and grows into the open module
+    readonly property var frameTo: cur < 0 ? box(sel) : whole
+    Spring { id: shut; to: root.shown ? 1 : 0; period: root.shown ? 0.32 * root.pace : 0.2; instant: root.still }
+    Spring { id: fx; to: root.frameTo.x; period: root.frameT; instant: root.still; epsilon: 0.05 }
+    Spring { id: fy; to: root.frameTo.y; period: root.frameT; instant: root.still; epsilon: 0.05 }
+    Spring { id: fw; to: root.frameTo.w; period: root.frameT; instant: root.still; epsilon: 0.05 }
+    Spring { id: fh; to: root.frameTo.h; period: root.frameT; instant: root.still; epsilon: 0.05 }
+    Spring { id: grow; to: root.cur < 0 ? 0 : 1; period: root.frameT; instant: root.still } // wall ↔ module
+    // the wall comes in as dots (components/Halftone) when the console opens
+    Spring { id: wallIn; to: 1; period: 0.7 * root.pace; instant: root.still }
+    property point waveAt // the selected module's middle at open: the arrows move on, the wave's centre stays
+    // a layer's copy, pixel for pixel: Qt takes an explicit textureSize as is, it adds neither the Stage's scale nor the screen's
+    readonly property real texScale: Theme.s * devicePixelRatio
+    function leap(b) {
+        fx.jump(b.x);
+        fy.jump(b.y);
+        fw.jump(b.w);
+        fh.jump(b.h);
+    }
     function open() {
         pickMon = Hyprland.focusedMonitor?.name ?? "";
         // the wall needs 2580 design px (21:9); a 16:10 stage is 1920 — the old prefs there, until a narrow wall exists
@@ -86,6 +125,12 @@ PanelWindow {
             return;
         }
         cur = -1;
+        leap(box(sel));
+        grow.jump(0);
+        if (t === 0) { // not when reopened on its way out
+            waveAt = mid(sel);
+            wallIn.jump(0);
+        }
         shown = true;
         stage.forceActiveFocus();
         Ddc.refresh(); // the monitors' own buttons may have moved it
@@ -327,9 +372,20 @@ PanelWindow {
             Item {
                 id: wall
                 anchors.fill: parent
-                visible: root.cur < 0
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                visible: root.cur < 0 || grow.value < 1
+                enabled: root.cur < 0
+                opacity: 1 - grow.value
+                // the camera goes in with the frame
+                transform: Scale {
+                    origin.x: root.mid(root.page).x
+                    origin.y: root.mid(root.page).y
+                    xScale: 1 + 0.03 * grow.value
+                    yScale: xScale
+                }
+                layer.enabled: wallIn.running
+                layer.smooth: true
+                layer.textureSize: Qt.size(width * root.texScale, height * root.texScale)
+                layer.effect: Halftone { progress: wallIn.value; origin: root.waveAt }
 
                 // the grid's letters and numbers: modules are addressed by them
                 Repeater {
@@ -783,30 +839,35 @@ PanelWindow {
 
             }
 
-            // ---- a module, open: the frame and, under it, the dock ----
+            // ---- a module, open: a solid sheet as big as the frame just now, so the module shows only inside it as it grows ----
             Item {
-                anchors.fill: parent
-                visible: root.cur >= 0
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                id: sheet
+                x: fx.value
+                y: fy.value
+                width: fw.value
+                height: fh.value
+                clip: fw.running
+                visible: root.cur >= 0 || grow.value > 0 // never `enabled: false` on the way back: keys and knobs grey out with it
+                opacity: root.cur >= 0 ? 1 : grow.value // solid on the way out, fading into the wall on the way back
+
+                Rectangle { anchors.fill: parent; color: Theme.bg }
 
                 Item {
                     id: frame
-                    readonly property var m: root.mods[Math.max(0, root.cur)]
-                    x: 72
-                    y: 110
-                    width: 2436
-                    height: 712
+                    readonly property var m: root.mods[root.page]
+                    // stays where it is on screen while the sheet moves over it
+                    x: root.whole.x - sheet.x
+                    y: root.whole.y - sheet.y
+                    width: root.whole.w
+                    height: root.whole.h
 
-                    Rectangle { anchors.fill: parent; color: "transparent"; border { width: 1.5; color: Theme.fg } }
-                    Brackets { anchors.fill: parent; size: 30; w: 3; color: Theme.fg }
                     Row {
                         x: 40
                         y: 30
                         spacing: 24
                         Lb { anchors.baseline: title.baseline; text: frame.m.tag; px: 13; color: Theme.mute }
                         D { id: title; text: frame.m.name.toUpperCase(); font.pixelSize: 88 }
-                        Lb { anchors.baseline: title.baseline; text: root.heads[Math.max(0, root.cur)]; px: 13 }
+                        Lb { anchors.baseline: title.baseline; text: root.heads[root.page]; px: 13 }
                     }
                     Lb {
                         anchors { right: parent.right; rightMargin: 40 }
@@ -1623,7 +1684,7 @@ PanelWindow {
                     // ---- a1 HOME (prefs/ConsoleHome) ----
                     Page {
                         i: 0
-                        ConsoleHome { id: homePage; x: 40; y: 150; ctl: root; live: root.cur === 0 && root.shown }
+                        ConsoleHome { id: homePage; x: 40; y: 150; ctl: root; live: root.page === 0 && sheet.visible && root.shown }
                     }
 
                     // ---- b1 DECK (prefs/ConsoleDeck) ----
@@ -1655,26 +1716,47 @@ PanelWindow {
                     // ---- e2 AUDIO (prefs/ConsoleAudio) ----
                     Page {
                         i: 7
-                        ConsoleAudio { id: audioPage; x: 40; y: 150; live: root.cur === 7 && root.shown }
+                        ConsoleAudio { id: audioPage; x: 40; y: 150; live: root.page === 7 && sheet.visible && root.shown }
                     }
 
                     // ---- d3 LIGHTS (prefs/ConsoleLights) ----
                     Page {
                         i: 11
-                        ConsoleLights { id: lightsPage; x: 40; y: 150; live: root.cur === 11 && root.shown }
+                        ConsoleLights { id: lightsPage; x: 40; y: 150; live: root.page === 11 && sheet.visible && root.shown }
                     }
                 }
 
-                // the dock: every module, its key value; the open one outlined with the accent dot
-                Row {
-                    x: 72
-                    y: 848
-                    spacing: 12
-                    Repeater {
-                        model: root.mods.length
-                        Tile {}
-                    }
+                // on its way back to the wall it still looks alive, but nothing on it takes a press or the wheel
+                MouseArea {
+                    anchors.fill: parent
+                    visible: root.cur < 0
+                    acceptedButtons: Qt.AllButtons
+                    onWheel: {}
                 }
+            }
+
+            // the dock: every module, its key value; the open one outlined with the accent dot
+            Row {
+                x: 72
+                y: 848
+                visible: root.cur >= 0 || grow.value > 0
+                enabled: root.cur >= 0
+                opacity: grow.value
+                spacing: 12
+                Repeater {
+                    model: root.mods.length
+                    Tile {}
+                }
+            }
+
+            // ---- the frame: on the selected module, around the open one ----
+            Item {
+                x: fx.value
+                y: fy.value
+                width: fw.value
+                height: fh.value
+                Rectangle { anchors.fill: parent; color: "transparent"; border { width: 1.5; color: Theme.fg } }
+                Brackets { anchors.fill: parent; size: 18 + 12 * grow.value; w: 2 + grow.value; color: Theme.fg }
             }
 
             // ---- the keys ----
@@ -1740,22 +1822,21 @@ PanelWindow {
         }
     }
 
-    // an open module's insides: shown only while it's open, so tab walks its keys alone
+    // an open module's insides: only the one on show, so tab walks its keys alone. The sheet hides it on the wall
     component Page: Item {
         required property int i
         width: 2436
         height: 712
-        visible: root.cur === i
-        opacity: visible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+        visible: root.page === i
     }
+    readonly property real tileW: (2436 - 12 * 12) / 13
     // a module in the dock: address and dot, name, its key value, what that is
     component Tile: Rectangle {
         id: tile
         required property int index
         readonly property var d: root.mods[index]
         readonly property bool open: root.cur === index
-        width: (2436 - 12 * 12) / 13
+        width: root.tileW
         height: 136
         color: "transparent"
         border { width: open ? 1.5 : 1; color: open ? Theme.fg : th.hovered ? Theme.mute : Theme.s2 }
@@ -1830,9 +1911,9 @@ PanelWindow {
     component Slot: Module {
         required property int i
         readonly property var d: root.mods[i]
-        x: 120 + d.c * 482
-        y: 130 + d.r * 291
-        width: 458 + (d.w - 1) * 482
+        x: root.box(i).x
+        y: root.box(i).y
+        width: root.box(i).w
         tag: d.tag
         name: d.name
         on: root.sel === i
