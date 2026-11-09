@@ -14,6 +14,9 @@ import qs.components
 Scope {
     id: root
 
+    // вспышка и остров — под баром, если он сверху и есть на экране в фокусе (там они и встают)
+    readonly property bool underBar: Theme.state.barAt === "top" && Theme.scr(Hyprland.focusedMonitor?.name, "bar")
+
     // ---- справа: громкость и яркость ----
     property string kind: "vol"
     property real value: 0
@@ -101,7 +104,7 @@ Scope {
         id: top
         shown: !!root.note && Theme.state.edges
         anchors.top: true
-        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // под баром
+        margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
         implicitWidth: Math.ceil(640 * Theme.s)
         implicitHeight: Math.ceil(30 * Theme.s)
         Seg {
@@ -134,7 +137,7 @@ Scope {
         // to show: an idle overlay there blocks direct scanout
         visible: stack.count > 0 || !(Hyprland.focusedMonitor?.activeWorkspace?.hasFullscreen ?? false)
         anchors.top: true
-        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // под баром
+        margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
         implicitWidth: Math.ceil(600 * Theme.s)
         implicitHeight: Math.ceil((24 + root.most * 132) * Theme.s)
         exclusionMode: ExclusionMode.Ignore

@@ -11,7 +11,9 @@ MouseArea {
     acceptedButtons: Qt.NoButton
     scrollGestureEnabled: false
     onWheel: e => {
-        acc += Sys.wheel(e); // local: hypr's scroll_factor taken out (Sys)
+        const dy = (e.inverted ? -1 : 1) * Sys.wheel(e); // natural scroll — колесо от себя всё равно +1; local: hypr's scroll_factor taken out (Sys)
+        if (acc * dy < 0) acc = 0; // развернули на полпути засечки — остаток не в счёт
+        acc += dy;
         while (Math.abs(acc) >= 120) {
             notch(Math.sign(acc));
             acc -= Math.sign(acc) * 120;
