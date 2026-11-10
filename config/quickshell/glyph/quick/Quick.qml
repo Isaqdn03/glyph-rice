@@ -48,7 +48,26 @@ PanelWindow {
     // (that ate the first frames of the slide), and each frame redraws this strip, not the whole screen. The dim is its own
     // surface (below). Gone over a fullscreen window, like Hot: an overlay there blocks direct scanout
     readonly property bool full: Hyprland.focusedMonitor?.activeWorkspace?.hasFullscreen ?? false
-    visible: !full || open || t > 0
+    visible: !away && (!full || open || t > 0)
+    // local: on the focused screen, picked again while closed and whenever the screens change. With no screen the strip went
+    // wherever the cursor was at login and died with that output (closing the lid after login turns eDP-1 off): visible never
+    // changed, so nothing mapped it again and the hover only dimmed. A new home drops the surface for a tick (away), so it's
+    // mapped afresh even when the old one is already gone
+    property var home: null
+    property bool away: true
+    screen: home
+    readonly property bool idle: !open && t === 0
+    function rehome() {
+        const s = Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null;
+        if (s === home) return;
+        away = true;
+        home = s;
+        if (s) Qt.callLater(() => away = false);
+    }
+    Component.onCompleted: rehome()
+    onIdleChanged: if (idle) rehome()
+    Connections { target: Quickshell; function onScreensChanged() { root.rehome(); } }
+    Connections { target: Hyprland; function onFocusedMonitorChanged() { if (root.idle) root.rehome(); } }
     anchors { right: true; top: true; bottom: true }
     implicitWidth: Math.ceil((470 + 14) * Theme.s)
     mask: Region { item: root.open ? zone : null }
