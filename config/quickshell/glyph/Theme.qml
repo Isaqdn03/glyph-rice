@@ -301,6 +301,18 @@ for f in gtk-3.0/gtk.css gtk-4.0/gtk.css qtengine.colors; do
 done`,
             "bash", Quickshell.shellPath("term"), riceState + "/glyph"].concat(sed));
         fox(); // local: Firefox follows the palette too
+        nvim(); // local: so does Neovim
+    }
+
+    // local: Neovim through ~/.config/nvim/colors/glyph.lua, which reads this file and reloads on SIGUSR1 (its Signal
+    // autocmd; an nvim without it ignores the signal). The palette as it is, light included; mono — nothing (no id): the
+    // scheme keeps its greys-only syntax
+    FileView { id: nvimPal; path: Quickshell.env("HOME") + "/.config/demonshot/nvim.json"; blockWrites: true; printErrors: false }
+    function nvim() {
+        const h = c => "#" + hex(c);
+        nvimPal.setText(JSON.stringify({ mono: !pal.id, light, bg: h(bg), s1: h(s1), s2: h(s2), s3: h(s3), mute: h(mute), grey: h(grey),
+                                         fg: h(fg), ink: h(ink), accent: h(accent), red: h(red), ansi: pal.ansi.map(h) }, null, 2) + "\n");
+        Quickshell.execDetached(["pkill", "-USR1", "-x", "nvim"]);
     }
 
     // local: Firefox through Pywalfox (AUR python-pywalfox + its AMO add-on), which themes the browser live from pywal's
