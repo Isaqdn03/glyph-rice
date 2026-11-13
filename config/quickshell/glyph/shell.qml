@@ -31,9 +31,7 @@ ShellRoot {
     Launcher { id: launcher }
     Quick { id: quick; onPowerRequested: power.open(); onSettingsRequested: prefs.open() }
     Power { id: power }
-    // local: prefs as a console (prefs/Console.qml); the old prefs for a screen narrower than its wall (the 16:10 laptop)
-    Console { id: prefs; onWallRequested: walls.open(); onNarrowRequested: pages.open() }
-    Prefs { id: pages; onWallRequested: walls.open() } // local
+    Console { id: prefs; onWallRequested: walls.open() } // local: prefs as a console (prefs/Console.qml); Prefs.qml stays, unused
     Glyph {}
     Buds {}
     Cal { id: cal }
@@ -144,7 +142,7 @@ ShellRoot {
     Shortcut { name: "altar"; description: "deck: дашборд снизу"; onPressed: deck.toggle() }
     Shortcut { name: "quick"; description: "быстрые настройки"; onPressed: quick.toggle() }
     Shortcut { name: "ward"; description: "быстрые настройки"; onPressed: quick.toggle() } // Super+N у demonshot — те же тумблеры
-    Shortcut { name: "settings"; description: "настройки"; onPressed: pages.shown ? pages.close() : prefs.toggle() } // local: pages
+    Shortcut { name: "settings"; description: "настройки"; onPressed: prefs.toggle() }
     Shortcut { name: "power"; description: "меню питания"; onPressed: power.visible ? power.close() : power.open() }
     Shortcut { name: "shot"; description: "скриншот"; onPressed: shot.open() }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }

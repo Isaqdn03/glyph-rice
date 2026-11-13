@@ -17,55 +17,70 @@ import qs.settings
 // selected module's dot. ←↑↓→ move, ↵ / tab / click open, esc closes.
 // Open, a module fills a frame — header, the object it sets on the left, its keys on the right — with the other modules
 // in a dock under it: tab walks the keys, [ ] the modules, esc goes back to the wall.
-// Same API as Prefs.qml (open, close, toggle, wallRequested), shell.qml swaps it in. A screen narrower than the wall (the 16:10
-// laptop) gets the old Prefs instead (narrowRequested)
+// Same API as Prefs.qml (open, close, toggle, wallRequested), shell.qml swaps it in.
+// archhdd: two boards. The wide one, 2580 × 1080, is the desktop's pair of 21:9 screens; a screen narrower than 2 : 1 (this
+// 16:10 panel) gets a narrow one, 1920 × 1200 — the wall 4 × 4, a narrower frame and dock, each page drawn closer, and what
+// still doesn't fit a page shrinks (Page). Either board is scaled to fill the screen it opens on, so it comes out the same
+// size whichever screen Theme.s was taken from
 PanelWindow {
     id: root
 
     signal wallRequested
-    signal narrowRequested
 
-    // the wall, left to right and down: c, r — top-left cell, w — cells wide
-    readonly property var mods: [
-        { tag: "a1", name: "home", c: 0, r: 0, w: 1 },
-        { tag: "b1", name: "deck", c: 1, r: 0, w: 1 },
-        { tag: "c1", name: "bar", c: 2, r: 0, w: 1 },
-        { tag: "d1", name: "look", c: 3, r: 0, w: 1 },
-        { tag: "e1", name: "style", c: 4, r: 0, w: 1 },
-        { tag: "a2", name: "windows", c: 0, r: 1, w: 2 },
-        { tag: "c2", name: "display", c: 2, r: 1, w: 2 },
-        { tag: "e2", name: "audio", c: 4, r: 1, w: 1 },
-        { tag: "a3", name: "power", c: 0, r: 2, w: 1 },
-        { tag: "b3", name: "input", c: 1, r: 2, w: 1 },
-        { tag: "c3", name: "idle", c: 2, r: 2, w: 2 }, // archhdd: where idle and lights were
-        { tag: "e3", name: "shell", c: 4, r: 2, w: 1 }
-    ]
+    property bool narrow: false // set at open, by the screen it opens on
+    property real guessW: 2580  // that screen in design px, until the stage has its own size
+    property real guessH: 1080
+    readonly property real boardW: narrow ? 1920 : 2580
+    readonly property real boardH: narrow ? 1200 : 1080
+    readonly property real fit: Math.min((stage.width || guessW) / boardW, (stage.height || guessH) / boardH)
+    readonly property real zoom: Theme.s * fit // window px to a board px: an untargeted drag's shift is divided by it
+
+    // the wall, left to right and down: c, r — top-left cell, w — cells wide; the tag says where it sits. Narrow: two wide
+    // rows between the short ones, in the same order as the dock
+    readonly property var modNames: ["home", "deck", "bar", "look", "style", "windows", "display", "audio", "power", "input", "idle", "shell"]
+    readonly property var places: narrow
+        ? [[0, 0, 1], [1, 0, 1], [2, 0, 1], [3, 0, 1], [0, 1, 2], [2, 1, 2], [0, 2, 2], [2, 2, 2], [0, 3, 1], [1, 3, 1], [2, 3, 1], [3, 3, 1]]
+        : [[0, 0, 1], [1, 0, 1], [2, 0, 1], [3, 0, 1], [4, 0, 1], [0, 1, 2], [2, 1, 2], [4, 1, 1], [0, 2, 1], [1, 2, 1], [2, 2, 2], [4, 2, 1]]
+    readonly property var mods: modNames.map((n, i) => {
+        const [c, r, w] = places[i];
+        return { tag: "abcde"[c] + (r + 1), name: n, c, r, w };
+    })
+    // the grid: its first cell at x, y; cells w × h, gap apart
+    readonly property var lay: narrow ? { x: 96, y: 130, w: 426, h: 222, gap: 24, cols: 4, rows: 4 }
+                                      : { x: 120, y: 130, w: 458, h: 267, gap: 24, cols: 5, rows: 3 }
     property int sel: 6 // remembered between opens; display first
     property int cx: 2  // the column ↑↓ keep: b1 ↓ a2 ↓ lands on b3, not a3
 
     function at(c, r) { return mods.findIndex(m => m.r === r && c >= m.c && c < m.c + m.w); }
     // a module's box on the wall, and its middle
     function box(i) {
-        const d = mods[i];
-        return { x: 120 + d.c * 482, y: 130 + d.r * 291, w: 458 + (d.w - 1) * 482, h: 267 };
+        const d = mods[i], g = lay;
+        return { x: g.x + d.c * (g.w + g.gap), y: g.y + d.r * (g.h + g.gap), w: g.w + (d.w - 1) * (g.w + g.gap), h: g.h };
     }
     function mid(i) {
         const b = box(i);
         return Qt.point(b.x + b.w / 2, b.y + b.h / 2);
     }
-    // its tile in the dock, and the box of an open module
-    function dockBox(i) { return { x: 72 + i * (tileW + 12), y: 848, w: tileW, h: 136 }; }
-    readonly property var whole: ({ x: 72, y: 110, w: 2436, h: 712 })
+    // the box of an open module, and its tile in the dock under it
+    readonly property var whole: narrow ? { x: 48, y: 100, w: 1824, h: 840 } : { x: 72, y: 110, w: 2436, h: 712 }
+    function dockBox(i) { return { x: whole.x + i * (tileW + 12), y: whole.y + whole.h + 26, w: tileW, h: 136 }; }
+    // an open page: the object it sets (left, objW wide) and its keys (from ctlX, ctlW wide), in frame px
+    readonly property real objW: narrow ? 860 : 1180
+    readonly property real ctlX: narrow ? 950 : 1290
+    readonly property real ctlW: narrow ? 834 : 1106
+    readonly property real unit: narrow ? 13 : 18 // idle: px a minute along the line
     function step(dc, dr) {
         const m = mods[sel];
+        let j = -1;
         if (dc) {
             const c = dc < 0 ? m.c - 1 : m.c + m.w;
-            if (c < 0 || c > 4) return;
-            sel = at(c, m.r);
-            cx = mods[sel].c;
-        } else if (m.r + dr >= 0 && m.r + dr <= 2) {
-            sel = at(cx, m.r + dr);
+            if (c < 0 || c >= lay.cols) return;
+            j = at(c, m.r);
+            if (j >= 0) cx = mods[j].c;
+        } else if (m.r + dr >= 0 && m.r + dr < lay.rows) {
+            j = at(Math.min(cx, lay.cols - 1), m.r + dr);
         }
+        if (j >= 0) sel = j;
     }
     // open module i; keys: straight to its first key. -1 — the wall
     property int cur: -1
@@ -108,7 +123,7 @@ PanelWindow {
     Spring { id: wallIn; to: 1; period: 0.7 * root.pace; instant: root.still }
     property point waveAt // the selected module's middle at open: the arrows move on, the wave's centre stays
     // a layer's copy, pixel for pixel: Qt takes an explicit textureSize as is, it adds neither the Stage's scale nor the screen's
-    readonly property real texScale: Theme.s * devicePixelRatio
+    readonly property real texScale: zoom * devicePixelRatio
     function leap(b) {
         fx.jump(b.x);
         fy.jump(b.y);
@@ -117,11 +132,11 @@ PanelWindow {
     }
     function open() {
         pickMon = Hyprland.focusedMonitor?.name ?? "";
-        // the wall needs 2580 design px (21:9); a 16:10 stage is 1920 — the old prefs there, until a narrow wall exists
         const s = Quickshell.screens.find(x => x.name === pickMon);
-        if (s && s.width / Theme.s < 2580) {
-            narrowRequested();
-            return;
+        if (s) {
+            narrow = s.width / s.height < 2;
+            guessW = s.width / Theme.s;
+            guessH = s.height / Theme.s;
         }
         cur = -1;
         leap(box(sel));
@@ -341,23 +356,25 @@ PanelWindow {
             e.accepted = true;
         }
 
-        // drawn at 2580 × 1080: on a bigger stage (32:9, or this screen at a lower scale than the first) it sits in the middle
+        // the board, scaled to fill the stage, in its middle: on 32:9 there's room either side
         Item {
-            x: Math.max(0, (parent.width - width) / 2)
-            y: Math.max(0, (parent.height - height) / 2)
-            width: 2580
-            height: 1080
+            x: (parent.width - width * scale) / 2
+            y: (parent.height - height * scale) / 2
+            width: root.boardW
+            height: root.boardH
+            scale: root.fit
+            transformOrigin: Item.TopLeft
 
             // ---- header: the rice and the time ----
             Row {
-                x: 72
+                x: root.whole.x
                 y: 36
                 spacing: 18
                 D { id: brand; text: root.meta.name ?? "GLYPH"; font.pixelSize: 34 }
                 Lb { anchors.baseline: brand.baseline; text: "prefs"; px: 13 }
             }
             Row {
-                anchors { right: parent.right; rightMargin: 72 }
+                anchors { right: parent.right; rightMargin: root.boardW - root.whole.x - root.whole.w }
                 y: 36
                 spacing: 18
                 Lb { anchors.baseline: hc.baseline; text: Qt.locale("en_US").toString(clock.date, "ddd · d MMM"); px: 13 }
@@ -385,12 +402,27 @@ PanelWindow {
 
                 // the grid's letters and numbers: modules are addressed by them
                 Repeater {
-                    model: ["a", "b", "c", "d", "e"]
-                    Lb { required property string modelData; required property int index; x: 349 + index * 482 - width / 2; y: 96; text: modelData; px: 13; color: Theme.mute }
+                    model: "abcde".slice(0, root.lay.cols).split("")
+                    Lb {
+                        required property string modelData
+                        required property int index
+                        x: root.lay.x + root.lay.w / 2 + index * (root.lay.w + root.lay.gap) - width / 2
+                        y: 96
+                        text: modelData
+                        px: 13
+                        color: Theme.mute
+                    }
                 }
                 Repeater {
-                    model: 3
-                    Lb { required property int index; x: 78; y: 263 + index * 291 - height / 2; text: index + 1; px: 13; color: Theme.mute }
+                    model: root.lay.rows
+                    Lb {
+                        required property int index
+                        x: root.lay.x - 42
+                        y: Math.floor(root.lay.y + root.lay.h / 2 + index * (root.lay.h + root.lay.gap) - height / 2)
+                        text: index + 1
+                        px: 13
+                        color: Theme.mute
+                    }
                 }
 
                 // ---- a1 HOME: the bento as it packs on this screen ----
@@ -490,7 +522,7 @@ PanelWindow {
                                 id: lamps
                                 anchors.centerIn: parent
                                 columns: pill.across ? Theme.bars.length : 1
-                                spacing: 7
+                                spacing: root.narrow ? 5 : 7 // a narrow wall's cells are lower
                                 Repeater {
                                     model: pill.tray.concat(Theme.bars.filter(b => !pill.tray.includes(b)))
                                     Dot { required property string modelData; lit: pill.tray.includes(modelData) }
@@ -515,7 +547,7 @@ PanelWindow {
                 Slot {
                     i: 3
                     Column {
-                        y: 22
+                        y: root.narrow ? (parent.height - height) / 2 : 22
                         Row {
                             D { id: lookH; text: Theme.hh(clock.date); font.pixelSize: 76 }
                             D { text: ":"; font.pixelSize: 76; opacity: root.dim ? 0.2 : 1 }
@@ -538,7 +570,7 @@ PanelWindow {
                 Slot {
                     i: 4
                     Column {
-                        y: 18
+                        y: root.narrow ? (parent.height - height) / 2 : 18
                         width: parent.width
                         Row {
                             spacing: 10
@@ -642,7 +674,7 @@ PanelWindow {
                             readonly property real k: Math.min(width / bw, height / bh)
                             anchors.verticalCenter: parent.verticalCenter
                             width: 240
-                            height: 184
+                            height: root.narrow ? 140 : 184
                             Repeater {
                                 model: map.ms
                                 Rectangle {
@@ -682,7 +714,7 @@ PanelWindow {
                 Slot {
                     i: 7
                     Column {
-                        y: 4
+                        y: root.narrow ? (parent.height - height) / 2 : 4
                         width: parent.width
                         Row {
                             spacing: 34
@@ -728,7 +760,7 @@ PanelWindow {
                 Slot {
                     i: 9
                     Column {
-                        y: 10
+                        y: root.narrow ? (parent.height - height) / 2 : 10
                         Row {
                             spacing: 40
                             Stat { v: Rules.store.repeatDelay; label: "delay ms" }
@@ -750,7 +782,7 @@ PanelWindow {
                 Slot {
                     i: 10
                     Column {
-                        y: 6
+                        y: root.narrow ? (parent.height - height) / 2 : 6
                         Row {
                             spacing: 14
                             D { id: idleN; text: root.nextIdle ? root.nextIdle[1] : "—"; font.pixelSize: 64 }
@@ -760,7 +792,7 @@ PanelWindow {
                             id: hour
                             readonly property int n: root.mods[10].w > 1 ? 61 : 31
                             topPadding: 22
-                            spacing: 6
+                            spacing: root.narrow ? 5 : 6
                             Repeater {
                                 model: hour.n
                                 Rectangle {
@@ -853,11 +885,13 @@ PanelWindow {
                         Item {
                             x: 40
                             y: 150
-                            width: 1180
+                            width: root.objW
                             height: 540
                             ConsoleScreen {
                                 id: wdesk
                                 ctl: root
+                                maxW: root.narrow ? 860 : 1140
+                                maxH: root.narrow ? 560 : 480
                                 Repeater {
                                     model: 2
                                     Item {
@@ -901,18 +935,18 @@ PanelWindow {
                                     }
                                 }
                             }
-                            Lb { y: 500; px: 11; color: Theme.mute; text: `to scale · ${root.aspect(root.disp.lw, root.disp.lh)} · ${root.disp.name}${wdesk.hides ? " · the bar hides" : ""} · the knobs drive it` }
+                            Lb { y: Math.max(500, wdesk.height + 20); px: 11; color: Theme.mute; text: `to scale · ${root.aspect(root.disp.lw, root.disp.lh)} · ${root.disp.name}${wdesk.hides ? " · the bar hides" : ""} · the knobs drive it` }
                         }
 
                         Column {
-                            x: 1290
+                            x: root.ctlX
                             y: 150
                             spacing: 36
                             Block {
                                 title: "knobs"
                                 note: "drag round · scroll · ←→"
                                 Row {
-                                    spacing: 56
+                                    spacing: root.narrow ? 38 : 56
                                     Knob { label: "gaps in"; to: 30; value: Rules.store.gapsIn; onMoved: v => { Rules.store.gapsIn = v; Theme.apply(); } }
                                     Knob { label: "gaps out"; to: 60; value: Rules.store.gapsOut; onMoved: v => { Rules.store.gapsOut = v; Theme.apply(); } }
                                     Knob { label: "border"; to: 6; value: Rules.store.border; onMoved: v => { Rules.store.border = v; Theme.apply(); } }
@@ -952,7 +986,7 @@ PanelWindow {
                         Item {
                             x: 40
                             y: 150
-                            width: 1180
+                            width: root.objW
                             height: 540
 
                             Item {
@@ -967,7 +1001,7 @@ PanelWindow {
                                 readonly property real bw: Math.max(...ms.map(m => m.x + m.lw)) - x0
                                 readonly property real bh: Math.max(...ms.map(m => m.y + m.lh)) - y0
                                 readonly property real k: Math.min(width / bw, height / bh)
-                                width: 600
+                                width: root.narrow ? 480 : 600
                                 height: 502
                                 Repeater {
                                     model: dmap.ms
@@ -1018,7 +1052,7 @@ PanelWindow {
                                             cursorShape: Qt.ClosedHandCursor
                                             onActiveTranslationChanged: {
                                                 if (!active) return;
-                                                const m = sc.modelData, k = Theme.s * dmap.k;
+                                                const m = sc.modelData, k = root.zoom * dmap.k;
                                                 dmap.at = Rules.dock({ x: m.x + activeTranslation.x / k, y: m.y + activeTranslation.y / k, w: m.lw, h: m.lh },
                                                                      dmap.ms.filter(o => o.name !== m.name).map(o => ({ x: o.x, y: o.y, w: o.lw, h: o.lh })), 16 / dmap.k);
                                             }
@@ -1041,7 +1075,7 @@ PanelWindow {
 
                             // brightness: an external screen over DDC (services/Ddc), a built-in panel's backlight; else none
                             Knob {
-                                x: 700
+                                x: root.narrow ? 530 : 700
                                 enabled: !!root.ddc || root.ownBri
                                 size: 300
                                 n: 44
@@ -1052,7 +1086,7 @@ PanelWindow {
                                 onMoved: v => root.ddc ? root.ddc.set(v / 100) : Sys.setBri(v / 100)
                             }
                             Column {
-                                x: 700
+                                x: root.narrow ? 530 : 700
                                 y: 400
                                 D { text: `${root.disp.lw}×${root.disp.lh}`; font.pixelSize: 48 }
                                 Lb { topPadding: 12; px: 11; text: `logical · ${root.want.scale ? "" : "auto · "}× ${root.disp.scale} · ${root.disp.hz} hz` }
@@ -1060,10 +1094,11 @@ PanelWindow {
                         }
 
                         Item {
-                            x: 1290
+                            x: root.ctlX
                             y: 150
                             Column {
-                                spacing: 36
+                                id: dispA
+                                spacing: root.narrow ? 26 : 36
                                 Block {
                                     title: "screen"
                                     Bank { minW: 84; opts: root.sorted; cur: root.sorted.indexOf(root.mon); onPicked: i => root.pickMon = root.sorted[i] }
@@ -1088,9 +1123,11 @@ PanelWindow {
                                     }
                                 }
                             }
+                            // narrow: under the first column
                             Column {
-                                x: 600
-                                spacing: 36
+                                x: root.narrow ? 0 : 600
+                                y: root.narrow ? dispA.height + 26 : 0
+                                spacing: root.narrow ? 26 : 36
                                 Block {
                                     title: "on this screen"
                                     Row {
@@ -1161,7 +1198,7 @@ PanelWindow {
                                             readonly property bool on: index === Rules.mode
                                             readonly property bool ring: modes.activeFocus && index === modes.at
                                             readonly property real r: Theme.corner(10)
-                                            width: 270
+                                            width: root.narrow ? 205 : 270
                                             height: 300
                                             topLeftRadius: index === 0 ? r : 0
                                             bottomLeftRadius: index === 0 ? r : 0
@@ -1212,7 +1249,7 @@ PanelWindow {
                             }
                         }
                         Column {
-                            x: 1290
+                            x: root.ctlX
                             y: 150
                             spacing: 34
                             Block {
@@ -1279,16 +1316,16 @@ PanelWindow {
                             }
                             Row {
                                 topPadding: 48
-                                spacing: 5
+                                spacing: root.narrow ? 4 : 5
                                 Repeater {
                                     model: 40
-                                    Rectangle { required property int index; width: 24; height: 24; radius: 12; color: index < inPage.n ? Theme.fg : Theme.s2 }
+                                    Rectangle { required property int index; width: root.narrow ? 17 : 24; height: width; radius: width / 2; color: index < inPage.n ? Theme.fg : Theme.s2 }
                                 }
                             }
                             Lb { topPadding: 20; px: 11; color: Theme.mute; text: "hold a key · the first comes at once, then the pause, then the rate" }
                         }
                         Column {
-                            x: 1290
+                            x: root.ctlX
                             y: 150
                             spacing: 30
                             Block {
@@ -1305,11 +1342,13 @@ PanelWindow {
                             Block {
                                 title: "pointer"
                                 Row {
+                                    id: ptr
+                                    readonly property real kw: root.narrow ? 195 : 220
                                     spacing: 12
-                                    Key { minW: 220; text: "natural scroll"; on: Rules.store.natural; onHit: { Rules.store.natural = !on; Rules.input(); } }
-                                    Key { minW: 220; text: "tap to click"; on: Rules.store.tap; onHit: { Rules.store.tap = !on; Rules.input(); } }
-                                    Key { minW: 220; text: "off while typing"; on: Rules.store.typingOff; onHit: { Rules.store.typingOff = !on; Rules.input(); } }
-                                    Key { minW: 220; text: "flat accel"; on: Rules.store.flat; onHit: { Rules.store.flat = !on; Rules.input(); } }
+                                    Key { minW: ptr.kw; text: "natural scroll"; on: Rules.store.natural; onHit: { Rules.store.natural = !on; Rules.input(); } }
+                                    Key { minW: ptr.kw; text: "tap to click"; on: Rules.store.tap; onHit: { Rules.store.tap = !on; Rules.input(); } }
+                                    Key { minW: ptr.kw; text: "off while typing"; on: Rules.store.typingOff; onHit: { Rules.store.typingOff = !on; Rules.input(); } }
+                                    Key { minW: ptr.kw; text: "flat accel"; on: Rules.store.flat; onHit: { Rules.store.flat = !on; Rules.input(); } }
                                 }
                             }
                             Block {
@@ -1336,7 +1375,7 @@ PanelWindow {
                             id: idleLine
                             x: 40
                             y: 150
-                            width: 1180
+                            width: root.objW
                             height: 540
                             readonly property var at: [lockM.v, dpmsM.v, sleepM.v]
                             Repeater {
@@ -1344,7 +1383,7 @@ PanelWindow {
                                 Rectangle {
                                     required property int index
                                     readonly property int lvl: idleLine.at.filter(m => m && m <= index).length
-                                    x: index * 18
+                                    x: index * root.unit
                                     y: 356
                                     width: 10
                                     height: 10
@@ -1353,12 +1392,12 @@ PanelWindow {
                                 }
                             }
                             // never: an empty ring past the line
-                            Rectangle { x: 1112; y: 352; width: 18; height: 18; radius: 9; color: "transparent"; border { width: 1.5; color: Theme.mute } }
+                            Rectangle { x: 61 * root.unit + 14; y: 352; width: 18; height: 18; radius: 9; color: "transparent"; border { width: 1.5; color: Theme.mute } }
                             Repeater {
                                 model: [0, 15, 30, 45, 60]
-                                Lb { required property int modelData; x: modelData * 18 + 5 - width / 2; y: 396; text: modelData; px: 13 }
+                                Lb { required property int modelData; x: modelData * root.unit + 5 - width / 2; y: 396; text: modelData; px: 13 }
                             }
-                            Lb { x: 1098; y: 420; text: "never"; px: 11 }
+                            Lb { x: 61 * root.unit; y: 420; text: "never"; px: 11 }
                             Mark { id: lockM; row: 0; label: "lock"; value: Rules.store.lockAfter; onMoved: v => { Rules.store.lockAfter = v; Rules.idle(); } }
                             Mark { id: dpmsM; row: 1; label: "screen off"; value: Rules.store.dpmsAfter; onMoved: v => { Rules.store.dpmsAfter = v; Rules.idle(); } }
                             Mark { id: sleepM; row: 2; label: Rules.hibernateOn ? "sleep · hibernate" : "sleep"; value: Rules.store.sleepAfter; onMoved: v => { Rules.store.sleepAfter = v; Rules.idle(); } }
@@ -1377,7 +1416,7 @@ PanelWindow {
                             }
                         }
                         Column {
-                            x: 1290
+                            x: root.ctlX
                             y: 150
                             spacing: 32
                             Block {
@@ -1447,7 +1486,7 @@ PanelWindow {
                         Row {
                             x: 40
                             y: 150
-                            spacing: 70
+                            spacing: root.narrow ? 40 : 70
                             Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 400
@@ -1468,13 +1507,13 @@ PanelWindow {
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 Lb { text: "running now"; px: 13 }
-                                D { topPadding: lead + 24; bottomPadding: lead + 24; text: root.meta.name ?? "GLYPH"; font.pixelSize: 160 }
+                                D { topPadding: lead + 24; bottomPadding: lead + 24; text: root.meta.name ?? "GLYPH"; font.pixelSize: root.narrow ? 120 : 160 }
                                 Lb { text: root.meta.tagline ?? ""; px: 13 }
                                 Lb { topPadding: 10; px: 11; color: Theme.mute; text: `${root.matrix.length} dots · the mark on a round matrix` }
                             }
                         }
                         Column {
-                            x: 1290
+                            x: root.ctlX
                             y: 150
                             spacing: 34
                             Block {
@@ -1513,64 +1552,75 @@ PanelWindow {
                         Item {
                             x: 40
                             y: 150
-                            width: 1180
+                            width: root.objW
                             height: 540
                             ConsoleScreen {
+                                id: lscr
                                 ctl: root
-                                Orb { visible: Theme.state.orb; x: 600; y: 70; scale: 340 / 1100; transformOrigin: Item.TopLeft }
-                                Row {
-                                    x: 80
-                                    y: 64
-                                    visible: Theme.state.homeClock
-                                    D { id: homeH; text: Theme.hh(clock.date); font.pixelSize: 140 }
-                                    D { text: ":"; font.pixelSize: 140; opacity: root.dim ? 0.2 : 1 }
-                                    D { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 140 }
-                                    Lb { visible: !Theme.state.clock24; anchors.baseline: homeH.baseline; leftPadding: 14; text: clock.date.getHours() < 12 ? "am" : "pm"; px: 13 }
-                                }
-                                Lb { x: 86; y: 226; visible: Theme.state.homeClock; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 13 }
-                                Text {
-                                    x: 84
-                                    y: 290
-                                    visible: Theme.state.homeHello
-                                    textFormat: Text.StyledText
-                                    text: `${root.hello.charAt(0).toUpperCase() + root.hello.slice(1)},<br><font color="${Theme.grey}">${root.who}.</font>`
-                                    font { family: Theme.mono; pixelSize: 34 }
-                                    lineHeight: 1.25
-                                    color: Theme.fg
-                                }
+                                maxW: root.narrow ? 860 : 1140
+                                maxH: root.narrow ? 560 : 480
+                                // laid out on a 1140-wide screen and scaled to this one (16:10 is narrower): home's parts keep their places
                                 Item {
-                                    anchors { right: parent.right; rightMargin: 56 }
-                                    y: 84
-                                    width: 190
-                                    height: 190
-                                    visible: Theme.state.homeBento && Theme.scr(root.mon, "home")
-                                    Repeater {
-                                        model: root.cells.filter(c => c.fits)
-                                        Rectangle {
-                                            required property var modelData
-                                            x: modelData.col * 66
-                                            y: modelData.row * 66
-                                            width: modelData.span * 66 - 8
-                                            height: 58
-                                            radius: modelData.span === 1 && root.rounds.includes(modelData.id) ? 29 : Theme.corner(12)
-                                            color: Theme.s1
-                                            border { width: 1; color: Theme.s2 }
+                                    width: 1140
+                                    height: lscr.height * 1140 / lscr.width
+                                    scale: lscr.width / 1140
+                                    transformOrigin: Item.TopLeft
+                                    Orb { visible: Theme.state.orb; x: 600; y: 70; scale: 340 / 1100; transformOrigin: Item.TopLeft }
+                                    Row {
+                                        x: 80
+                                        y: 64
+                                        visible: Theme.state.homeClock
+                                        D { id: homeH; text: Theme.hh(clock.date); font.pixelSize: 140 }
+                                        D { text: ":"; font.pixelSize: 140; opacity: root.dim ? 0.2 : 1 }
+                                        D { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 140 }
+                                        Lb { visible: !Theme.state.clock24; anchors.baseline: homeH.baseline; leftPadding: 14; text: clock.date.getHours() < 12 ? "am" : "pm"; px: 13 }
+                                    }
+                                    Lb { x: 86; y: 226; visible: Theme.state.homeClock; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 13 }
+                                    Text {
+                                        x: 84
+                                        y: 290
+                                        visible: Theme.state.homeHello
+                                        textFormat: Text.StyledText
+                                        text: `${root.hello.charAt(0).toUpperCase() + root.hello.slice(1)},<br><font color="${Theme.grey}">${root.who}.</font>`
+                                        font { family: Theme.mono; pixelSize: 34 }
+                                        lineHeight: 1.25
+                                        color: Theme.fg
+                                    }
+                                    Item {
+                                        anchors { right: parent.right; rightMargin: 56 }
+                                        y: 84
+                                        width: 190
+                                        height: 190
+                                        visible: Theme.state.homeBento && Theme.scr(root.mon, "home")
+                                        Repeater {
+                                            model: root.cells.filter(c => c.fits)
+                                            Rectangle {
+                                                required property var modelData
+                                                x: modelData.col * 66
+                                                y: modelData.row * 66
+                                                width: modelData.span * 66 - 8
+                                                height: 58
+                                                radius: modelData.span === 1 && root.rounds.includes(modelData.id) ? 29 : Theme.corner(12)
+                                                color: Theme.s1
+                                                border { width: 1; color: Theme.s2 }
+                                            }
                                         }
                                     }
+                                    // Glyph's edges: the volume on the right, what's playing along the bottom
+                                    Seg { visible: Theme.state.edges; anchors { right: parent.right; rightMargin: 14 } y: 140; width: 4; height: 114; n: 12; vertical: true; f: Sys.muted ? 0 : Sys.vol }
+                                    Seg { visible: Theme.state.edges; x: 440; anchors { bottom: parent.bottom; bottomMargin: 12 } width: 234; height: 4; n: 24; f: Media.player?.length > 0 ? Media.position / Media.player.length : 0 }
                                 }
-                                // Glyph's edges: the volume on the right, what's playing along the bottom
-                                Seg { visible: Theme.state.edges; anchors { right: parent.right; rightMargin: 14 } y: 140; width: 4; height: 114; n: 12; vertical: true; f: Sys.muted ? 0 : Sys.vol }
-                                Seg { visible: Theme.state.edges; x: 440; anchors { bottom: parent.bottom; bottomMargin: 12 } width: 234; height: 4; n: 24; f: Media.player?.length > 0 ? Media.position / Media.player.length : 0 }
                             }
-                            Lb { y: 500; px: 11; color: Theme.mute; text: `your screen · ${root.aspect(root.disp.lw, root.disp.lh)} · ${root.disp.name} · follows every key on the right` }
+                            Lb { y: Math.max(500, lscr.height + 20); px: 11; color: Theme.mute; text: `your screen · ${root.aspect(root.disp.lw, root.disp.lh)} · ${root.disp.name} · follows every key on the right` }
                         }
                         Column {
-                            x: 1290
+                            x: root.ctlX
                             y: 150
                             spacing: 34
                             Block {
                                 title: "home screen"
-                                Row {
+                                Flow {
+                                    width: root.ctlW
                                     spacing: 12
                                     Key { minW: 162; text: "light"; on: Theme.light; onHit: Theme.setLight(!Theme.light) }
                                     Key { minW: 162; text: "dot grid"; on: Theme.state.grid; onHit: Theme.state.grid = !on }
@@ -1651,28 +1701,33 @@ PanelWindow {
                     // ---- a1 HOME (prefs/ConsoleHome) ----
                     Page {
                         i: 0
+                        fitTo: homePage
                         ConsoleHome { id: homePage; x: 40; y: 150; ctl: root; live: root.page === 0 && sheet.visible && root.shown }
                     }
 
                     // ---- b1 DECK (prefs/ConsoleDeck) ----
                     Page {
                         i: 1
+                        fitTo: deckPage
                         ConsoleDeck { id: deckPage; x: 40; y: 150; ctl: root }
                     }
 
                     // ---- c1 BAR (prefs/ConsoleBar) ----
                     Page {
                         i: 2
+                        fitTo: barPage
                         ConsoleBar { id: barPage; x: 40; y: 150; ctl: root }
                     }
 
                     // ---- e1 STYLE (prefs/ConsoleStyle) ----
                     Page {
                         i: 4
+                        fitTo: stylePage
                         ConsoleStyle {
                             id: stylePage
                             x: 40
                             y: 150
+                            narrow: root.narrow
                             onWallRequested: {
                                 root.close();
                                 root.wallRequested();
@@ -1683,7 +1738,8 @@ PanelWindow {
                     // ---- e2 AUDIO (prefs/ConsoleAudio) ----
                     Page {
                         i: 7
-                        ConsoleAudio { id: audioPage; x: 40; y: 150; live: root.page === 7 && sheet.visible && root.shown }
+                        fitTo: audioPage
+                        ConsoleAudio { id: audioPage; x: 40; y: 150; narrow: root.narrow; live: root.page === 7 && sheet.visible && root.shown }
                     }
                 }
 
@@ -1698,8 +1754,8 @@ PanelWindow {
 
             // the dock: every module, its key value; the open one outlined with the accent dot
             Row {
-                x: 72
-                y: 848
+                x: root.whole.x
+                y: root.whole.y + root.whole.h + 26
                 visible: root.cur >= 0 || grow.value > 0
                 enabled: root.cur >= 0
                 opacity: grow.value
@@ -1722,7 +1778,7 @@ PanelWindow {
 
             // ---- the keys ----
             Row {
-                x: 72
+                x: root.whole.x
                 anchors { bottom: parent.bottom; bottomMargin: 36 }
                 spacing: 40
                 Repeater {
@@ -1745,7 +1801,7 @@ PanelWindow {
                 }
             }
             Hint {
-                anchors { right: parent.right; rightMargin: 72; bottom: parent.bottom; bottomMargin: 36 }
+                anchors { right: parent.right; rightMargin: root.boardW - root.whole.x - root.whole.w; bottom: parent.bottom; bottomMargin: 36 }
                 k: "esc"
                 text: root.cur < 0 ? "close" : "back to the wall"
                 TapHandler { onTapped: root.cur < 0 ? root.close() : root.back() }
@@ -1782,14 +1838,22 @@ PanelWindow {
         }
     }
 
-    // an open module's insides: only the one on show, so tab walks its keys alone. The sheet hides it on the wall
+    // an open module's insides: only the one on show, so tab walks its keys alone. The sheet hides it on the wall. Narrow:
+    // what still runs past the frame shrinks round the body's corner (40, 150) until it fits. fitTo: a page that is one
+    // component, measured by its children (its own box is empty)
     component Page: Item {
+        id: pg
         required property int i
-        width: 2436
-        height: 712
+        property Item fitTo: null
+        readonly property rect r: fitTo ? Qt.rect(fitTo.x + fitTo.childrenRect.x, fitTo.y + fitTo.childrenRect.y, fitTo.childrenRect.width, fitTo.childrenRect.height)
+                                        : childrenRect
+        readonly property real k: root.narrow ? Math.min(1, (width - 80) / Math.max(1, r.x + r.width - 40), (height - 170) / Math.max(1, r.y + r.height - 150)) : 1
+        width: root.whole.w
+        height: root.whole.h
         visible: root.page === i
+        transform: Scale { origin.x: 40; origin.y: 150; xScale: pg.k; yScale: pg.k }
     }
-    readonly property real tileW: (2436 - (mods.length - 1) * 12) / mods.length
+    readonly property real tileW: (whole.w - (mods.length - 1) * 12) / mods.length
     // a module in the dock: address and dot, name, its key value, what that is
     component Tile: Rectangle {
         id: tile
@@ -1814,7 +1878,7 @@ PanelWindow {
         id: cell
         property string label
         property string value
-        width: 547
+        width: root.narrow ? 411 : 547
         height: 124
         color: "transparent"
         border { width: 1; color: Theme.s2 }
@@ -1838,7 +1902,7 @@ PanelWindow {
         }
         onValueChanged: if (!ma.pressed && !wait.running) v = value
         Timer { id: wait; interval: 400; onTriggered: if (!ma.pressed && mk.v !== mk.value) mk.moved(mk.v) }
-        x: (v || 62) * 18 + 5
+        x: (v || 62) * root.unit + 5
         y: 20 + row * 100
         width: 200
         height: 361 - y
@@ -1860,7 +1924,7 @@ PanelWindow {
             // where on it the drag took hold, on the line: the mark moves by the drag, it doesn't jump to the pointer
             property real grab: 0
             onPressed: e => grab = mapToItem(mk.parent, e.x, 0).x - mk.x
-            onPositionChanged: e => mk.put((mapToItem(mk.parent, e.x, 0).x - grab - 5) / 18)
+            onPositionChanged: e => mk.put((mapToItem(mk.parent, e.x, 0).x - grab - 5) / root.unit)
             onReleased: {
                 wait.stop();
                 if (mk.v !== mk.value) mk.moved(mk.v);
@@ -1874,6 +1938,7 @@ PanelWindow {
         x: root.box(i).x
         y: root.box(i).y
         width: root.box(i).w
+        height: root.box(i).h
         tag: d.tag
         name: d.name
         on: root.sel === i

@@ -38,7 +38,10 @@ Item {
     readonly property int to: Math.round((at - 12) / 110)
 
     ConsoleScreen {
+        id: scr
         ctl: root.ctl
+        maxW: root.ctl.narrow ? 860 : 1140
+        maxH: root.ctl.narrow ? 560 : 480
 
         Rectangle {
             anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 44 }
@@ -86,7 +89,7 @@ Item {
                         target: null
                         yAxis.enabled: false
                         cursorShape: Qt.ClosedHandCursor
-                        onActiveTranslationChanged: root.dx = activeTranslation.x / Theme.s // window px, and the stage is scaled
+                        onActiveTranslationChanged: root.dx = activeTranslation.x / root.ctl.zoom // window px, and the board is scaled
                         onActiveChanged: {
                             if (active) {
                                 root.from = slot.index;
@@ -121,15 +124,16 @@ Item {
             }
         }
     }
-    Lb { y: 500; px: 11; color: Theme.mute; text: `your screen · ${root.ctl.aspect(root.ctl.disp.lw, root.ctl.disp.lh)} · lit dots on an edge = it opens on hover` }
+    Lb { y: Math.max(500, scr.height + 20); px: 11; color: Theme.mute; text: `your screen · ${root.ctl.aspect(root.ctl.disp.lw, root.ctl.disp.lh)} · lit dots on an edge = it opens on hover` }
 
     Column {
-        x: 1250
+        x: root.ctl.narrow ? 910 : 1250
         spacing: 34
         Block {
             title: "sections"
             note: "in strip order · shift ←→ moves one"
-            Row {
+            Flow {
+                width: root.ctl.narrow ? 834 : 1106
                 spacing: 12
                 Repeater {
                     id: secs

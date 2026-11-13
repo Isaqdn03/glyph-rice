@@ -10,6 +10,7 @@ Item {
     id: root
 
     signal wallRequested
+    property bool narrow: false // the console's narrow board: smaller swatches, the keys closer
     property Item hot: null // the swatch under the pointer or in focus
     readonly property var p: hot?.it?.pal ?? Theme.pal
     readonly property var c: p.c
@@ -43,12 +44,12 @@ Item {
                 id: slot
                 required property var modelData
                 readonly property color col: modelData.k ? root.p[modelData.k] : root.c[modelData.i]
-                width: 150
+                width: root.narrow ? 112 : 150
                 spacing: 10
                 Rectangle {
-                    width: 110
-                    height: 110
-                    radius: 55
+                    width: root.narrow ? 96 : 110
+                    height: width
+                    radius: width / 2
                     color: slot.col
                     border { width: 1; color: Theme.s3 }
                     Behavior on color { ColorAnimation { duration: Theme.t } }
@@ -83,7 +84,7 @@ Item {
         Column {
             anchors.bottom: parent.bottom
             spacing: 12
-            D { width: 760; elide: Text.ElideRight; text: root.name.toUpperCase(); font.pixelSize: 52 }
+            D { width: root.narrow ? 448 : 760; elide: Text.ElideRight; text: root.name.toUpperCase(); font.pixelSize: 52 }
             Lb { text: root.from; px: 11 }
         }
     }
@@ -91,10 +92,10 @@ Item {
 
     // ---- the keys ----
     Column {
-        x: 1250
+        x: root.narrow ? 910 : 1250
         spacing: 26
         Row {
-            spacing: 40
+            spacing: root.narrow ? 32 : 40
             Block {
                 title: "colour from"
                 Bank {
@@ -133,7 +134,8 @@ Item {
             visible: root.wall
             title: "tones"
             note: "from the wallpaper"
-            Row {
+            Flow {
+                width: root.narrow ? 834 : 1106
                 spacing: 12
                 Repeater {
                     model: root.block("tones").length
@@ -146,7 +148,7 @@ Item {
             title: "variant"
             note: "how much colour"
             Flow {
-                width: 1106
+                width: root.narrow ? 834 : 1106
                 spacing: 12
                 Repeater {
                     model: root.block("variant").length
@@ -163,7 +165,8 @@ Item {
                 readonly property var b: Theme.styles[index + 1] ?? ({ head: "", items: [] })
                 spacing: 20
                 Lb { anchors.verticalCenter: parent.verticalCenter; width: 150; text: grp.b.head; px: 13; color: Theme.fg }
-                Row {
+                Flow {
+                    width: (root.narrow ? 834 : 1106) - 170
                     spacing: 12
                     Repeater {
                         model: grp.b.items.length

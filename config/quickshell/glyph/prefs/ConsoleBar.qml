@@ -33,7 +33,8 @@ Item {
         pressing = false;
     }
     readonly property bool across: Theme.state.barAt === "top"
-    readonly property real step: across ? 100 : 52
+    readonly property real step: across ? ctl.narrow ? 84 : 100 : 52
+    readonly property real ctlX: ctl.narrow ? 910 : 1250 // the keys
     readonly property string head: `desktop · ${ids.length} of ${Theme.bars.length} in the tray · ${across ? "top" : "left"} edge`
     // a part being dragged (-1 — none): d — the pointer's shift along the bar, at — where it is, to — where it'd land
     property int from: -1
@@ -44,7 +45,7 @@ Item {
     // ---- the tray ----
     Rectangle {
         readonly property int n: Math.max(1, root.ids.length)
-        width: root.across ? n * 100 + 20 : 60
+        width: root.across ? n * root.step + 20 : 60
         height: root.across ? 106 : n * 52 + 20
         radius: Theme.corner(root.across ? 40 : 30)
         color: Theme.s1
@@ -68,7 +69,7 @@ Item {
                 x: root.across ? pos : 0
                 y: root.across ? 0 : pos
                 z: bd.active ? 1 : 0
-                width: root.across ? 100 : 60
+                width: root.across ? root.step : 60
                 height: root.across ? parent.height : 52
                 Rectangle {
                     id: partDot
@@ -94,7 +95,7 @@ Item {
                     xAxis.enabled: root.across
                     yAxis.enabled: !root.across
                     cursorShape: Qt.ClosedHandCursor
-                    onActiveTranslationChanged: root.d = (root.across ? activeTranslation.x : activeTranslation.y) / Theme.s
+                    onActiveTranslationChanged: root.d = (root.across ? activeTranslation.x : activeTranslation.y) / root.ctl.zoom
                     onActiveChanged: {
                         if (active) {
                             root.from = part.index;
@@ -113,7 +114,7 @@ Item {
 
     // ---- each screen with its bar ----
     Grid {
-        x: root.across ? 0 : 400
+        x: root.across ? 0 : root.ctl.narrow ? 340 : 400
         y: root.across ? 170 : 0
         columns: root.across ? 2 : 1
         spacing: root.across ? 40 : 26
@@ -127,8 +128,8 @@ Item {
                 readonly property bool hides: !root.across && Theme.state.barHide.includes(scr)
                 spacing: 10
                 Rectangle {
-                    width: 520
-                    height: 218
+                    width: root.ctl.narrow && root.across ? 400 : 520 // narrow: two side by side under a top bar's tray
+                    height: width * 218 / 520
                     color: "transparent"
                     border { width: 1; color: Theme.s3 }
                     Image {
@@ -158,11 +159,12 @@ Item {
 
     // ---- the keys ----
     Block {
-        x: 1250
+        id: trayKeys
+        x: root.ctlX
         title: "tray"
         note: "in bar order · shift ←→ moves one"
         Flow {
-            width: 1106
+            width: root.ctl.narrow ? 834 : 1106
             spacing: 12
             Repeater {
                 id: parts
@@ -182,9 +184,10 @@ Item {
             }
         }
     }
+    // narrow: under the tray's keys, side by side
     Column {
-        x: 1250
-        y: 236
+        x: root.ctlX
+        y: root.ctl.narrow ? trayKeys.height + 30 : 236
         spacing: 12
         Block {
             title: "edge"
@@ -198,8 +201,8 @@ Item {
         Lb { px: 10; color: Theme.mute; text: root.across ? "the title sits left of the clock" : "the title sits above the clock" }
     }
     Column {
-        x: 1810
-        y: 236
+        x: root.ctl.narrow ? root.ctlX + 400 : 1810
+        y: root.ctl.narrow ? trayKeys.height + 30 : 236
         spacing: 30
         // local: per monitor, by model (bar/Bar.qml) — keeps static white off OLEDs. Only a left bar can hide
         Block {

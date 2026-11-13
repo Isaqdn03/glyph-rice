@@ -19,7 +19,10 @@ Rectangle {
     readonly property real g: Rules.store.gapsIn * k
     readonly property real l: hasBar && !hides ? (64 + Rules.store.gapsOut) * u + o : o
 
-    width: 1140
+    // as wide as it may be, unless that would be taller than maxH (16:10 is)
+    property real maxW: 1140
+    property real maxH: 480
+    width: Math.min(maxW, maxH * (disp.lw || 2752) / (disp.lh || 1152))
     height: width * (disp.lh || 1152) / (disp.lw || 2752)
     color: "transparent"
     border { width: 1; color: Theme.s3 }

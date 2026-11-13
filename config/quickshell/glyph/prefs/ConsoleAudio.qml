@@ -10,6 +10,7 @@ Item {
     id: root
 
     property bool live: false
+    property bool narrow: false // the console's narrow board: the sides closer, the device lists one under the other
     readonly property var outs: devs(true)
     readonly property var ins: devs(false)
     readonly property string head: `system · pipewire · ${outs.length} out · ${ins.length} in`
@@ -35,10 +36,10 @@ Item {
     }
 
     Side { id: outSide; x: 0; out: true; label: "output"; node: Sys.sink; list: root.outs }
-    Side { id: inSide; x: 600; out: false; label: "input"; node: Sys.mic; list: root.ins }
+    Side { id: inSide; x: root.narrow ? 440 : 600; out: false; label: "input"; node: Sys.mic; list: root.ins }
 
-    Devices { x: 1250; label: "output"; note: "lamp = default"; side: outSide }
-    Devices { x: 1822; label: "input"; side: inSide }
+    Devices { id: outDevs; x: root.narrow ? 910 : 1250; label: "output"; note: "lamp = default"; side: outSide }
+    Devices { x: root.narrow ? 910 : 1822; y: root.narrow ? outDevs.height + 34 : 0; label: "input"; side: inSide }
 
     // one default: its knob, level, mute, and which device it is
     component Side: Column {
@@ -58,7 +59,7 @@ Item {
             else Pipewire.preferredDefaultAudioSource = n;
         }
 
-        width: 560
+        width: root.narrow ? 400 : 560
         spacing: 20
 
         // no node while hidden — no capture stream, whichever binding Qt sets first
@@ -93,9 +94,9 @@ Item {
                 Rectangle {
                     required property int index
                     readonly property bool lit: !side.muted && index < Math.round(side.lv * 24)
-                    width: 12
-                    height: 12
-                    radius: 6
+                    width: root.narrow ? 10 : 12
+                    height: width
+                    radius: width / 2
                     color: lit ? index >= 20 ? Theme.red : Theme.fg : Theme.s3
                 }
             }
@@ -106,7 +107,7 @@ Item {
             Lb { anchors.baseline: dev.baseline; text: "default ·"; px: 11 }
             Text {
                 id: dev
-                width: 460
+                width: root.narrow ? 300 : 460
                 elide: Text.ElideMiddle
                 textFormat: Text.PlainText
                 text: side.cur >= 0 ? side.list[side.cur].port : "nothing"
@@ -131,8 +132,8 @@ Item {
         ListView {
             id: view
             property int at: 0
-            width: 520
-            height: Math.min(contentHeight, 500)
+            width: root.narrow ? 834 : 520
+            height: Math.min(contentHeight, root.narrow ? 250 : 500)
             spacing: 6
             clip: true
             boundsBehavior: Flickable.StopAtBounds
@@ -157,7 +158,7 @@ Item {
                 required property int index
                 readonly property bool on: index === col.side.cur
                 readonly property bool ring: view.activeFocus && index === view.at
-                width: 520
+                width: view.width
                 height: 56
                 radius: Theme.corner(8)
                 color: on ? Theme.s2 : Theme.s1

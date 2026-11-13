@@ -70,8 +70,8 @@ Item {
                 readonly property bool on: root.cur === modelData.i
                 readonly property bool hot: on && grid.activeFocus
                 readonly property bool round: modelData.span === 1 && root.ctl.rounds.includes(modelData.id)
-                readonly property real dx: drag.activeTranslation.x / Theme.s // untargeted, the shift is in window px, and the stage is scaled
-                readonly property real dy: drag.activeTranslation.y / Theme.s
+                readonly property real dx: drag.activeTranslation.x / root.ctl.zoom // untargeted, the shift is in window px, and the board is scaled
+                readonly property real dy: drag.activeTranslation.y / root.ctl.zoom
                 x: modelData.col * 174
                 y: modelData.row * 174
                 z: drag.active ? 1 : 0
@@ -110,8 +110,8 @@ Item {
 
     // ---- the numbers ----
     Column {
-        x: 580
-        width: 600
+        x: root.ctl.narrow ? 548 : 580
+        width: root.ctl.narrow ? 404 : 600
         Lb { text: "cells used"; px: 13 }
         Row {
             topPadding: 14
@@ -187,7 +187,7 @@ Item {
 
     // ---- the keys ----
     Column {
-        x: 1250
+        x: root.ctl.narrow ? 1000 : 1250
         spacing: 34
         Block {
             visible: root.ctl.multi
@@ -199,7 +199,7 @@ Item {
             title: "widgets"
             note: `lamp on = on home · ${root.ctl.used} of 9 cells`
             Flow {
-                width: 1106
+                width: root.ctl.narrow ? 744 : 1106
                 spacing: 12
                 Repeater {
                     model: root.kinds
