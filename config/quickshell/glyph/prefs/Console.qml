@@ -11,9 +11,9 @@ import qs.components
 import qs.services
 import qs.settings
 
-// local: prefs as a console ("D · Console", prefs-console-handoff.md in the repo root). It opens on the wall: all 13
-// sections at once, fixed modules on a lettered 5 × 3 grid, each a tiny instrument and its live numbers — nothing on it
-// is made up. State by brightness: lit dots and white type are on, hollow and grey are off; the one accent is the
+// local: prefs as a console ("D · Console", prefs-console-handoff.md in the repo root). It opens on the wall: all its
+// sections at once (12 on archhdd: no LIGHTS, its case lights are the desktop's), fixed modules on a lettered 5 × 3 grid,
+// each a tiny instrument and its live numbers — nothing on it is made up. State by brightness: lit dots and white type are on, hollow and grey are off; the one accent is the
 // selected module's dot. ←↑↓→ move, ↵ / tab / click open, esc closes.
 // Open, a module fills a frame — header, the object it sets on the left, its keys on the right — with the other modules
 // in a dock under it: tab walks the keys, [ ] the modules, esc goes back to the wall.
@@ -37,8 +37,7 @@ PanelWindow {
         { tag: "e2", name: "audio", c: 4, r: 1, w: 1 },
         { tag: "a3", name: "power", c: 0, r: 2, w: 1 },
         { tag: "b3", name: "input", c: 1, r: 2, w: 1 },
-        { tag: "c3", name: "idle", c: 2, r: 2, w: 1 },
-        { tag: "d3", name: "lights", c: 3, r: 2, w: 1 },
+        { tag: "c3", name: "idle", c: 2, r: 2, w: 2 }, // archhdd: where idle and lights were
         { tag: "e3", name: "shell", c: 4, r: 2, w: 1 }
     ]
     property int sel: 6 // remembered between opens; display first
@@ -236,8 +235,6 @@ PanelWindow {
     readonly property var idles: [["lock", Rules.store.lockAfter], ["screen off", Rules.store.dpmsAfter], [Rules.hibernateOn ? "hibernate" : "sleep", Rules.store.sleepAfter]]
     readonly property var nextIdle: idles.filter(x => x[1] > 0).sort((a, b) => a[1] - b[1])[0] ?? null
 
-    readonly property string tone: Rgb.tone === "palette" ? Rgb.pick.name : Rgb.tone
-    readonly property int leds: Rgb.parts.reduce((a, p) => a + p.n, 0)
 
     readonly property string styleName: Theme.state.paint === "scheme" ? (Theme.pal.group === "more" ? "" : Theme.pal.group + " ") + Theme.pal.name
         : Theme.state.paint === "wall" && Theme.tones.length ? Theme.pal.name : "nothing"
@@ -264,14 +261,13 @@ PanelWindow {
         [Rules.modes[Rules.mode].short, "mode"],
         [Rules.store.repeatDelay, "delay ms"],
         [Rules.store.dpmsAfter || "—", Rules.store.dpmsAfter ? "min to dark" : "never dark"],
-        [!Rgb.parts.length ? "—" : !Rgb.store.on ? "OFF" : Rgb.lit ? Rgb.store.level + "%" : "DARK", "level"],
         [meta.name ?? "GLYPH", "running"]
     ]
     // under the open module's name
     readonly property var heads: [homePage.head, deckPage.head, barPage.head, "desktop · the home screen, live", stylePage.head,
         "desktop · hyprland", `system · ${disp.name} ${disp.model ?? ""}`, audioPage.head,
         `system · ${Rules.modes[Rules.mode].name}${Rules.store.ultra ? " · no motion · no blur" : " · cpu profile only"}`,
-        "system · keyboard · mouse · touchpad", "system · minutes without input · hypridle", lightsPage.head, "more · quickshell"]
+        "system · keyboard · mouse · touchpad", "system · minutes without input · hypridle", "more · quickshell"]
 
     SystemClock { id: clock; enabled: root.visible; precision: SystemClock.Minutes }
     readonly property string who: (Theme.state.name || Quickshell.env("USER")).replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -749,7 +745,8 @@ PanelWindow {
                     }
                 }
 
-                // ---- c3 IDLE: what happens first, and the hour as dots that dim at every step (2 min a dot) ----
+                // ---- c3 IDLE: what happens first, and the hour as dots that dim at every step (2 min a dot; a minute when
+                // it's two wide) ----
                 Slot {
                     i: 10
                     Column {
@@ -760,13 +757,15 @@ PanelWindow {
                             Lb { anchors.baseline: idleN.baseline; px: 13; text: root.nextIdle ? "min · " + root.nextIdle[0] : "nothing sleeps" }
                         }
                         Row {
+                            id: hour
+                            readonly property int n: root.mods[10].w > 1 ? 61 : 31
                             topPadding: 22
                             spacing: 6
                             Repeater {
-                                model: 31
+                                model: hour.n
                                 Rectangle {
                                     required property int index
-                                    readonly property int lvl: root.idles.filter(x => x[1] && x[1] <= index * 2).length
+                                    readonly property int lvl: root.idles.filter(x => x[1] && x[1] <= index * 60 / (hour.n - 1)).length
                                     width: 7
                                     height: 7
                                     radius: 3.5
@@ -784,41 +783,9 @@ PanelWindow {
                     }
                 }
 
-                // ---- d3 LIGHTS: the case at its level, a dot per lit part in the colour it shows ----
-                Slot {
-                    i: 11
-                    Column {
-                        y: 6
-                        Row {
-                            spacing: 14
-                            D { id: litN; text: !Rgb.parts.length ? "—" : !Rgb.store.on ? "OFF" : Rgb.lit ? Rgb.store.level + "%" : "DARK"; font.pixelSize: 64 }
-                            Lb {
-                                anchors.baseline: litN.baseline
-                                px: 13
-                                text: !Rgb.parts.length ? "openrgb isn't answering" : Rgb.gaming ? "game mode · case" : Rgb.night ? "night hours · case" : root.tone + " · case"
-                            }
-                        }
-                        Row {
-                            topPadding: 22
-                            spacing: 8
-                            Repeater {
-                                model: Math.min(root.leds, 24)
-                                Rectangle { width: 12; height: 12; radius: 6; color: Rgb.lit ? Rgb.base : Theme.s3 }
-                            }
-                        }
-                        Lb {
-                            topPadding: 14
-                            px: 10
-                            color: Theme.mute
-                            text: [Rgb.screen ? `kraken ${Rgb.shown}` + (Rgb.shown === "dial" && Rgb.stats.cpu != null ? ` · ${Rgb.stats.cpu}° / ${Rgb.stats.gpu}°` : "") : "",
-                                   `${Rgb.parts.length} parts`, Govee.seen ? `lamp ${Govee.lit ? Govee.store.level + "%" : "off"}` : ""].filter(s => s).join(" · ")
-                        }
-                    }
-                }
-
                 // ---- e3 SHELL: the rice's mark and name ----
                 Slot {
-                    i: 12
+                    i: 11
                     Row {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 30
@@ -1476,7 +1443,7 @@ PanelWindow {
 
                     // ---- e3 SHELL: the mark lit on a round matrix, the rice's name; do not disturb, reload, switch ----
                     Page {
-                        i: 12
+                        i: 11
                         Row {
                             x: 40
                             y: 150
@@ -1718,12 +1685,6 @@ PanelWindow {
                         i: 7
                         ConsoleAudio { id: audioPage; x: 40; y: 150; live: root.page === 7 && sheet.visible && root.shown }
                     }
-
-                    // ---- d3 LIGHTS (prefs/ConsoleLights) ----
-                    Page {
-                        i: 11
-                        ConsoleLights { id: lightsPage; x: 40; y: 150; live: root.page === 11 && sheet.visible && root.shown }
-                    }
                 }
 
                 // on its way back to the wall it still looks alive, but nothing on it takes a press or the wheel
@@ -1778,8 +1739,7 @@ PanelWindow {
                             8: [["tab", "the modes"], ["←→", "mode"], ["↵ · space", "set it"]],
                             9: [["tab", "next key"], ["↵ · space", "press"], ["←→", "turn a knob"]],
                             10: [["tab", "next knob"], ["←→", "a minute"], ["drag", "a mark on the line"]],
-                            11: [["tab", "next key"], ["↵ · space", "press"], ["←→", "along a bank · the level"]],
-                            12: [["tab", "next key"], ["↵ · space", "press"]]
+                            11: [["tab", "next key"], ["↵ · space", "press"]]
                         })[root.cur] ?? []).concat([["[ ]", "next module"]])
                     Hint { required property var modelData; k: modelData[0]; text: modelData[1] }
                 }
@@ -1829,7 +1789,7 @@ PanelWindow {
         height: 712
         visible: root.page === i
     }
-    readonly property real tileW: (2436 - 12 * 12) / 13
+    readonly property real tileW: (2436 - (mods.length - 1) * 12) / mods.length
     // a module in the dock: address and dot, name, its key value, what that is
     component Tile: Rectangle {
         id: tile
