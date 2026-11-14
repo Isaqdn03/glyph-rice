@@ -134,6 +134,7 @@ def main():
     want, hint = None, ""
     dev, have = None, None
     started, scans, scan_at = time.monotonic(), 0, 0.0
+    look = os.environ.get("GOVEE_LOOK") == "1"  # scan only once the shell asks ({"look": true}): this machine has a lamp
     poll_at, asked, misses, fresh = 0.0, False, 0, False
     quiet = {}  # field → until when a change in it is our own command landing, not the phone
     stream, stream_sent, stream_at = None, None, 0.0  # the screen's colour while it streams
@@ -192,7 +193,7 @@ def main():
 
     while True:
         now = time.monotonic()
-        wait = max(0.0, min(1.0, (poll_at if dev else scan_at) - now))
+        wait = max(0.0, min(1.0, (poll_at if dev else scan_at if look else now + 1) - now))
         if stream:
             gap = ZONE_GAP if stream[0] == "zones" else STREAM_GAP
             due = stream_at + (gap if stream != stream_sent else KEEP if stream[0] == "zones" else 1e9)
@@ -208,6 +209,11 @@ def main():
                 line, buf = buf.split(b"\n", 1)
                 try:
                     msg = json.loads(line)
+                    if "look" in msg:
+                        if msg["look"] and not look:
+                            started, scans, scan_at = time.monotonic(), 0, 0.0  # from the top, at once
+                        look = bool(msg["look"])
+                        continue
                     if "stream" in msg:
                         st = msg["stream"]
                         if st:
@@ -287,7 +293,7 @@ def main():
                 send(*command("color", {"color": stream}))
                 have["color"], stream_sent, stream_at = stream, stream, now
             quiet["color"] = now + SETTLE + 0.3
-        if not dev and now >= scan_at:
+        if not dev and look and now >= scan_at:
             try:
                 tx.sendto(b'{"msg":{"cmd":"scan","data":{"account_topic":"reserve"}}}', SCAN)
             except OSError as e:

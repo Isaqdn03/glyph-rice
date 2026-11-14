@@ -13,6 +13,7 @@ Item {
     id: root
 
     property bool live: false
+    onLiveChanged: if (live) Govee.hunt() // no lamp known here: look for one while the page is up
     property int view: 0
     readonly property bool lamp: view === 1 && Govee.seen
     readonly property var st: lamp ? Govee.store : Rgb.store
@@ -27,7 +28,7 @@ Item {
     readonly property var mons: [""].concat(Quickshell.screens.map(x => x.name))
     readonly property var gifs: Gifs.list.filter(p => p)
 
-    readonly property string caseState: !Rgb.parts.length ? "openrgb isn't answering"
+    readonly property string caseState: !Rgb.parts.length ? Rgb.none
         : !st.on ? "off" : Rgb.gaming ? "dark · game mode" : Rgb.night ? "dark · night hours"
         : Rgb.tone === "screen" ? (Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Rgb.liveUp ? `screen · ${Rgb.capMon} · live` : "screen · starting the capture")
         : `${Rgb.tone === "palette" ? Rgb.pick.name : Rgb.tone} #${Rgb.hex.toLowerCase()} · ${st.level} %`

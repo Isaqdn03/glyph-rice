@@ -19,6 +19,18 @@ Singleton {
     property string ip: ""
     property var status: null    // { on, level, rgb, kelvin } — the lamp as it reported itself last
     readonly property bool seen: st.device !== "" // a lamp answered once: prefs shows the lamp
+    // govee.py scans only for the lamp this machine knows, or for 2 min after a LIGHTS page opens (hunt()): a machine
+    // with no lamp of its own (the laptop) doesn't probe every network it joins or take over the desktop's lamp by itself
+    property bool hunting: false
+    Timer { id: huntT; interval: 120000; onTriggered: root.hunting = false }
+    function hunt() {
+        if (seen) return;
+        hunting = true;
+        huntT.restart();
+    }
+    readonly property bool look: seen || hunting
+    onLookChanged: tell()
+    function tell() { if (lamp.running) lamp.write(JSON.stringify({ look: look }) + "\n"); }
 
     readonly property bool night: {
         const n = st.night, h = Rgb.hour; // Rgb keeps the clock
@@ -75,6 +87,7 @@ Singleton {
                 let m;
                 try { m = JSON.parse(line); } catch (e) { return; }
                 if (m.ready) {
+                    root.tell();
                     root.send();
                 } else if (m.found) {
                     root.found = true;

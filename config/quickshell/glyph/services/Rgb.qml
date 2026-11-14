@@ -94,7 +94,18 @@ Singleton {
 
     // the server comes up a few seconds after login (detection) — keep asking for 3 min
     property int tries: 0
+    // openrgb installed at all: a machine without it (the laptop) never asks, and prefs says there's nothing to light
+    property bool openrgb: false
+    Process {
+        running: true
+        command: ["sh", "-c", "command -v openrgb"]
+        onExited: code => {
+            root.openrgb = code === 0;
+            root.scan();
+        }
+    }
     function scan() {
+        if (!openrgb) return;
         tries = 0;
         list.running = true;
     }
@@ -115,10 +126,8 @@ Singleton {
         }
     }
     Timer { id: retry; interval: 10000; onTriggered: list.running = true }
-    Component.onCompleted: {
-        scan();
-        capMon = monitor;
-    }
+    Component.onCompleted: capMon = monitor // scan() runs once openrgb is found
+    readonly property string none: openrgb ? "openrgb isn't answering" : "nothing to light here"
 
     // ---- the Kraken: kraken.py gets the whole wanted state on hello and whatever changes after ----
     readonly property int lcd: lit ? st.level : 0 // the LCD's own brightness is already even, no curve

@@ -110,6 +110,7 @@ def child(plan):
     fake = types.ModuleType("liquidctl")
     fake.find_liquidctl_devices = lambda: iter([] if plan.get("absent") else [Kraken()])
     sys.modules["liquidctl"] = fake
+    k.plugged = lambda: True  # the fake cooler is "on USB" on any machine
     k.Sensors = Sensors
     if plan.get("draw_fails"):
         def draw_dial(*a):

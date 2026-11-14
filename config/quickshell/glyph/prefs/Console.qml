@@ -795,7 +795,7 @@ PanelWindow {
                             Lb {
                                 anchors.baseline: litN.baseline
                                 px: 13
-                                text: !Rgb.parts.length ? "openrgb isn't answering" : Rgb.gaming ? "game mode · case" : Rgb.night ? "night hours · case" : root.tone + " · case"
+                                text: !Rgb.parts.length ? Rgb.none : Rgb.gaming ? "game mode · case" : Rgb.night ? "night hours · case" : root.tone + " · case"
                             }
                         }
                         Row {

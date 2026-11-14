@@ -59,7 +59,7 @@ class Fake:
 class Helper:
     def __init__(self, memo):
         env = dict(os.environ, GOVEE_SCAN_HOST="127.0.0.1", GOVEE_SCAN_PORT=str(SCAN), GOVEE_LISTEN_PORT=str(LISTEN),
-                   GOVEE_CMD_PORT=str(CMD), GOVEE_POLL="0.3", GOVEE_MEMO=memo)
+                   GOVEE_CMD_PORT=str(CMD), GOVEE_POLL="0.3", GOVEE_MEMO=memo, GOVEE_LOOK="1")
         self.p = subprocess.Popen([sys.executable, "-I", GOVEE], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE, env=env, text=True)
         self.out, self.log = [], []

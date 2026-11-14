@@ -10,6 +10,8 @@ import qs.services
 // the round panel as it is now (the dial's last frame or the GIF, dimmed like the real one), what it shows, and the GIFs
 Column {
     id: root
+    onVisibleChanged: if (visible) Govee.hunt() // no lamp known here: look for one while the page is up
+    Component.onCompleted: if (visible) Govee.hunt()
 
     readonly property var st: Rgb.store
     readonly property var hours: [[], [22, 7], [23, 7], [0, 8]]
@@ -22,7 +24,7 @@ Column {
     property int view: 0
     readonly property bool lamp: view === 1 && Govee.seen
     readonly property string caption: lamp ? lampView.caption : caseCaption
-    readonly property string caseCaption: "lights · " + (!Rgb.parts.length ? "openrgb isn't answering"
+    readonly property string caseCaption: "lights · " + (!Rgb.parts.length ? Rgb.none
         : !st.on ? "off" : Rgb.gaming ? "dark · game mode" : Rgb.night ? "dark · night hours"
         : Rgb.tone === "screen" ? (Rgb.liveErr ? `screen · ${Rgb.liveErr}` : Rgb.liveUp ? `screen · ${Rgb.capMon} · live` : "screen · starting the capture")
         : `#${Rgb.hex.toLowerCase()} · ${st.level} %`)

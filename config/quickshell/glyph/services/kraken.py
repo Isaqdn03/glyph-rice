@@ -20,7 +20,10 @@
 #
 #   kraken.py dial OUT.png CPU CPULOAD GPU GPULOAD LIQUID FG DIM GREY HEAD RED   draw one dial and exit ("-" — no reading)
 import ctypes, glob, json, logging, math, os, select, subprocess, sys, time
-from PIL import Image, ImageDraw, ImageFont, ImageSequence
+try:
+    from PIL import Image, ImageDraw, ImageFont, ImageSequence
+except ImportError:  # no python-pillow: a machine with no Kraken doesn't need it, one with a Kraken is told once
+    Image = None
 
 TICK = 3                # s between dial frames
 FANS_GAP = 0.05         # s: the fans' colour at most 20 times a second (prefs → LIGHTS → screen streams it)
@@ -345,8 +348,38 @@ def close(dev):
             pass
 
 
+def plugged():
+    """An NZXT device on USB. Without one liquidctl isn't even loaded, so a machine with no Kraken stays quiet."""
+    for p in glob.glob("/sys/bus/usb/devices/*/idVendor"):
+        try:
+            with open(p) as f:
+                if f.read().strip() == "1e71":
+                    return True
+        except OSError:
+            pass
+    return False
+
+
+_told = set()
+
+
+def once(*a):
+    if a not in _told:
+        _told.add(a)
+        log(*a)
+
+
 def connect():
-    from liquidctl import find_liquidctl_devices
+    if not plugged():
+        return None, 0
+    if Image is None:
+        once("python-pillow isn't installed")
+        return None, 0
+    try:
+        from liquidctl import find_liquidctl_devices
+    except ImportError:
+        once("liquidctl isn't installed")
+        return None, 0
     for dev in find_liquidctl_devices():
         if "Kraken Z" in dev.description:
             try:
