@@ -20,10 +20,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL"]
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL", "LIGHTS"] // local: LIGHTS
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, "drag a screen to move it · " + rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""]
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, "drag a screen to move it · " + rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", "", rings] // local: LIGHTS
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -1036,7 +1036,7 @@ PanelWindow {
                                 required property var modelData
                                 readonly property bool on: modelData.name === root.mon
                                 readonly property var p: map.held === modelData.name && map.at ? map.at : modelData
-                                x: (map.width - map.bw * map.k) / 2 + (p.x - map.x0) * map.k + 5
+                                x: (p.x - map.x0) * map.k // local: flush left with the column, not centred in the map
                                 y: (map.height - map.bh * map.k) / 2 + (p.y - map.y0) * map.k + 5
                                 z: map.held === modelData.name ? 1 : 0
                                 width: modelData.lw * map.k - 10
@@ -1344,6 +1344,13 @@ PanelWindow {
                 Act { icon: "\u{F0450}"; text: "reload"; onHit: Quickshell.reload(false) }
                 Toggle { text: "do not disturb"; on: Theme.state.dnd; onFlip: Theme.state.dnd = !Theme.state.dnd }
             }
+        }
+
+        // local: LIGHTS — the case RGB: level, on/off, colour, dark at night / in a game (prefs/Lights, services/Rgb)
+        Page {
+            k: 12
+            caption: lights.caption
+            Lights { id: lights }
         }
     }
 

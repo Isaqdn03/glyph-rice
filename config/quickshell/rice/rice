@@ -22,10 +22,22 @@ term() {
     done
     pkill -USR1 -x cava; pkill -USR2 -x btop
     folders "$1"
+    vesk "$1" # local:
     g=org.gnome.desktop.interface
     t=$(gsettings get $g gtk-theme)
     gsettings set $g gtk-theme Adwaita; gsettings set $g gtk-theme "$t"
     gsettings set $g icon-theme Papirus-Dark; gsettings set $g icon-theme Rice
+}
+
+# local: Vesktop in the shell's look — its term/vesktop.css becomes the "rice" theme (a copy: Vencord watches themes/ and
+# reloads live, it wouldn't see a link's target change). A shell without one gets an empty theme = Discord's own look.
+# The shell may then write its live palette over it (Glyph: Theme.vesk). No ~/.config/vesktop — Vesktop isn't used
+vesk() {
+    [ -d "$HOME/.config/vesktop" ] || return 0
+    d=$HOME/.config/vesktop/themes
+    mkdir -p "$d" || return 0
+    if [ -f "$q/$1/term/vesktop.css" ]; then cp "$q/$1/term/vesktop.css" "$d/.rice.tmp"
+    else printf '/**\n * @name rice\n * @description %s has no Vesktop theme\n */\n' "$1" > "$d/.rice.tmp"; fi && mv -f "$d/.rice.tmp" "$d/rice.theme.css"
 }
 
 # папки в цвет шелла (term/folders: grey, carmine… — цвета Papirus): тема значков Rice поверх Papirus-Dark, где folder-*/user-*

@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import qs
 
 // local: brightness of external monitors over DDC/CI (VCP 0x10) through ddcutil — needs i2c-dev and uaccess on /dev/i2c-*
 // (~/dev/glyph-desktop-install/ddc-brightness.sh). Displays from `ddcutil detect`, matched to Hyprland by model, never by
@@ -16,8 +17,11 @@ Singleton {
     property var found: []
     readonly property var screens: list.instances
 
-    // re-read every display (the monitor's own buttons may have moved it): quick panel and prefs call this on open
-    function refresh() { for (const s of screens) s.read(); }
+    // re-read every display (the monitor's own buttons may have moved it): quick panel and prefs call this on open.
+    // Waits until their open is done: on NVIDIA ddcutil's I2C holds the driver, and a window created meanwhile (popups
+    // are rebuilt on every open) blocked the shell until both reads were over (~600 ms)
+    function refresh() { readT.restart(); }
+    Timer { id: readT; interval: Theme.t + 150; onTriggered: { for (const s of root.screens) s.read(); } }
     function detect() { if (!scan.running) scan.running = true; }
 
     // ddcutil detect --terse: "Display N" blocks with "I2C bus: /dev/i2c-4" and "Monitor: ACR:ED340CU S3:serial";
@@ -83,7 +87,7 @@ Singleton {
                 if (!put.running && !get.running) send();
             }
             function send() {
-                put.command = ["ddcutil", "--bus", String(bus), "--noverify", "setvcp", "10", String(want)];
+                put.command = ["ddcutil", "--bus", String(bus), "--skip-ddc-checks", "--noverify", "setvcp", "10", String(want)];
                 want = -1;
                 put.running = true;
             }
@@ -91,10 +95,11 @@ Singleton {
 
             Component.onCompleted: read()
 
-            // --brief: "VCP 10 C 50 100" — current, max
+            // --brief: "VCP 10 C 50 100" — current, max. --skip-ddc-checks: `detect` already checked these buses, and the
+            // startup checks were half of every call (read ~340 → ~150 ms, write ~370 → ~145 ms on the 3090 Ti)
             Process {
                 id: get
-                command: ["ddcutil", "--bus", String(s.bus), "--brief", "getvcp", "10"]
+                command: ["ddcutil", "--bus", String(s.bus), "--skip-ddc-checks", "--brief", "getvcp", "10"]
                 stdout: StdioCollector {
                     onStreamFinished: {
                         const m = text.match(/VCP 10 C (\d+) (\d+)/);
