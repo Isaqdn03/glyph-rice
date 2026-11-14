@@ -45,9 +45,28 @@ const ALL = [
       ansi: ["#343F44", "#E67E80", "#A7C080", "#DBBC7F", "#7FBBB3", "#D699B6", "#83C092", "#859289", "#868D80", "#E67E80", "#A7C080", "#DBBC7F", "#7FBBB3", "#D699B6", "#83C092", "#9DA9A0"] },
     { id: "kanagawa", name: "kanagawa", group: "more", light: false,
       c: ["#16161D", "#1F1F28", "#2A2A37", "#363646", "#54546D", "#727169", "#DCD7BA"], accent: "#7E9CD8", red: "#E82424",
-      ansi: ["#16161D", "#C34043", "#76946A", "#C0A36E", "#7E9CD8", "#957FB8", "#6A9589", "#C8C093", "#727169", "#E82424", "#98BB6C", "#E6C384", "#7FB4CA", "#938AA9", "#7AA89F", "#DCD7BA"] }
+      ansi: ["#16161D", "#C34043", "#76946A", "#C0A36E", "#7E9CD8", "#957FB8", "#6A9589", "#C8C093", "#727169", "#E82424", "#98BB6C", "#E6C384", "#7FB4CA", "#938AA9", "#7AA89F", "#DCD7BA"] },
+    // local: near-black, mostly grey ones. Vesper: greys from vesper.nvim, ansi from iTerm2-Color-Schemes (kitty-themes'
+    // is all orange). Oxocarbon: greys are IBM Carbon's, ansi from oxocarbon-kitty (not in kitty-themes); pink is its alarm.
+    // phosphor: monochrome CRT screens, made here in oklch. Greys are the glow dimmed, the terminal stays near its hue
+    // (±14°) and steps in lightness, so it reads as one colour; red is the only other hue
+    { id: "vesper", name: "vesper", group: "more", light: false,
+      c: ["#000000", "#101010", "#232323", "#343434", "#505050", "#8B8B8B", "#FFFFFF"], accent: "#FFC799", red: "#FF8080",
+      ansi: ["#101010", "#F5A191", "#90B99F", "#E6B99D", "#ACA1CF", "#E29ECA", "#EA83A5", "#A0A0A0", "#7E7E7E", "#FF8080", "#99FFE4", "#FFC799", "#B9AEDA", "#ECAAD6", "#F591B2", "#FFFFFF"] },
+    { id: "oxocarbon", name: "oxocarbon", group: "more", light: false,
+      c: ["#131313", "#161616", "#262626", "#393939", "#525252", "#8D8D8D", "#DDE1E6"], accent: "#78A9FF", red: "#EE5396",
+      ansi: ["#262626", "#FF7EB6", "#42BE65", "#82CFFF", "#33B1FF", "#EE5396", "#3DDBD9", "#DDE1E6", "#393939", "#FF7EB6", "#42BE65", "#82CFFF", "#33B1FF", "#EE5396", "#3DDBD9", "#FFFFFF"] },
+    { id: "phosphor-amber", name: "amber", group: "phosphor", light: false,
+      c: ["#040201", "#0F0A05", "#1F170D", "#322718", "#6A502E", "#B48952", "#FFDBAE"], accent: "#FFB756", red: "#F84E3A",
+      ansi: ["#1F170D", "#C16E20", "#E5AD43", "#FFCE88", "#9B6400", "#D88A35", "#F1BF53", "#D6B894", "#6A502E", "#E78017", "#FFC761", "#FFEBD0", "#BA7900", "#FE9E2F", "#FFDD98", "#FFEBD3"] },
+    { id: "phosphor-green", name: "green", group: "phosphor", light: false,
+      c: ["#010301", "#070D07", "#111B11", "#1E2D1F", "#3D5F3E", "#6AA36B", "#BFF1BF"], accent: "#6BE774", red: "#F84B4B",
+      ansi: ["#111B11", "#659825", "#5DD388", "#8AF39F", "#258732", "#6EB44F", "#64E59F", "#A3CAA4", "#3D5F3E", "#75B420", "#5EF296", "#C8FFD0", "#28A439", "#7CD154", "#83FFB9", "#D8F9D8"] },
+    { id: "phosphor-ice", name: "ice", group: "phosphor", light: false,
+      c: ["#010304", "#050D0F", "#0E1A1F", "#192C32", "#305C6A", "#549EB5", "#B2ECFF"], accent: "#6AD8F9", red: "#F55A7D",
+      ansi: ["#111A1D", "#3795A0", "#78C3E4", "#9CE4FF", "#257D95", "#55ADBE", "#8BD2F7", "#A3C4CF", "#3C5B64", "#39B1BE", "#91DDFF", "#D8F4FF", "#2797B5", "#5AC9DE", "#BFE8FF", "#D8F4FE"] }
 ];
-const GROUPS = ["catppuccin", "rosé pine", "gruvbox", "more"];
+const GROUPS = ["catppuccin", "rosé pine", "gruvbox", "more", "phosphor"]; // local: phosphor
 
 // ---- обои → палитра, как dynamic в caelestia (material you). Тон обоев — исходный цвет, вариант решает, куда повернуть оттенок
 // акцента и сколько цвета дать ему и серым. Раскладка — от base (палитра nothing той же темы): серые той же светлоты, акцент —
