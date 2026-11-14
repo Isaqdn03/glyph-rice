@@ -156,21 +156,26 @@ Item {
                 }
             }
         }
-        // the palettes, a row per group
-        Repeater {
-            model: Theme.state.paint === "scheme" ? Theme.styles.length - 2 : 0
-            Row {
-                id: grp
-                required property int index
-                readonly property var b: Theme.styles[index + 1] ?? ({ head: "", items: [] })
-                spacing: 20
-                Lb { anchors.verticalCenter: parent.verticalCenter; width: 150; text: grp.b.head; px: 13; color: Theme.fg }
-                Flow {
-                    width: (root.narrow ? 834 : 1106) - 170
-                    spacing: 12
-                    Repeater {
-                        model: grp.b.items.length
-                        Swatch { list: grp.b.items }
+        // the palettes, a row per group, as close as the keys in a row and lower than the keys above (56, not 72): seven
+        // in "more" wrap, and on the wide board there's no shrinking to fit
+        Column {
+            visible: Theme.state.paint === "scheme"
+            spacing: 12
+            Repeater {
+                model: Theme.state.paint === "scheme" ? Theme.styles.length - 2 : 0
+                Row {
+                    id: grp
+                    required property int index
+                    readonly property var b: Theme.styles[index + 1] ?? ({ head: "", items: [] })
+                    spacing: 20
+                    Lb { anchors.verticalCenter: parent.verticalCenter; width: 150; text: grp.b.head; px: 13; color: Theme.fg }
+                    Flow {
+                        width: (root.narrow ? 834 : 1106) - 170
+                        spacing: 12
+                        Repeater {
+                            model: grp.b.items.length
+                            Swatch { list: grp.b.items; implicitHeight: 56 }
+                        }
                     }
                 }
             }
